@@ -1,5 +1,51 @@
+// הגדרות חיבור לשרת החומרה
+const HARDWARE_SERVER_URL = process.env.HARDWARE_SERVER_URL || 'ws://localhost:8080'
+
 // מפה לסימולציה של לוקרים מחוברים (בלי WebSocket server עבור Vercel)
 const activeConnections = new Map<number, boolean>()
+
+// יצירת חיבור WebSocket לשרת החומרה
+let hardwareWebSocket: WebSocket | null = null
+
+function connectToHardwareServer() {
+  if (typeof window === 'undefined') {
+    // Server-side - לא ניתן להשתמש ב-WebSocket
+    return null
+  }
+  
+  try {
+    hardwareWebSocket = new WebSocket(HARDWARE_SERVER_URL)
+    
+    hardwareWebSocket.onopen = () => {
+      console.log('🔌 מחובר לשרת החומרה')
+    }
+    
+    hardwareWebSocket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        console.log('📨 הודעה מהשרת:', data)
+        // כאן אפשר להוסיף טיפול בעדכונים מהחומרה
+      } catch (error) {
+        console.error('❌ שגיאה בעיבוד הודעה:', error)
+      }
+    }
+    
+    hardwareWebSocket.onclose = () => {
+      console.log('🔌 החיבור לשרת החומרה נסגר')
+      // ניסיון התחברות מחדש אחרי 5 שניות
+      setTimeout(connectToHardwareServer, 5000)
+    }
+    
+    hardwareWebSocket.onerror = (error) => {
+      console.error('❌ שגיאת WebSocket:', error)
+    }
+    
+    return hardwareWebSocket
+  } catch (error) {
+    console.error('❌ שגיאה בהתחברות לשרת החומרה:', error)
+    return null
+  }
+}
 
 // יצירת שרת WebSocket (לא זמין ב-Vercel - סימולציה בלבד)
 export function createWebSocketServer(port: number = 8080) {
@@ -9,13 +55,54 @@ export function createWebSocketServer(port: number = 8080) {
   activeConnections.set(1, true) // לוקר ראשי
   activeConnections.set(2, true) // לוקר שני
   
+  // חיבור לשרת החומרה (client-side בלבד)
+  if (typeof window !== 'undefined') {
+    connectToHardwareServer()
+  }
+  
   return null
 }
 
-// פונקציה לפתיחת תא בלוקר ספציפי - עובדת עם Vercel
+// פונקציה לפתיחת תא בלוקר ספציפי - מתחברת לשרת החומרה
 export async function openLockerCell(lockerId: number, cellCode: string): Promise<boolean> {
   try {
-    // ב-Vercel נשתמש ב-API route במקום WebSocket
+    // נסיון ראשון: שליחה לשרת החומרה דרך WebSocket
+    if (hardwareWebSocket && hardwareWebSocket.readyState === WebSocket.OPEN) {
+      return new Promise((resolve) => {
+        const message = {
+          type: 'unlock',
+          lockerId: `LOC00${lockerId}`,
+          cellId: cellCode
+        }
+        
+        hardwareWebSocket!.send(JSON.stringify(message))
+        
+        // המתנה לתגובה
+        const handleResponse = (event: MessageEvent) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.type === 'unlockResponse' && data.cellId === cellCode) {
+              hardwareWebSocket!.removeEventListener('message', handleResponse)
+              console.log(`✅ תא ${cellCode} נפתח בלוקר ${lockerId}`)
+              resolve(data.success)
+            }
+          } catch (error) {
+            console.error('❌ שגיאה בעיבוד תגובה:', error)
+          }
+        }
+        
+        hardwareWebSocket!.addEventListener('message', handleResponse)
+        
+        // טיימאאוט אחרי 5 שניות
+        setTimeout(() => {
+          hardwareWebSocket!.removeEventListener('message', handleResponse)
+          console.log('⏰ זמן תגובה פג - משתמש ב-API fallback')
+          resolve(false)
+        }, 5000)
+      })
+    }
+    
+    // נסיון שני: ב-Vercel נשתמש ב-API route כ-fallback
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000'
@@ -35,7 +122,7 @@ export async function openLockerCell(lockerId: number, cellCode: string): Promis
     const result = await response.json()
     
     if (result.success) {
-      console.log(`✅ תא ${cellCode} נפתח בלוקר ${lockerId}`)
+      console.log(`✅ תא ${cellCode} נפתח בלוקר ${lockerId} (דרך API)`)
       return true
     } else {
       console.error(`❌ שגיאה בפתיחת תא: ${result.error}`)
