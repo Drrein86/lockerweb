@@ -12,6 +12,68 @@ interface CustomerData {
   tracking_code: string
 }
 
+// SVG Icons
+const QRCodeIcon = () => (
+  <svg className="w-12 h-12" fill="none" stroke="white" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+  </svg>
+)
+
+const CameraIcon = () => (
+  <svg className="w-12 h-12" fill="none" stroke="white" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+)
+
+const EditIcon = () => (
+  <svg className="w-12 h-12" fill="none" stroke="white" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+)
+
+const CheckIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="white" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+)
+
+const RefreshIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+)
+
+const SaveIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+  </svg>
+)
+
+const StopIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
+
+const ScanIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+)
+
+const BackIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+  </svg>
+)
+
+const LightbulbIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+  </svg>
+)
+
 function ScanQRContent() {
   const [customerData, setCustomerData] = useState<CustomerData | null>(null)
   const [manualInput, setManualInput] = useState(false)
@@ -198,39 +260,40 @@ function ScanQRContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
       <div className="max-w-4xl mx-auto">
         {/* כותרת */}
         <div className="text-center mb-8">
-          <Link href={`/courier/select-locker?size=${size}`} className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
-            ← חזרה לבחירת לוקר
+          <Link href={`/courier/select-locker?size=${size}`} className="text-white hover:text-purple-300 mb-4 inline-flex items-center gap-2 transition-colors">
+            <BackIcon />
+            חזרה לבחירת לוקר
           </Link>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            🔍 סריקת QR Code
+          <h1 className="text-3xl font-bold text-white mb-2">
+            סריקת QR Code
           </h1>
-          <p className="text-gray-600">
+          <p className="text-white/70">
             סרוק את QR הלקוח או הזן פרטים ידנית
           </p>
         </div>
 
         {/* מידע על הבחירות */}
-        <div className="bg-white rounded-lg p-4 shadow-md mb-8">
+        <div className="glass-card p-4 mb-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
-              <div className="text-sm text-gray-600">גודל</div>
-              <div className="font-bold text-blue-600">{size}</div>
+              <div className="text-sm text-white/70">גודל</div>
+              <div className="font-bold text-purple-300">{size}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">לוקר</div>
-              <div className="font-bold text-blue-600">#{lockerId}</div>
+              <div className="text-sm text-white/70">לוקר</div>
+              <div className="font-bold text-purple-300">#{lockerId}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">תא</div>
-              <div className="font-bold text-green-600">{cellCode}</div>
+              <div className="text-sm text-white/70">תא</div>
+              <div className="font-bold text-green-400">{cellCode}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">ID תא</div>
-              <div className="font-bold text-green-600">#{cellId}</div>
+              <div className="text-sm text-white/70">ID תא</div>
+              <div className="font-bold text-green-400">#{cellId}</div>
             </div>
           </div>
         </div>
@@ -240,23 +303,24 @@ function ScanQRContent() {
             {/* אפשרויות סריקה */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* סריקת QR */}
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
-                  📱 סריקת QR Code
+              <div className="glass-card p-6">
+                <h3 className="text-xl font-bold text-white mb-4 text-center">
+                  סריקת QR Code
                 </h3>
                 
                 {!showScanner ? (
                   <div className="text-center">
-                    <div className="w-32 h-32 bg-gray-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                      <span className="text-4xl">📷</span>
+                    <div className="w-32 h-32 bg-white/10 rounded-lg mx-auto mb-4 flex items-center justify-center backdrop-blur-sm">
+                      <CameraIcon />
                     </div>
                     <button
                       onClick={startScanner}
-                      className="btn-primary w-full mb-2"
+                      className="w-full bg-purple-500/20 hover:bg-purple-500/30 text-white border border-purple-300/30 backdrop-blur-sm rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2 mb-2"
                     >
-                      🔍 הפעל סורק QR
+                      <ScanIcon />
+                      הפעל סורק QR
                     </button>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white/60">
                       יש צורך בהרשאת מצלמה
                     </p>
                   </div>
@@ -265,11 +329,12 @@ function ScanQRContent() {
                     <div id="qr-reader" className="mx-auto mb-4"></div>
                     <button
                       onClick={stopScanner}
-                      className="btn-secondary w-full"
+                      className="w-full bg-red-500/20 hover:bg-red-500/30 text-white border border-red-300/30 backdrop-blur-sm rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2"
                     >
-                      ❌ עצור סריקה
+                      <StopIcon />
+                      עצור סריקה
                     </button>
-                    <p className="text-sm text-gray-600 mt-2">
+                    <p className="text-sm text-white/60 mt-2">
                       כוון את המצלמה על QR Code
                     </p>
                   </div>
@@ -277,24 +342,24 @@ function ScanQRContent() {
               </div>
 
               {/* הזנה ידנית */}
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
-                  ✏️ הזנה ידנית
+              <div className="glass-card p-6">
+                <h3 className="text-xl font-bold text-white mb-4 text-center">
+                  הזנה ידנית
                 </h3>
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-gray-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-4xl">✍️</span>
+                  <div className="w-32 h-32 bg-white/10 rounded-lg mx-auto mb-4 flex items-center justify-center backdrop-blur-sm">
+                    <EditIcon />
                   </div>
                   <button
                     onClick={() => {
                       setManualInput(!manualInput)
                       if (showScanner) stopScanner()
                     }}
-                    className="btn-secondary w-full"
+                    className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm rounded-lg px-4 py-3 transition-all"
                   >
                     {manualInput ? 'בטל הזנה ידנית' : 'הזן פרטים ידנית'}
                   </button>
-                  <p className="text-sm text-gray-600 mt-2">
+                  <p className="text-sm text-white/60 mt-2">
                     למקרה שאין QR Code
                   </p>
                 </div>
@@ -303,60 +368,60 @@ function ScanQRContent() {
 
             {/* טופס הזנה ידנית */}
             {manualInput && (
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <h3 className="text-xl font-bold text-gray-800 mb-6">פרטי הלקוח</h3>
+              <div className="glass-card p-6">
+                <h3 className="text-xl font-bold text-white mb-6">פרטי הלקוח</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       שם מלא *
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                       placeholder="הזן שם מלא"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       אימייל *
                     </label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                       placeholder="הזן כתובת אימייל"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       טלפון *
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                       placeholder="הזן מספר טלפון"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-white/80 mb-2">
                       קוד מעקב (אופציונלי)
                     </label>
                     <input
                       type="text"
                       value={formData.tracking_code}
                       onChange={(e) => setFormData({...formData, tracking_code: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                       placeholder="יוגרל אוטומטי אם לא יוזן"
                     />
                   </div>
@@ -365,9 +430,10 @@ function ScanQRContent() {
                 <div className="mt-6 text-center">
                   <button
                     onClick={handleManualSubmit}
-                    className="btn-primary text-lg px-8 py-3"
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-8 py-3 rounded-lg transition-all flex items-center justify-center gap-2 mx-auto"
                   >
-                    ✅ אשר פרטים
+                    <CheckIcon />
+                    אשר פרטים
                   </button>
                 </div>
               </div>
@@ -375,26 +441,26 @@ function ScanQRContent() {
           </div>
         ) : (
           /* הצגת נתוני הלקוח ואישור */
-          <div className="bg-white rounded-lg p-6 shadow-md">
-            <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">
-              ✅ פרטי הלקוח אושרו
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-bold text-white mb-6 text-center">
+              פרטי הלקוח אושרו
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">פרטי הלקוח:</h4>
-                <p><strong>שם:</strong> {customerData.name}</p>
-                <p><strong>אימייל:</strong> {customerData.email}</p>
-                <p><strong>טלפון:</strong> {customerData.phone}</p>
-                <p><strong>קוד מעקב:</strong> {customerData.tracking_code}</p>
+              <div className="bg-green-500/20 border border-green-400/30 p-4 rounded-lg backdrop-blur-sm">
+                <h4 className="font-semibold text-green-400 mb-2">פרטי הלקוח:</h4>
+                <p className="text-white/90"><strong>שם:</strong> {customerData.name}</p>
+                <p className="text-white/90"><strong>אימייל:</strong> {customerData.email}</p>
+                <p className="text-white/90"><strong>טלפון:</strong> {customerData.phone}</p>
+                <p className="text-white/90"><strong>קוד מעקב:</strong> {customerData.tracking_code}</p>
               </div>
               
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-2">פרטי המיקום:</h4>
-                <p><strong>גודל חבילה:</strong> {size}</p>
-                <p><strong>לוקר:</strong> #{lockerId}</p>
-                <p><strong>תא:</strong> {cellCode}</p>
-                <p><strong>ID תא:</strong> #{cellId}</p>
+              <div className="bg-blue-500/20 border border-blue-400/30 p-4 rounded-lg backdrop-blur-sm">
+                <h4 className="font-semibold text-blue-400 mb-2">פרטי המיקום:</h4>
+                <p className="text-white/90"><strong>גודל חבילה:</strong> {size}</p>
+                <p className="text-white/90"><strong>לוקר:</strong> #{lockerId}</p>
+                <p className="text-white/90"><strong>תא:</strong> {cellCode}</p>
+                <p className="text-white/90"><strong>ID תא:</strong> #{cellId}</p>
               </div>
             </div>
 
@@ -404,16 +470,17 @@ function ScanQRContent() {
                   setCustomerData(null)
                   setFormData({name: '', email: '', phone: '', tracking_code: ''})
                 }}
-                className="btn-secondary px-6 py-3"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm rounded-lg px-6 py-3 transition-all flex items-center gap-2"
                 disabled={loading}
               >
-                🔄 סרוק שוב
+                <RefreshIcon />
+                סרוק שוב
               </button>
               
               <button
                 onClick={handleFinalSubmit}
                 disabled={loading}
-                className="btn-primary px-8 py-3 flex items-center gap-2"
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-8 py-3 rounded-lg transition-all flex items-center gap-2"
               >
                 {loading ? (
                   <>
@@ -422,7 +489,8 @@ function ScanQRContent() {
                   </>
                 ) : (
                   <>
-                    🚀 שמור חבילה ופתח תא
+                    <SaveIcon />
+                    שמור חבילה ופתח תא
                   </>
                 )}
               </button>
@@ -431,9 +499,12 @@ function ScanQRContent() {
         )}
 
         {/* הוראות */}
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">💡 הוראות שימוש</h3>
-          <ul className="text-yellow-700 text-sm space-y-1">
+        <div className="mt-8 glass-card p-4 border-yellow-400/30">
+          <div className="flex items-center gap-2 mb-2">
+            <LightbulbIcon />
+            <h3 className="font-semibold text-yellow-400">הוראות שימוש</h3>
+          </div>
+          <ul className="text-white/70 text-sm space-y-1">
             <li>• לחץ על "הפעל סורק QR" כדי להפעיל את המצלמה</li>
             <li>• כוון את המצלמה על QR Code של הלקוח</li>
             <li>• אם אין QR Code, השתמש בהזנה ידנית</li>
@@ -447,7 +518,11 @@ function ScanQRContent() {
 
 export default function ScanQRPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center"><div className="text-xl">טוען...</div></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-xl text-white">טוען...</div>
+      </div>
+    }>
       <ScanQRContent />
     </Suspense>
   )

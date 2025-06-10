@@ -19,6 +19,32 @@ interface LockerGroup {
   cells: Cell[]
 }
 
+// SVG Icons
+const ArrowLeftIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19 12H5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 19L5 12L12 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const BuildingIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 2H18V22H16V20H8V22H6V2Z" stroke="white" strokeWidth="2"/>
+    <path d="M8 6H10V8H8Z" stroke="white" strokeWidth="2"/>
+    <path d="M14 6H16V8H14Z" stroke="white" strokeWidth="2"/>
+    <path d="M8 10H10V12H8Z" stroke="white" strokeWidth="2"/>
+    <path d="M14 10H16V12H14Z" stroke="white" strokeWidth="2"/>
+  </svg>
+)
+
+const PackageIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 3H21L19 13H5L3 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 3L1 1" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M7 13V21H17V13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 function ChangeCellContent() {
   const [lockers, setLockers] = useState<LockerGroup[]>([])
   const [selectedLocker, setSelectedLocker] = useState<LockerGroup | null>(null)
@@ -75,10 +101,10 @@ function ChangeCellContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען לוקרים זמינים...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80">טוען לוקרים זמינים...</p>
         </div>
       </div>
     )
@@ -86,9 +112,9 @@ function ChangeCellContent() {
 
   if (lockers.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 text-xl mb-4">לא נמצאו תאים זמינים בגודל {size}</p>
+          <p className="text-red-400 text-xl mb-4">לא נמצאו תאים זמינים בגודל {size}</p>
           <Link href="/courier" className="btn-primary">
             חזרה לבחירת גודל
           </Link>
@@ -98,56 +124,60 @@ function ChangeCellContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-6xl mx-auto">
         {/* כותרת */}
         <div className="text-center mb-8">
-          <Link href={`/courier/select-locker?size=${size}`} className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
-            ← חזרה
+          <Link href={`/courier/select-locker?size=${size}`} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
+            <ArrowLeftIcon />
+            <span>חזרה</span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            🔄 החלפת לוקר ותא
+          <h1 className="text-3xl font-bold text-white mb-2">
+            החלפת לוקר ותא
           </h1>
-          <p className="text-gray-600">
-            גודל חבילה: <span className="font-bold text-blue-600">{size}</span>
+          <p className="text-white/70">
+            גודל חבילה: <span className="font-bold text-purple-300">{size}</span>
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* רשימת לוקרים */}
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              🏢 בחר לוקר
-            </h2>
+          <div className="glass-card">
+            <div className="flex items-center gap-2 mb-4">
+              <BuildingIcon />
+              <h2 className="text-xl font-bold text-white">
+                בחר לוקר
+              </h2>
+            </div>
             <div className="space-y-3">
               {lockers.map((lockerGroup) => (
                 <button
                   key={lockerGroup.locker.id}
                   onClick={() => handleLockerSelect(lockerGroup)}
                   className={`
-                    w-full p-4 rounded-lg border-2 text-right transition-all
+                    w-full p-4 rounded-lg border-2 text-right transition-all duration-300
                     ${selectedLocker?.locker.id === lockerGroup.locker.id
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                      ? 'border-purple-400 bg-purple-500/20 shadow-md'
+                      : 'border-white/20 hover:border-purple-300 hover:bg-white/5'
                     }
                   `}
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold text-gray-800">
+                      <h3 className="font-semibold text-white">
                         לוקר #{lockerGroup.locker.id}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        📍 {lockerGroup.locker.location}
+                      <p className="text-sm text-white/70 mt-1">
+                        {lockerGroup.locker.location}
                       </p>
                       {lockerGroup.locker.description && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-white/60 mt-1">
                           {lockerGroup.locker.description}
                         </p>
                       )}
                     </div>
                     <div className="text-right">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-300 border border-green-400/30">
                         {lockerGroup.cells.length} תאים זמינים
                       </span>
                     </div>
@@ -158,13 +188,16 @@ function ChangeCellContent() {
           </div>
 
           {/* רשימת תאים */}
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              📦 בחר תא
-            </h2>
+          <div className="glass-card">
+            <div className="flex items-center gap-2 mb-4">
+              <PackageIcon />
+              <h2 className="text-xl font-bold text-white">
+                בחר תא
+              </h2>
+            </div>
             
             {!selectedLocker ? (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-white/50 py-8">
                 <p>בחר קודם לוקר כדי לראות תאים זמינים</p>
               </div>
             ) : (
@@ -174,17 +207,17 @@ function ChangeCellContent() {
                     key={cell.id}
                     onClick={() => handleCellSelect(cell)}
                     className={`
-                      p-4 rounded-lg border-2 text-center transition-all
+                      p-4 rounded-lg border-2 text-center transition-all duration-300
                       ${selectedCell?.id === cell.id
-                        ? 'border-green-500 bg-green-50 shadow-md'
-                        : 'border-gray-200 hover:border-green-300 hover:shadow-sm'
+                        ? 'border-purple-400 bg-purple-500/20 shadow-md'
+                        : 'border-white/20 hover:border-purple-300 hover:bg-white/5'
                       }
                     `}
                   >
-                    <div className="font-bold text-lg text-gray-800">
+                    <div className="font-bold text-lg text-white">
                       {cell.code}
                     </div>
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="text-xs text-white/70 mt-1">
                       {size}
                     </div>
                   </button>
@@ -196,43 +229,37 @@ function ChangeCellContent() {
 
         {/* סיכום ופעולות */}
         {selectedLocker && selectedCell && (
-          <div className="mt-8 bg-white rounded-lg p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              ✅ בחירה נוכחית
+          <div className="mt-8 glass-card">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              סיכום הבחירה
             </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-800">לוקר נבחר:</h4>
-                <p className="text-gray-700">{selectedLocker.locker.location}</p>
-                <p className="text-sm text-gray-600">ID: {selectedLocker.locker.id}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="text-center p-4 bg-white/10 rounded border border-white/20">
+                <div className="text-sm text-white/70">לוקר</div>
+                <div className="font-bold text-white">{selectedLocker.locker.location}</div>
+                <div className="text-xs text-purple-300 mt-1">ID: {selectedLocker.locker.id}</div>
               </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800">תא נבחר:</h4>
-                <p className="text-gray-700 text-xl font-bold">{selectedCell.code}</p>
-                <p className="text-sm text-gray-600">ID: {selectedCell.id}</p>
+              <div className="text-center p-4 bg-white/10 rounded border border-white/20">
+                <div className="text-sm text-white/70">תא</div>
+                <div className="font-bold text-2xl text-purple-300">{selectedCell.code}</div>
+                <div className="text-xs text-white/70 mt-1">ID: {selectedCell.id}</div>
+              </div>
+              <div className="text-center p-4 bg-white/10 rounded border border-white/20">
+                <div className="text-sm text-white/70">גודל</div>
+                <div className="font-bold text-white">{size}</div>
               </div>
             </div>
-
-            <div className="flex justify-center">
+            
+            <div className="text-center">
               <button
                 onClick={handleContinue}
-                className="btn-primary text-lg px-8 py-3 flex items-center gap-2"
+                className="btn-primary text-lg px-8 py-3"
               >
-                🔍 המשך לסריקת QR
+                המשך לסריקת QR
               </button>
             </div>
           </div>
         )}
-
-        {/* מידע נוסף */}
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">💡 טיפ</h3>
-          <p className="text-yellow-700 text-sm">
-            בחר לוקר הקרוב ביותר למיקום הלקוח לנוחותו
-          </p>
-        </div>
       </div>
     </div>
   )
@@ -240,7 +267,11 @@ function ChangeCellContent() {
 
 export default function ChangeCellPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center"><div className="text-xl">טוען...</div></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-xl text-white">טוען...</div>
+      </div>
+    }>
       <ChangeCellContent />
     </Suspense>
   )

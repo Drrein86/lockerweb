@@ -19,6 +19,47 @@ interface LockerGroup {
   cells: Cell[]
 }
 
+// SVG Icons
+const ArrowLeftIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19 12H5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 19L5 12L12 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const BuildingIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 2H18V22H16V20H8V22H6V2Z" stroke="white" strokeWidth="2"/>
+    <path d="M8 6H10V8H8Z" stroke="white" strokeWidth="2"/>
+    <path d="M14 6H16V8H14Z" stroke="white" strokeWidth="2"/>
+    <path d="M8 10H10V12H8Z" stroke="white" strokeWidth="2"/>
+    <path d="M14 10H16V12H14Z" stroke="white" strokeWidth="2"/>
+  </svg>
+)
+
+const PackageIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 3H21L19 13H5L3 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 3L1 1" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M7 13V21H17V13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const ScanIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 12L11 14L15 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2"/>
+  </svg>
+)
+
+const ChangeIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 4V10H7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M23 20V14H17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14L18.36 18.36A9 9 0 0 1 3.51 15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 function SelectLockerContent() {
   const [lockers, setLockers] = useState<LockerGroup[]>([])
   const [selectedLocker, setSelectedLocker] = useState<LockerGroup | null>(null)
@@ -96,10 +137,10 @@ function SelectLockerContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען לוקרים זמינים...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80">טוען לוקרים זמינים...</p>
         </div>
       </div>
     )
@@ -107,9 +148,9 @@ function SelectLockerContent() {
 
   if (!selectedLocker || !selectedCell) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 text-xl mb-4">לא נמצאו תאים זמינים</p>
+          <p className="text-red-400 text-xl mb-4">לא נמצאו תאים זמינים</p>
           <Link href="/courier" className="btn-primary">
             חזרה לבחירת גודל
           </Link>
@@ -119,52 +160,59 @@ function SelectLockerContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-4xl mx-auto">
         {/* כותרת */}
         <div className="text-center mb-8">
-          <Link href="/courier" className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
-            ← חזרה לבחירת גודל
+          <Link href="/courier" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
+            <ArrowLeftIcon />
+            <span>חזרה לבחירת גודל</span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            📍 בחירת לוקר ותא
+          <h1 className="text-3xl font-bold text-white mb-2">
+            בחירת לוקר ותא
           </h1>
-          <p className="text-gray-600">
-            גודל חבילה: <span className="font-bold text-blue-600">{size}</span>
+          <p className="text-white/70">
+            גודל חבילה: <span className="font-bold text-purple-300">{size}</span>
           </p>
         </div>
 
         {/* מידע על הלוקר והתא שנבחרו */}
-        <div className="bg-white rounded-lg p-6 shadow-lg mb-8">
+        <div className="glass-card mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* פרטי הלוקר */}
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <h3 className="text-xl font-bold text-blue-800 mb-2">
-                🏢 לוקר נבחר
-              </h3>
-              <p className="text-lg font-semibold">{selectedLocker.locker.location}</p>
+            <div className="text-center p-4 bg-white/10 rounded-lg border border-white/20">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <BuildingIcon />
+                <h3 className="text-xl font-bold text-white">
+                  לוקר נבחר
+                </h3>
+              </div>
+              <p className="text-lg font-semibold text-white">{selectedLocker.locker.location}</p>
               {selectedLocker.locker.description && (
-                <p className="text-gray-600 text-sm mt-1">
+                <p className="text-white/70 text-sm mt-1">
                   {selectedLocker.locker.description}
                 </p>
               )}
-              <div className="mt-3 text-sm text-blue-600">
+              <div className="mt-3 text-sm text-purple-300">
                 ID: {selectedLocker.locker.id}
               </div>
             </div>
 
             {/* פרטי התא */}
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <h3 className="text-xl font-bold text-green-800 mb-2">
-                📦 תא נבחר
-              </h3>
-              <div className="text-3xl font-bold text-green-600 mb-2">
+            <div className="text-center p-4 bg-white/10 rounded-lg border border-white/20">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <PackageIcon />
+                <h3 className="text-xl font-bold text-white">
+                  תא נבחר
+                </h3>
+              </div>
+              <div className="text-3xl font-bold text-purple-300 mb-2">
                 {selectedCell.code}
               </div>
-              <p className="text-gray-600">
+              <p className="text-white/70">
                 גודל: {size}
               </p>
-              <div className="mt-3 text-sm text-green-600">
+              <div className="mt-3 text-sm text-purple-300">
                 ID: {selectedCell.id}
               </div>
             </div>
@@ -177,63 +225,39 @@ function SelectLockerContent() {
             onClick={handleContinue}
             className="btn-primary text-lg px-8 py-3 flex items-center justify-center gap-2"
           >
-            🔍 המשך לסריקת QR
+            <ScanIcon />
+            המשך לסריקת QR
           </button>
           
           <button
             onClick={handleChangeLocker}
             className="btn-secondary text-lg px-8 py-3 flex items-center justify-center gap-2"
           >
-            🔁 החלף לוקר/תא
+            <ChangeIcon />
+            החלף לוקר/תא
           </button>
         </div>
 
         {/* מידע נוסף */}
-        <div className="bg-white rounded-lg p-6 shadow-md">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            📋 השלבים הבאים
+        <div className="glass-card">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            השלבים הבאים
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded">
+            <div className="text-center p-3 bg-white/10 rounded border border-white/20">
               <div className="text-2xl mb-2">1️⃣</div>
-              <p className="text-sm">סריקת QR של הלקוח</p>
+              <p className="text-sm text-white/80">סריקת QR של הלקוח</p>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded">
+            <div className="text-center p-3 bg-white/10 rounded border border-white/20">
               <div className="text-2xl mb-2">2️⃣</div>
-              <p className="text-sm">שמירת הפרטים</p>
+              <p className="text-sm text-white/80">הזנת פרטי החבילה</p>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded">
+            <div className="text-center p-3 bg-white/10 rounded border border-white/20">
               <div className="text-2xl mb-2">3️⃣</div>
-              <p className="text-sm">פתיחת התא</p>
+              <p className="text-sm text-white/80">פתיחת התא והזנה</p>
             </div>
           </div>
         </div>
-
-        {/* רשימת תאים זמינים באותו לוקר */}
-        {selectedLocker.cells.length > 1 && (
-          <div className="mt-8 bg-white rounded-lg p-6 shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              תאים נוספים זמינים באותו לוקר
-            </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {selectedLocker.cells.map((cell) => (
-                <button
-                  key={cell.id}
-                  onClick={() => setSelectedCell(cell)}
-                  className={`
-                    p-3 rounded text-center font-bold transition-all
-                    ${selectedCell.id === cell.id 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-gray-100 hover:bg-gray-200'
-                    }
-                  `}
-                >
-                  {cell.code}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -241,7 +265,11 @@ function SelectLockerContent() {
 
 export default function SelectLockerPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center"><div className="text-xl">טוען...</div></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-xl text-white">טוען...</div>
+      </div>
+    }>
       <SelectLockerContent />
     </Suspense>
   )
