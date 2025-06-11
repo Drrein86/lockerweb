@@ -1,5 +1,5 @@
 // הגדרות חיבור לשרת החומרה
-const HARDWARE_SERVER_URL = process.env.HARDWARE_SERVER_URL || 'ws://localhost:8080'
+const HARDWARE_WS_URL = 'wss://b6db-77-137-30-226.ngrok-free.app/ws'
 
 // מפה לסימולציה של לוקרים מחוברים (בלי WebSocket server עבור Vercel)
 const activeConnections = new Map<number, boolean>()
@@ -14,7 +14,7 @@ function connectToHardwareServer() {
   }
   
   try {
-    hardwareWebSocket = new WebSocket(HARDWARE_SERVER_URL)
+    hardwareWebSocket = new WebSocket(HARDWARE_WS_URL)
     
     hardwareWebSocket.onopen = () => {
       console.log('🔌 מחובר לשרת החומרה')

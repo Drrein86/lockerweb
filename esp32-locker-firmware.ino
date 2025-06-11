@@ -3,8 +3,8 @@
 #include <ArduinoJson.h>
 
 // הגדרות WiFi
-const char* ssid = "YOUR_WIFI_SSID";       // החלף עם שם הרשת שלך
-const char* password = "YOUR_WIFI_PASSWORD"; // החלף עם הסיסמה שלך
+const char* ssid = "WIFI_NAME";       // החלף עם שם הרשת שלך
+const char* password = "WIFI_PASSWORD"; // החלף עם הסיסמה שלך
 
 // הגדרות לוקר
 const String LOCKER_ID = "LOC001";
