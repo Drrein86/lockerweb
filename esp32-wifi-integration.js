@@ -327,8 +327,8 @@ class ESP32Controller {
 const esp32Controller = new ESP32Controller();
 
 // רישום לוקרים (יש לעדכן לפי הכתובות האמיתיות)
-esp32Controller.registerESP32('LOC001', '192.168.0.104', 80);
-esp32Controller.registerESP32('LOC002', '192.168.0.105', 80);
+esp32Controller.registerESP32('LOC001', '192.168.0.100', 80);
+esp32Controller.registerESP32('LOC002', '192.168.0.101', 80);
 
 // התחלת בדיקה תקופתית
 esp32Controller.startPeriodicHealthCheck();
