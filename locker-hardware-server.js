@@ -12,8 +12,6 @@ const PORT = process.env.PORT || 8080;
 const USE_SSL = process.env.USE_SSL === 'true';
 const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
-const ESP32_LOCKER1_IP = process.env.ESP32_LOCKER1_IP || '192.168.0.100';
-const ESP32_LOCKER2_IP = process.env.ESP32_LOCKER2_IP || '192.168.0.101';
 
 // יצירת HTTP/HTTPS server עבור מידע על המערכת
 let server;
@@ -39,15 +37,8 @@ function handleRequest(req, res) {
   }, null, 2));
 }
 
-// מפה של חיבורי WebSocket לפי מזהה לוקר
-const lockerConnections = new Map();
-
 // WebSocket server עבור תקשורת עם האפליקציה והלוקרים
 const wss = new WebSocket.Server({ server });
-
-// רישום מכשירי ESP32
-ESP32Controller.registerESP32('LOC001', ESP32_LOCKER1_IP, 80);
-ESP32Controller.registerESP32('LOC002', ESP32_LOCKER2_IP, 80);
 
 // סטטוס לוקרים (משולב עם ESP32)
 function getLockerStates() {

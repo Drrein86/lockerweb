@@ -24,6 +24,21 @@ class ESP32Controller {
    * @param {WebSocket} ws - חיבור ה-WebSocket
    */
   registerESP32(lockerId, ws) {
+    // בדיקה שה-ws הוא אובייקט תקין
+    if (!ws || typeof ws !== 'object') {
+      console.error(`❌ חיבור WebSocket לא תקין עבור לוקר ${lockerId}`);
+      return;
+    }
+
+    // בדיקה שיש את כל המתודות הנדרשות
+    const requiredMethods = ['on', 'send', 'close'];
+    for (const method of requiredMethods) {
+      if (typeof ws[method] !== 'function') {
+        console.error(`❌ חיבור WebSocket חסר את המתודה ${method} עבור לוקר ${lockerId}`);
+        return;
+      }
+    }
+
     this.lockerConnections.set(lockerId, {
       ws,
       lastSeen: new Date(),
@@ -43,6 +58,16 @@ class ESP32Controller {
     ws.on('error', (error) => {
       console.error(`❌ שגיאת WebSocket עם לוקר ${lockerId}:`, error);
       this.lockerConnections.get(lockerId).status = 'error';
+    });
+
+    // הגדרת טיפול בהודעות
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message);
+        console.log(`📨 הודעה התקבלה מלוקר ${lockerId}:`, data);
+      } catch (error) {
+        console.error(`❌ שגיאה בפענוח הודעה מלוקר ${lockerId}:`, error);
+      }
     });
   }
 
