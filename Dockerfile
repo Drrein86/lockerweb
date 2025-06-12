@@ -7,6 +7,8 @@ RUN npm install
 
 COPY . .
 
+RUN npx prisma generate
+
 RUN mkdir -p /app/ssl
 
 EXPOSE 8080

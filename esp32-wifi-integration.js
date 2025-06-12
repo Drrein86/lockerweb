@@ -2,7 +2,13 @@ const http = require('http');
 const WebSocket = require('ws');
 const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+let prisma;
+try {
+  prisma = new PrismaClient();
+} catch (error) {
+  console.warn('⚠️ לא ניתן להתחבר לדאטהבייס, המערכת תעבוד במצב מוגבל');
+  prisma = null;
+}
 
 /**
  * מחלקה לניהול חיבור ל-ESP32 דרך WiFi
