@@ -323,51 +323,15 @@ class ESP32Controller {
   }
 }
 
-// דוגמה לשימוש:
+// יצירת מופע יחיד של המחלקה
 const esp32Controller = new ESP32Controller();
 
 // רישום לוקרים (יש לעדכן לפי הכתובות האמיתיות)
 esp32Controller.registerESP32('LOC001', '192.168.0.104', 80);
-esp32Controller.registerESP32('LOC001', '192.168.0.105', 80);
-// אם יש לך רק לוקר אחד כרגע, מחק או השבת את השורה השנייה:
+esp32Controller.registerESP32('LOC002', '192.168.0.105', 80);
 
 // התחלת בדיקה תקופתית
 esp32Controller.startPeriodicHealthCheck();
 
 // ייצוא לשימוש במודולים אחרים
 module.exports = esp32Controller; 
-
-controllers["LOC001"].send(JSON.stringify({ type: "unlock" })); 
-
-const ws = new WebSocket('ws://example.com/socket');
-
-ws.on('message', async (msg) => {
-  const data = JSON.parse(msg);
-
-  if (data.type === 'status' && data.controllerId && data.cells) {
-    // עדכן סטטוס לוקר
-    await prisma.locker.update({
-      where: { controllerId: data.controllerId },
-      data: { lastSeen: new Date(), status: 'connected' }
-    });
-
-    // עדכן כל תא
-    for (const cell of data.cells) {
-      await prisma.cell.upsert({
-        where: { lockerId_cellNumber: { lockerId: locker.id, cellNumber: cell.cellNumber } },
-        update: {
-          locked: cell.locked,
-          hasPackage: cell.hasPackage,
-          packageId: cell.packageId || null
-        },
-        create: {
-          lockerId: locker.id,
-          cellNumber: cell.cellNumber,
-          locked: cell.locked,
-          hasPackage: cell.hasPackage,
-          packageId: cell.packageId || null
-        }
-      });
-    }
-  }
-}); 
