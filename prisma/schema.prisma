@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Locker {
+  id          Int      @id @default(autoincrement())
+  location    String
+  description String?
+  cells       Cell[]
+  packages    Package[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Cell {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  size        String   // SMALL, MEDIUM, LARGE
+  isOccupied  Boolean  @default(false)
+  lockerId    Int
+  locker      Locker   @relation(fields: [lockerId], references: [id])
+  packages    Package[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Package {
+  id           Int      @id @default(autoincrement())
+  trackingCode String   @unique
+  userName     String
+  userEmail    String
+  userPhone    String
+  size         String   // SMALL, MEDIUM, LARGE
+  status       String   // WAITING, COLLECTED, EXPIRED
+  lockerId     Int
+  cellId       Int
+  locker       Locker   @relation(fields: [lockerId], references: [id])
+  cell         Cell     @relation(fields: [cellId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

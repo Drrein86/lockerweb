@@ -1,11 +1,35 @@
 const WebSocket = require('ws');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
+require('dotenv').config();
 
 // ייבוא מחלקת ESP32
 const ESP32Controller = require('./esp32-wifi-integration');
 
-// יצירת HTTP server עבור מידע על המערכת
-const server = http.createServer((req, res) => {
+// הגדרות סביבה
+const PORT = process.env.PORT || 8080;
+const USE_SSL = process.env.USE_SSL === 'true';
+const SSL_KEY = process.env.SSL_KEY_PATH;
+const SSL_CERT = process.env.SSL_CERT_PATH;
+const ESP32_LOCKER1_IP = process.env.ESP32_LOCKER1_IP || '192.168.0.104';
+const ESP32_LOCKER2_IP = process.env.ESP32_LOCKER2_IP || '192.168.0.105';
+
+// יצירת HTTP/HTTPS server עבור מידע על המערכת
+let server;
+if (USE_SSL && SSL_KEY && SSL_CERT) {
+  const options = {
+    key: fs.readFileSync(SSL_KEY),
+    cert: fs.readFileSync(SSL_CERT)
+  };
+  server = https.createServer(options, handleRequest);
+  console.log('🔒 שרת HTTPS הופעל');
+} else {
+  server = http.createServer(handleRequest);
+  console.log('ℹ️ שרת HTTP הופעל (ללא SSL)');
+}
+
+function handleRequest(req, res) {
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({
     message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
@@ -13,14 +37,14 @@ const server = http.createServer((req, res) => {
     lockers: ESP32Controller.getAllStatus(),
     timestamp: new Date().toISOString()
   }, null, 2));
-});
+}
 
 // WebSocket server עבור תקשורת עם האפליקציה
 const wss = new WebSocket.Server({ server });
 
-// רישום מכשירי ESP32 (יש לעדכן כתובות IP)
-ESP32Controller.registerESP32('LOC001', '192.168.1.100', 80);
-ESP32Controller.registerESP32('LOC002', '192.168.1.101', 80);
+// רישום מכשירי ESP32
+ESP32Controller.registerESP32('LOC001', ESP32_LOCKER1_IP, 80);
+ESP32Controller.registerESP32('LOC002', ESP32_LOCKER2_IP, 80);
 
 // סטטוס לוקרים (משולב עם ESP32)
 function getLockerStates() {
@@ -158,9 +182,8 @@ function lockCellSimulation(lockerId, cellId, packageId) {
 
 // מעקב אחר עדכוני ESP32
 function startESP32Monitoring() {
-  // בדיקה תקופתית של חיבורי ESP32
   setInterval(() => {
-    console.log('🔍 בודק חיבורי ESP32...');
+    logEvent('monitoring', '🔍 בדיקת חיבורי ESP32');
     
     const status = ESP32Controller.getAllStatus();
     let connectedDevices = 0;
@@ -168,13 +191,24 @@ function startESP32Monitoring() {
     for (const [lockerId, device] of Object.entries(status)) {
       if (device.isOnline) {
         connectedDevices++;
-        console.log(`📡 לוקר ${lockerId} מחובר (${device.ip})`);
+        logEvent('device_status', `📡 לוקר ${lockerId} מחובר`, {
+          lockerId,
+          ip: device.ip,
+          status: 'online'
+        });
       } else {
-        console.log(`📡 לוקר ${lockerId} לא מגיב (${device.ip})`);
+        logEvent('device_status', `📡 לוקר ${lockerId} לא מגיב`, {
+          lockerId,
+          ip: device.ip,
+          status: 'offline'
+        });
       }
     }
     
-    console.log(`📊 סה"כ ${connectedDevices} לוקרים מחוברים`);
+    logEvent('monitoring_summary', `📊 סה"כ לוקרים מחוברים`, {
+      connectedDevices,
+      totalDevices: Object.keys(status).length
+    });
   }, 60000); // כל דקה
 }
 
@@ -271,17 +305,14 @@ setInterval(() => {
   broadcastStatus();
 }, 30000);
 
-// התחלת מעקב ESP32
-startESP32Monitoring();
-
 // הפעלת השרת
-const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`🚀 שרת חומרה פועל על פורט ${PORT}`);
-  console.log(`🌐 WebSocket: ws://localhost:${PORT}`);
-  console.log(`📊 מידע מערכת: http://localhost:${PORT}`);
-  console.log('🔗 מחובר ומחכה לחיבורים מהאפליקציה...');
-  console.log('📡 תמיכה במכשירי ESP32 דרך WiFi');
+  logEvent('server_start', `🚀 שרת הלוקרים פועל על פורט ${PORT}`, {
+    port: PORT,
+    ssl: USE_SSL,
+    esp32_devices: [ESP32_LOCKER1_IP, ESP32_LOCKER2_IP]
+  });
+  startESP32Monitoring();
 });
 
 // טיפול בסגירה נאותה
@@ -304,3 +335,14 @@ module.exports = {
   getLockerStates,
   ESP32Controller 
 }; 
+
+// שיפור הלוגים
+function logEvent(type, message, data = {}) {
+  const timestamp = new Date().toISOString();
+  console.log(JSON.stringify({
+    timestamp,
+    type,
+    message,
+    ...data
+  }));
+} 

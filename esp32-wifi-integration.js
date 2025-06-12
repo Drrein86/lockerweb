@@ -1,5 +1,8 @@
 const http = require('http');
 const WebSocket = require('ws');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 /**
  * מחלקה לניהול חיבור ל-ESP32 דרך WiFi
@@ -291,17 +294,74 @@ class ESP32Controller {
       this.statusUpdateInterval = null;
     }
   }
+
+  /**
+   * שליחת פקודה ל-ESP32
+   * @param {string} lockerId - מזהה הלוקר
+   * @param {string} command - הפקודה לשליחה
+   */
+  async sendCommand(lockerId, command) {
+    const device = this.esp32Devices.get(lockerId);
+    if (!device) {
+      console.error(`❌ לוקר ${lockerId} לא נמצא`);
+      return false;
+    }
+
+    try {
+      await this.sendHTTPCommand(device, command);
+      return true;
+    } catch (error) {
+      console.error(`❌ שגיאה בשליחת פקודה ללוקר ${lockerId}:`, error);
+      return false;
+    }
+  }
 }
 
 // דוגמה לשימוש:
 const esp32Controller = new ESP32Controller();
 
 // רישום לוקרים (יש לעדכן לפי הכתובות האמיתיות)
-esp32Controller.registerESP32('LOC001', '192.168.1.100', 80);
-esp32Controller.registerESP32('LOC002', '192.168.1.101', 80);
+esp32Controller.registerESP32('LOC001', '192.168.0.104', 80);
+esp32Controller.registerESP32('LOC001', '192.168.0.105', 80);
+// אם יש לך רק לוקר אחד כרגע, מחק או השבת את השורה השנייה:
 
 // התחלת בדיקה תקופתית
 esp32Controller.startPeriodicHealthCheck();
 
 // ייצוא לשימוש במודולים אחרים
 module.exports = esp32Controller; 
+
+controllers["LOC001"].send(JSON.stringify({ type: "unlock" })); 
+
+const ws = new WebSocket('ws://example.com/socket');
+
+ws.on('message', async (msg) => {
+  const data = JSON.parse(msg);
+
+  if (data.type === 'status' && data.controllerId && data.cells) {
+    // עדכן סטטוס לוקר
+    await prisma.locker.update({
+      where: { controllerId: data.controllerId },
+      data: { lastSeen: new Date(), status: 'connected' }
+    });
+
+    // עדכן כל תא
+    for (const cell of data.cells) {
+      await prisma.cell.upsert({
+        where: { lockerId_cellNumber: { lockerId: locker.id, cellNumber: cell.cellNumber } },
+        update: {
+          locked: cell.locked,
+          hasPackage: cell.hasPackage,
+          packageId: cell.packageId || null
+        },
+        create: {
+          lockerId: locker.id,
+          cellNumber: cell.cellNumber,
+          locked: cell.locked,
+          hasPackage: cell.hasPackage,
+          packageId: cell.packageId || null
+        }
+      });
+    }
+  }
+}); 

@@ -7,9 +7,16 @@ RUN npm install
 
 COPY . .
 
+RUN mkdir -p /app/ssl
+
 EXPOSE 8080
 
 ENV PORT=8080
 ENV NODE_ENV=production
+ENV USE_SSL=false
+ENV SSL_KEY_PATH=/app/ssl/key.pem
+ENV SSL_CERT_PATH=/app/ssl/cert.pem
+ENV ESP32_LOCKER1_IP=192.168.0.104
+ENV ESP32_LOCKER2_IP=192.168.0.105
 
 CMD ["node", "locker-hardware-server.js"] 
