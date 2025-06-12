@@ -1,10 +1,16 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <WebSocketClient.h>
 #include <ArduinoJson.h>
 
 // הגדרות WiFi
 const char* ssid = "WIFI_NAME";       // החלף עם שם הרשת שלך
 const char* password = "WIFI_PASSWORD"; // החלף עם הסיסמה שלך
+
+// הגדרות WebSocket
+const char* wsHost = "your-server.com";  // החלף עם כתובת השרת שלך
+const int wsPort = 8080;
+const char* wsPath = "/ws";
 
 // הגדרות לוקר
 const String LOCKER_ID = "LOC001";
@@ -30,6 +36,13 @@ CellState cellStates[NUM_CELLS];
 // שרת Web
 WebServer server(80);
 
+// WebSocket client
+WebSocketClient webSocket;
+WiFiClient client;
+bool wsConnected = false;
+unsigned long lastWsReconnectAttempt = 0;
+const unsigned long WS_RECONNECT_INTERVAL = 5000; // 5 שניות
+
 // LED סטטוס
 const int STATUS_LED = 2;
 
@@ -44,6 +57,9 @@ void setup() {
   
   // התחברות לWiFi
   connectToWiFi();
+  
+  // התחברות לשרת WebSocket
+  connectToWebSocket();
   
   // הגדרת נתיבי שרת
   setupServerRoutes();
@@ -61,11 +77,26 @@ void setup() {
 }
 
 void loop() {
+  // בדיקת חיבור WiFi
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ חיבור WiFi נותק - מנסה להתחבר מחדש");
+    connectToWiFi();
+  }
+  
+  // בדיקת חיבור WebSocket
+  if (!wsConnected && millis() - lastWsReconnectAttempt > WS_RECONNECT_INTERVAL) {
+    Serial.println("🔄 מנסה להתחבר מחדש ל-WebSocket");
+    connectToWebSocket();
+  }
+  
+  // טיפול בהודעות WebSocket
+  if (wsConnected && webSocket.available()) {
+    String msg = webSocket.readString();
+    handleWebSocketMessage(msg);
+  }
+  
   // טיפול בבקשות HTTP
   server.handleClient();
-  
-  // בדיקת חיישני דלת
-  checkDoorSensors();
   
   // עדכון LED סטטוס
   updateStatusLED();
@@ -110,6 +141,64 @@ void connectToWiFi() {
   } else {
     Serial.println();
     Serial.println("❌ שגיאה בחיבור WiFi!");
+  }
+}
+
+void connectToWebSocket() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  Serial.println("🔌 מתחבר לשרת WebSocket...");
+  
+  if (client.connect(wsHost, wsPort)) {
+    Serial.println("✅ מחובר לשרת");
+    
+    if (webSocket.handshake(client)) {
+      Serial.println("✅ WebSocket handshake הושלם");
+      wsConnected = true;
+      
+      // שליחת הודעת register
+      DynamicJsonDocument doc(256);
+      doc["type"] = "register";
+      doc["id"] = LOCKER_ID;
+      doc["ip"] = WiFi.localIP().toString();
+      doc["status"] = "online";
+      
+      String jsonString;
+      serializeJson(doc, jsonString);
+      webSocket.send(jsonString);
+      
+      Serial.println("📡 נשלחה הודעת register");
+    } else {
+      Serial.println("❌ שגיאה ב-WebSocket handshake");
+      wsConnected = false;
+    }
+  } else {
+    Serial.println("❌ לא ניתן להתחבר לשרת");
+    wsConnected = false;
+  }
+  
+  lastWsReconnectAttempt = millis();
+}
+
+void handleWebSocketMessage(String message) {
+  DynamicJsonDocument doc(512);
+  DeserializationError error = deserializeJson(doc, message);
+  
+  if (error) {
+    Serial.println("❌ שגיאה בפענוח JSON");
+    return;
+  }
+  
+  String type = doc["type"];
+  
+  if (type == "unlock") {
+    String cellId = doc["cellId"];
+    unlockCell(cellId);
+  } 
+  else if (type == "lock") {
+    String cellId = doc["cellId"];
+    String packageId = doc["packageId"];
+    lockCell(cellId, packageId);
   }
 }
 

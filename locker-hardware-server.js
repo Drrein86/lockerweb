@@ -39,6 +39,9 @@ function handleRequest(req, res) {
   }, null, 2));
 }
 
+// מפה של חיבורי WebSocket לפי מזהה לוקר
+const lockerConnections = new Map();
+
 // WebSocket server עבור תקשורת עם האפליקציה
 const wss = new WebSocket.Server({ server });
 
@@ -217,15 +220,6 @@ wss.on('connection', (ws, req) => {
   const clientIp = req.socket.remoteAddress;
   console.log(`🔌 לקוח חדש התחבר: ${clientIp}`);
   
-  // שליחת סטטוס נוכחי ללקוח החדש
-  ws.send(JSON.stringify({
-    type: 'welcome',
-    message: 'מחובר למערכת הלוקר החכם (עם ESP32)',
-    data: getLockerStates(),
-    esp32Status: ESP32Controller.getAllStatus(),
-    timestamp: Date.now()
-  }));
-  
   // טיפול בהודעות מהלקוח
   ws.on('message', async (message) => {
     try {
@@ -233,44 +227,85 @@ wss.on('connection', (ws, req) => {
       console.log('📨 הודעה התקבלה:', data);
       
       switch (data.type) {
-        case 'unlock':
-          const unlockSuccess = await unlockCell(data.lockerId, data.cellId);
+        case 'register':
+          // רישום חיבור חדש של ESP32
+          const lockerId = data.id;
+          lockerConnections.set(lockerId, ws);
+          console.log(`📡 ESP32 ${lockerId} נרשם בהצלחה`);
           ws.send(JSON.stringify({
-            type: 'unlockResponse',
-            success: unlockSuccess,
-            lockerId: data.lockerId,
-            cellId: data.cellId,
-            method: unlockSuccess ? 'ESP32' : 'simulation',
+            type: 'registerResponse',
+            success: true,
+            message: 'נרשם בהצלחה',
             timestamp: Date.now()
           }));
           break;
           
+        case 'unlock':
+          // שליחת פקודת פתיחה דרך WebSocket
+          const lockerWs = lockerConnections.get(data.lockerId);
+          if (lockerWs && lockerWs.readyState === WebSocket.OPEN) {
+            lockerWs.send(JSON.stringify({ type: 'unlock', cellId: data.cellId }));
+            ws.send(JSON.stringify({
+              type: 'unlockResponse',
+              success: true,
+              lockerId: data.lockerId,
+              cellId: data.cellId,
+              method: 'WebSocket',
+              timestamp: Date.now()
+            }));
+          } else {
+            console.log(`🚫 לוקר ${data.lockerId} לא מחובר דרך WebSocket`);
+            ws.send(JSON.stringify({
+              type: 'unlockResponse',
+              success: false,
+              lockerId: data.lockerId,
+              cellId: data.cellId,
+              error: 'לוקר לא מחובר',
+              timestamp: Date.now()
+            }));
+          }
+          break;
+          
         case 'lock':
-          const lockSuccess = await lockCell(data.lockerId, data.cellId, data.packageId);
-          ws.send(JSON.stringify({
-            type: 'lockResponse',
-            success: lockSuccess,
-            lockerId: data.lockerId, 
-            cellId: data.cellId,
-            packageId: data.packageId,
-            method: lockSuccess ? 'ESP32' : 'simulation',
-            timestamp: Date.now()
-          }));
+          // שליחת פקודת נעילה דרך WebSocket
+          const lockerWsLock = lockerConnections.get(data.lockerId);
+          if (lockerWsLock && lockerWsLock.readyState === WebSocket.OPEN) {
+            lockerWsLock.send(JSON.stringify({ 
+              type: 'lock', 
+              cellId: data.cellId,
+              packageId: data.packageId 
+            }));
+            ws.send(JSON.stringify({
+              type: 'lockResponse',
+              success: true,
+              lockerId: data.lockerId,
+              cellId: data.cellId,
+              packageId: data.packageId,
+              method: 'WebSocket',
+              timestamp: Date.now()
+            }));
+          } else {
+            console.log(`🚫 לוקר ${data.lockerId} לא מחובר דרך WebSocket`);
+            ws.send(JSON.stringify({
+              type: 'lockResponse',
+              success: false,
+              lockerId: data.lockerId,
+              cellId: data.cellId,
+              packageId: data.packageId,
+              error: 'לוקר לא מחובר',
+              timestamp: Date.now()
+            }));
+          }
           break;
           
         case 'getStatus':
           ws.send(JSON.stringify({
             type: 'statusResponse',
             data: getLockerStates(),
-            esp32Status: ESP32Controller.getAllStatus(),
-            timestamp: Date.now()
-          }));
-          break;
-          
-        case 'esp32Status':
-          ws.send(JSON.stringify({
-            type: 'esp32StatusResponse',
-            data: ESP32Controller.getAllStatus(),
+            esp32Status: Array.from(lockerConnections.entries()).map(([id, ws]) => ({
+              id,
+              connected: ws.readyState === WebSocket.OPEN
+            })),
             timestamp: Date.now()
           }));
           break;
@@ -291,6 +326,14 @@ wss.on('connection', (ws, req) => {
   // טיפול בניתוק
   ws.on('close', () => {
     console.log(`🔌 לקוח התנתק: ${clientIp}`);
+    // הסרת החיבור מהמפה אם זה ESP32
+    for (const [lockerId, lockerWs] of lockerConnections.entries()) {
+      if (lockerWs === ws) {
+        lockerConnections.delete(lockerId);
+        console.log(`📡 ESP32 ${lockerId} התנתק`);
+        break;
+      }
+    }
   });
   
   // טיפול בשגיאות
