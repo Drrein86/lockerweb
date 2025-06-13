@@ -4,18 +4,17 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface Cell {
-  id: number
-  code: string
-  size: string
-  isOccupied: boolean
+  id: string
+  locked: boolean
+  hasPackage: boolean
+  packageId: string | null
 }
 
 interface Locker {
-  id: number
-  location: string
-  description: string
-  cells: Cell[]
-  createdAt: string
+  id: string
+  isOnline: boolean
+  lastSeen: string
+  cells: { [key: string]: Cell }
 }
 
 // SVG Icons
@@ -67,49 +66,84 @@ const UnlockedIcon = () => (
   </svg>
 )
 
+const StatusIcon = ({ isOnline }: { isOnline: boolean }) => (
+  <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
+)
+
 export default function AdminLockersPage() {
-  const [lockers, setLockers] = useState<Locker[]>([])
+  const [lockers, setLockers] = useState<{ [key: string]: Locker }>({})
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchLockers()
+    // התחברות לשרת WebSocket
+    const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      console.log('✅ התחברות לשרת החומרה הצליחה')
+      // שליחת הודעת זיהוי
+      ws.send(JSON.stringify({
+        type: 'identify',
+        client: 'web-admin'
+      }))
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'lockerUpdate') {
+          setLockers(data.data)
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('שגיאה בעיבוד הודעה:', error)
+      }
+    }
+
+    ws.onclose = () => {
+      console.log('🔌 החיבור לשרת החומרה נסגר')
+      // ניסיון התחברות מחדש אחרי 5 שניות
+      setTimeout(() => {
+        setLoading(true)
+        window.location.reload()
+      }, 5000)
+    }
+
+    return () => {
+      ws.close()
+    }
   }, [])
 
-  const fetchLockers = async () => {
+  const unlockCell = async (lockerId: string, cellId: string) => {
+    const actionKey = `${lockerId}-${cellId}`
+    setActionLoading(actionKey)
+    
     try {
-      const response = await fetch('/api/admin/lockers')
-      const data = await response.json()
-      if (data.success) {
-        setLockers(data.lockers)
+      const response = await fetch('/api/websocket', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'openCell',
+          lockerId,
+          cellCode: cellId
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
+      } else {
+        console.error(`❌ שגיאה בפתיחת תא: ${result.error}`)
       }
     } catch (error) {
-      console.error('שגיאה בטעינת לוקרים:', error)
+      console.error('שגיאה בפתיחת תא:', error)
     } finally {
-      setLoading(false)
+      setActionLoading(null)
     }
-  }
-
-  const getSizeInHebrew = (size: string) => {
-    const sizeMap: { [key: string]: string } = {
-      'SMALL': 'קטן',
-      'MEDIUM': 'בינוני', 
-      'LARGE': 'גדול',
-      'WIDE': 'רחב'
-    }
-    return sizeMap[size] || size
-  }
-
-  const getCellsBySize = (cells: Cell[]) => {
-    const sizeCount = cells.reduce((acc, cell) => {
-      acc[cell.size] = (acc[cell.size] || 0) + 1
-      return acc
-    }, {} as any)
-
-    return Object.entries(sizeCount).map(([size, count]) => ({
-      size: getSizeInHebrew(size),
-      count: count as number,
-      occupied: cells.filter(c => c.size === size && c.isOccupied).length
-    }))
   }
 
   if (loading) {
@@ -145,15 +179,15 @@ export default function AdminLockersPage() {
               <BuildingIcon />
               <h3 className="text-lg font-semibold text-white">סה"כ לוקרים</h3>
             </div>
-            <p className="text-3xl font-bold text-white">{lockers.length}</p>
+            <p className="text-3xl font-bold text-white">{Object.keys(lockers).length}</p>
           </div>
           <div className="glass-card">
             <div className="flex items-center gap-3 mb-2">
               <PackageIcon />
-              <h3 className="text-lg font-semibold text-white">סה"כ תאים</h3>
+              <h3 className="text-lg font-semibold text-white">לוקרים מחוברים</h3>
             </div>
-            <p className="text-3xl font-bold text-white">
-              {lockers.reduce((total, locker) => total + locker.cells.length, 0)}
+            <p className="text-3xl font-bold text-green-400">
+              {Object.values(lockers).filter(locker => locker.isOnline).length}
             </p>
           </div>
           <div className="glass-card">
@@ -162,8 +196,8 @@ export default function AdminLockersPage() {
               <h3 className="text-lg font-semibold text-white">תאים תפוסים</h3>
             </div>
             <p className="text-3xl font-bold text-orange-400">
-              {lockers.reduce((total, locker) => 
-                total + locker.cells.filter(cell => cell.isOccupied).length, 0
+              {Object.values(lockers).reduce((total, locker) => 
+                total + Object.values(locker.cells).filter(cell => cell.hasPackage).length, 0
               )}
             </p>
           </div>
@@ -171,101 +205,76 @@ export default function AdminLockersPage() {
 
         {/* רשימת לוקרים */}
         <div className="space-y-6">
-          {lockers.map((locker) => (
-            <div key={locker.id} className="glass-card">
+          {Object.entries(lockers).map(([lockerId, locker]) => (
+            <div key={lockerId} className="glass-card">
               <div className="p-6 border-b border-white/20">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <BuildingIcon />
+                    <div className="flex items-center gap-3 mb-2">
+                      <StatusIcon isOnline={locker.isOnline} />
                       <h2 className="text-xl font-bold text-white">
-                        לוקר #{locker.id}
+                        לוקר {lockerId}
                       </h2>
+                      <span className={`text-sm px-2 py-1 rounded-full ${
+                        locker.isOnline 
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }`}>
+                        {locker.isOnline ? 'מחובר' : 'מנותק'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <MapIcon />
-                      <p className="text-white/80">{locker.location}</p>
-                    </div>
-                    {locker.description && (
-                      <p className="text-sm text-white/60">{locker.description}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-white/50">
-                      נוצר: {new Date(locker.createdAt).toLocaleDateString('he-IL')}
+                    <p className="text-sm text-white/60">
+                      עדכון אחרון: {new Date(locker.lastSeen).toLocaleString('he-IL')}
                     </p>
                   </div>
                 </div>
               </div>
 
+              {/* תאים */}
               <div className="p-6">
-                {/* סטטיסטיקות תאים */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-4 text-white">פילוח תאים לפי גודל</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {getCellsBySize(locker.cells).map((sizeData) => (
-                      <div key={sizeData.size} className="bg-white/10 backdrop-blur rounded-lg p-4 text-center border border-white/20">
-                        <h4 className="font-semibold text-white">{sizeData.size}</h4>
-                        <p className="text-sm text-white/70">
-                          {sizeData.occupied}/{sizeData.count}
-                        </p>
-                        <div className="w-full bg-white/20 rounded-full h-2 mt-2">
-                          <div 
-                            className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
-                            style={{ 
-                              width: `${(sizeData.occupied / sizeData.count) * 100}%` 
-                            }}
-                          ></div>
-                        </div>
+                <h3 className="text-lg font-semibold text-white/90 mb-4">תאים זמינים:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(locker.cells).map(([cellId, cell]) => (
+                    <div key={cellId} className="bg-white/10 rounded-lg p-4 border border-white/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-semibold text-white">תא {cellId}</span>
+                        <div className={`w-3 h-3 rounded-full ${
+                          cell.locked ? 'bg-red-400' : 'bg-green-400'
+                        }`}></div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* רשת תאים */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 text-white">מפת תאים</h3>
-                  <div className="grid grid-cols-5 gap-2">
-                    {locker.cells.map((cell) => (
-                      <div
-                        key={cell.id}
-                        className={`
-                          p-3 rounded-lg border-2 text-center text-sm font-medium transition-all duration-200
-                          ${cell.isOccupied 
-                            ? 'bg-red-500/20 border-red-400/50 text-red-300' 
-                            : 'bg-green-500/20 border-green-400/50 text-green-300'
-                          }
-                        `}
+                      
+                      <div className="space-y-1 text-sm text-white/70 mb-3">
+                        <p>סטטוס: {cell.locked ? 'נעול' : 'פתוח'}</p>
+                        <p>חבילה: {cell.hasPackage ? 'יש' : 'אין'}</p>
+                        {cell.packageId && (
+                          <p>מזהה חבילה: {cell.packageId}</p>
+                        )}
+                      </div>
+                      
+                      <button
+                        onClick={() => unlockCell(lockerId, cellId)}
+                        disabled={!locker.isOnline || actionLoading === `${lockerId}-${cellId}`}
+                        className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <div className="font-bold">{cell.code}</div>
-                        <div className="text-xs">{getSizeInHebrew(cell.size)}</div>
-                        <div className="text-xs mt-1 flex items-center justify-center gap-1">
-                          {cell.isOccupied ? (
-                            <>
-                              <LockedIcon />
-                              <span>תפוס</span>
-                            </>
-                          ) : (
-                            <>
-                              <UnlockedIcon />
-                              <span>פנוי</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        {actionLoading === `${lockerId}-${cellId}` ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>פותח...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UnlockedIcon />
+                            <span>פתח תא</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           ))}
         </div>
-
-        {lockers.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-white/50">אין לוקרים במערכת</p>
-          </div>
-        )}
       </div>
     </div>
   )
