@@ -14,7 +14,7 @@ const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
 
 // מפת חיבורים של לוקרים
-const lockerConnections = {};
+const lockerConnections = new Map();
 // מפת חיבורים של ממשקי ניהול
 const adminConnections = new Set();
 
@@ -47,7 +47,7 @@ const wss = new WebSocket.Server({ server });
 
 // פונקציה לשליחת הודעה ללוקר ספציפי
 function sendToLocker(id, messageObj) {
-  const conn = lockerConnections[id];
+  const conn = lockerConnections.get(id);
   if (conn && conn.readyState === WebSocket.OPEN) {
     conn.send(JSON.stringify(messageObj));
     return true;
@@ -77,13 +77,13 @@ function getLockerStates() {
   const states = {};
   
   // מיפוי כל הלוקרים המחוברים
-  for (const [id, ws] of Object.entries(lockerConnections)) {
+  lockerConnections.forEach((ws, id) => {
     states[id] = {
       isOnline: ws.readyState === WebSocket.OPEN,
       lastSeen: ws.lastSeen || new Date(),
       cells: ws.cells || {}
     };
-  }
+  });
   
   return states;
 }
@@ -230,7 +230,7 @@ wss.on('connection', (ws) => {
         case 'register':
           // רישום לוקר חדש
           if (data.id && data.id.startsWith('LOC')) {
-            lockerConnections[data.id] = ws;
+            lockerConnections.set(data.id, ws);
             ws.lockerId = data.id;
             ws.lastSeen = new Date();
             ws.cells = data.cells || {};
@@ -281,7 +281,7 @@ wss.on('connection', (ws) => {
       console.log('👤 ממשק ניהול התנתק');
     } else if (ws.lockerId) {
       // הסרת לוקר
-      delete lockerConnections[ws.lockerId];
+      lockerConnections.delete(ws.lockerId);
       console.log(`🔌 נותק לוקר ${ws.lockerId}`);
       broadcastStatus();
     }

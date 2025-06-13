@@ -9,6 +9,19 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { action, lockerId, cellId, packageId } = body
 
+    // וידוא שכל הפרמטרים הנדרשים קיימים
+    if (!action) {
+      return NextResponse.json({ error: 'חסר פרמטר action' }, { status: 400 })
+    }
+
+    if (!lockerId) {
+      return NextResponse.json({ error: 'חסר מזהה לוקר' }, { status: 400 })
+    }
+
+    if (!cellId && ['openCell', 'lockCell'].includes(action)) {
+      return NextResponse.json({ error: 'חסר מזהה תא' }, { status: 400 })
+    }
+
     switch (action) {
       case 'connect':
         // רישום לוקר
@@ -27,26 +40,21 @@ export async function POST(req: Request) {
 
       case 'openCell':
         const unlockSuccess = await esp32Controller.unlockCell(lockerId, cellId)
-        return NextResponse.json({ success: unlockSuccess })
+        if (!unlockSuccess) {
+          return NextResponse.json({ error: 'פתיחת התא נכשלה' }, { status: 500 })
+        }
+        return NextResponse.json({ success: true })
 
       case 'lockCell':
         const lockSuccess = await esp32Controller.lockCell(lockerId, cellId, packageId)
-        return NextResponse.json({ success: lockSuccess })
+        if (!lockSuccess) {
+          return NextResponse.json({ error: 'נעילת התא נכשלה' }, { status: 500 })
+        }
+        return NextResponse.json({ success: true })
 
       case 'status':
-        // בדיקת סטטוס לוקרים
-        const lockers = Array.from(connectedLockers.entries()).map(([id, info]) => ({
-          lockerId: id,
-          status: info.status,
-          lastSeen: info.lastSeen,
-          isOnline: (Date.now() - info.lastSeen.getTime()) < 30000 // 30 שניות
-        }))
-        
-        return NextResponse.json({
-          success: true,
-          connectedLockers: lockers.length,
-          lockers
-        })
+        const status = esp32Controller.getAllStatus()
+        return NextResponse.json({ success: true, data: status })
 
       default:
         return NextResponse.json({ error: 'פעולה לא נתמכת' }, { status: 400 })

@@ -23,6 +23,7 @@ interface LockerConnection extends WebSocket {
   lastSeen?: Date;
   cells?: Record<string, LockerCell>;
   isAlive?: boolean;
+  reconnectAttempts?: number;
 }
 
 interface WebSocketMessage {
@@ -50,7 +51,8 @@ const CONFIG = {
   ESP32_DEVICES: [
     process.env.ESP32_LOCKER1_IP || '192.168.0.104',
     process.env.ESP32_LOCKER2_IP || '192.168.0.105'
-  ]
+  ],
+  RECONNECT_ATTEMPTS: 3
 };
 
 class WebSocketManager {
@@ -238,8 +240,45 @@ class WebSocketManager {
     } else if (ws.lockerId) {
       this.lockerConnections.delete(ws.lockerId);
       this.logEvent('disconnect', `🔌 נותק לוקר ${ws.lockerId}`);
-      this.broadcastStatus();
+      
+      // שליחת עדכון למנהלים
+      this.broadcastToAdmins({
+        type: 'disconnect',
+        id: ws.lockerId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // ניסיון חיבור מחדש
+      setTimeout(() => {
+        this.attemptReconnect(ws.lockerId, ws);
+      }, 5000);
     }
+  }
+
+  /**
+   * ניסיון חיבור מחדש
+   */
+  private attemptReconnect(lockerId: string, ws: LockerConnection): void {
+    if (ws.reconnectAttempts && ws.reconnectAttempts >= CONFIG.RECONNECT_ATTEMPTS) {
+      this.logEvent('reconnect', `❌ נכשלו כל ניסיונות החיבור מחדש ללוקר ${lockerId}`);
+      return;
+    }
+
+    this.logEvent('reconnect', `🔄 מנסה להתחבר מחדש ללוקר ${lockerId}`);
+    
+    if (ws.reconnectAttempts) {
+      ws.reconnectAttempts++;
+    } else {
+      ws.reconnectAttempts = 1;
+    }
+
+    // שליחת עדכון למנהלים
+    this.broadcastToAdmins({
+      type: 'reconnect',
+      id: lockerId,
+      attempt: ws.reconnectAttempts,
+      timestamp: new Date().toISOString()
+    });
   }
 
   /**
@@ -407,6 +446,17 @@ class WebSocketManager {
       message,
       ...data
     }));
+  }
+
+  /**
+   * שליחת עדכון למנהלים
+   */
+  private broadcastToAdmins(message: any): void {
+    for (const client of this.adminConnections) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    }
   }
 }
 

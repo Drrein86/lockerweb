@@ -86,7 +86,8 @@ export default function AdminLockersPage() {
       // שליחת הודעת זיהוי
       ws.send(JSON.stringify({
         type: 'identify',
-        client: 'web-admin'
+        client: 'web-admin',
+        secret: process.env.NEXT_PUBLIC_ADMIN_SECRET
       }))
     }
 
@@ -128,11 +129,11 @@ export default function AdminLockersPage() {
 
           case 'lockerUpdate':
             // עדכון כל הלוקרים
-            if (data.lockers) {
-              const formattedLockers = data.lockers.reduce((acc: any, locker: any) => {
-                acc[locker.id] = {
-                  id: locker.id,
-                  isOnline: locker.status === 'online',
+            if (data.data) {
+              const formattedLockers = Object.entries(data.data).reduce((acc: any, [id, locker]: [string, any]) => {
+                acc[id] = {
+                  id,
+                  isOnline: locker.isOnline,
                   lastSeen: locker.lastSeen || new Date().toISOString(),
                   cells: locker.cells || {},
                   ip: locker.ip
@@ -171,18 +172,33 @@ export default function AdminLockersPage() {
       }
     }
 
+    ws.onerror = (error) => {
+      console.error('❌ שגיאת WebSocket:', error);
+      setLoading(false);
+    };
+
     ws.onclose = () => {
-      console.log('🔌 החיבור לשרת החומרה נסגר')
+      console.log('🔌 החיבור לשרת החומרה נסגר');
+      setLoading(true);
+      
       // ניסיון התחברות מחדש אחרי 5 שניות
       setTimeout(() => {
-        setLoading(true)
-        window.location.reload()
-      }, 5000)
-    }
+        console.log('🔄 מנסה להתחבר מחדש...');
+        window.location.reload();
+      }, 5000);
+    };
+
+    // טיימר לבדיקת חיבור
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
 
     return () => {
-      ws.close()
-    }
+      clearInterval(pingInterval);
+      ws.close();
+    };
   }, [])
 
   const unlockCell = async (lockerId: string, cellId: string) => {
