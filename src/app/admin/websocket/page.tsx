@@ -66,11 +66,16 @@ export default function WebSocketPage() {
     wsRef.current.onopen = () => {
       console.log('✅ WebSocket connected')
       setWsConnected(true)
+      // בקשת סטטוס ראשונית
+      wsRef.current?.send(JSON.stringify({
+        type: 'getStatus'
+      }))
     }
     
     wsRef.current.onclose = () => {
       console.log('❌ WebSocket disconnected')
       setWsConnected(false)
+      setLoading(false)
     }
     
     wsRef.current.onmessage = (event) => {
@@ -80,9 +85,11 @@ export default function WebSocketPage() {
         if (data.type === 'status') {
           setWsStatus(data)
           setLastUpdate(new Date())
+          setLoading(false)
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error)
+        setLoading(false)
       }
     }
 
@@ -164,7 +171,9 @@ export default function WebSocketPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white/80">טוען סטטוס WebSocket...</p>
+          <p className="text-white/80">
+            {wsConnected ? 'מחכה לנתונים מהשרת...' : 'מתחבר לשרת...'}
+          </p>
         </div>
       </div>
     )
