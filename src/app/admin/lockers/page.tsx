@@ -15,6 +15,7 @@ interface Locker {
   isOnline: boolean
   lastSeen: string
   cells: { [key: string]: Cell }
+  ip: string
 }
 
 // SVG Icons
@@ -92,9 +93,78 @@ export default function AdminLockersPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        if (data.type === 'lockerUpdate') {
-          setLockers(data.data)
-          setLoading(false)
+        console.log('📨 התקבלה הודעה:', data)
+
+        switch (data.type) {
+          case 'register':
+            // עדכון לוקר בודד
+            setLockers(prev => ({
+              ...prev,
+              [data.id]: {
+                id: data.id,
+                isOnline: data.status === 'online',
+                lastSeen: new Date().toISOString(),
+                cells: prev[data.id]?.cells || {},
+                ip: data.ip
+              }
+            }))
+            setLoading(false)
+            break
+
+          case 'disconnect':
+            // עדכון סטטוס לוקר שהתנתק
+            setLockers(prev => {
+              if (!prev[data.id]) return prev
+              return {
+                ...prev,
+                [data.id]: {
+                  ...prev[data.id],
+                  isOnline: false,
+                  lastSeen: new Date().toISOString()
+                }
+              }
+            })
+            break
+
+          case 'lockerUpdate':
+            // עדכון כל הלוקרים
+            if (data.lockers) {
+              const formattedLockers = data.lockers.reduce((acc: any, locker: any) => {
+                acc[locker.id] = {
+                  id: locker.id,
+                  isOnline: locker.status === 'online',
+                  lastSeen: locker.lastSeen || new Date().toISOString(),
+                  cells: locker.cells || {},
+                  ip: locker.ip
+                }
+                return acc
+              }, {})
+              setLockers(formattedLockers)
+              setLoading(false)
+            }
+            break
+
+          case 'cellUpdate':
+            // עדכון תא ספציפי
+            setLockers(prev => {
+              if (!prev[data.lockerId]) return prev
+              return {
+                ...prev,
+                [data.lockerId]: {
+                  ...prev[data.lockerId],
+                  cells: {
+                    ...prev[data.lockerId].cells,
+                    [data.cellId]: {
+                      id: data.cellId,
+                      locked: data.locked,
+                      hasPackage: data.hasPackage,
+                      packageId: data.packageId
+                    }
+                  }
+                }
+              }
+            })
+            break
         }
       } catch (error) {
         console.error('שגיאה בעיבוד הודעה:', error)
@@ -180,7 +250,9 @@ export default function AdminLockersPage() {
               <h3 className="text-lg font-semibold text-white">סה"כ לוקרים</h3>
             </div>
             <p className="text-3xl font-bold text-white">{Object.keys(lockers).length}</p>
+            <p className="text-sm text-white/60 mt-2">רשומים במערכת</p>
           </div>
+          
           <div className="glass-card">
             <div className="flex items-center gap-3 mb-2">
               <PackageIcon />
@@ -189,7 +261,9 @@ export default function AdminLockersPage() {
             <p className="text-3xl font-bold text-green-400">
               {Object.values(lockers).filter(locker => locker.isOnline).length}
             </p>
+            <p className="text-sm text-white/60 mt-2">פעילים כרגע</p>
           </div>
+          
           <div className="glass-card">
             <div className="flex items-center gap-3 mb-2">
               <LockedIcon />
@@ -200,77 +274,54 @@ export default function AdminLockersPage() {
                 total + Object.values(locker.cells).filter(cell => cell.hasPackage).length, 0
               )}
             </p>
+            <p className="text-sm text-white/60 mt-2">מכילים חבילות</p>
           </div>
         </div>
 
         {/* רשימת לוקרים */}
-        <div className="space-y-6">
-          {Object.entries(lockers).map(([lockerId, locker]) => (
-            <div key={lockerId} className="glass-card">
-              <div className="p-6 border-b border-white/20">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <StatusIcon isOnline={locker.isOnline} />
-                      <h2 className="text-xl font-bold text-white">
-                        לוקר {lockerId}
-                      </h2>
-                      <span className={`text-sm px-2 py-1 rounded-full ${
-                        locker.isOnline 
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      }`}>
-                        {locker.isOnline ? 'מחובר' : 'מנותק'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-white/60">
-                      עדכון אחרון: {new Date(locker.lastSeen).toLocaleString('he-IL')}
-                    </p>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Object.values(lockers).map((locker) => (
+            <div key={locker.id} className="glass-card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <StatusIcon isOnline={locker.isOnline} />
+                  <h3 className="text-lg font-semibold text-white">{locker.id}</h3>
                 </div>
+                <span className="text-sm text-white/60">
+                  {locker.isOnline ? 'מחובר' : 'מנותק'}
+                </span>
+              </div>
+              
+              <div className="text-sm text-white/60 mb-4">
+                <p>IP: {locker.ip || 'לא ידוע'}</p>
+                <p>עדכון אחרון: {new Date(locker.lastSeen).toLocaleString('he-IL')}</p>
               </div>
 
-              {/* תאים */}
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-white/90 mb-4">תאים זמינים:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(locker.cells).map(([cellId, cell]) => (
-                    <div key={cellId} className="bg-white/10 rounded-lg p-4 border border-white/20">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-semibold text-white">תא {cellId}</span>
-                        <div className={`w-3 h-3 rounded-full ${
-                          cell.locked ? 'bg-red-400' : 'bg-green-400'
-                        }`}></div>
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(locker.cells).map(([cellId, cell]) => (
+                  <button
+                    key={cellId}
+                    onClick={() => unlockCell(locker.id, cellId)}
+                    disabled={!locker.isOnline || actionLoading === `${locker.id}-${cellId}`}
+                    className={`p-3 rounded-lg flex flex-col items-center justify-center gap-2 transition-all duration-300
+                      ${cell.hasPackage ? 'bg-orange-500/20 text-orange-400' : 'bg-white/10 text-white/80'}
+                      ${!locker.isOnline && 'opacity-50 cursor-not-allowed'}
+                      hover:bg-white/20`}
+                  >
+                    {cell.locked ? <LockedIcon /> : <UnlockedIcon />}
+                    <span className="text-sm font-medium">תא {cellId}</span>
+                    {cell.hasPackage && (
+                      <span className="text-xs">
+                        {cell.packageId ? `חבילה ${cell.packageId}` : 'תפוס'}
+                      </span>
+                    )}
+                    {actionLoading === `${locker.id}-${cellId}` && (
+                      <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                       </div>
-                      
-                      <div className="space-y-1 text-sm text-white/70 mb-3">
-                        <p>סטטוס: {cell.locked ? 'נעול' : 'פתוח'}</p>
-                        <p>חבילה: {cell.hasPackage ? 'יש' : 'אין'}</p>
-                        {cell.packageId && (
-                          <p>מזהה חבילה: {cell.packageId}</p>
-                        )}
-                      </div>
-                      
-                      <button
-                        onClick={() => unlockCell(lockerId, cellId)}
-                        disabled={!locker.isOnline || actionLoading === `${lockerId}-${cellId}`}
-                        className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {actionLoading === `${lockerId}-${cellId}` ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span>פותח...</span>
-                          </>
-                        ) : (
-                          <>
-                            <UnlockedIcon />
-                            <span>פתח תא</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
           ))}
