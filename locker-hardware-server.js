@@ -14,7 +14,9 @@ const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
 
 // מפת חיבורים של לוקרים
-const lockerConnections = new Map();
+const lockerConnections = {};
+// מפת חיבורים של ממשקי ניהול
+const adminConnections = new Set();
 
 // יצירת HTTP/HTTPS server עבור מידע על המערכת
 let server;
@@ -35,7 +37,7 @@ function handleRequest(req, res) {
   res.end(JSON.stringify({
     message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
     status: 'פעיל',
-    lockers: ESP32Controller.getAllStatus(),
+    lockers: getLockerStates(),
     timestamp: new Date().toISOString()
   }, null, 2));
 }
@@ -43,29 +45,19 @@ function handleRequest(req, res) {
 // WebSocket server עבור תקשורת עם האפליקציה והלוקרים
 const wss = new WebSocket.Server({ server });
 
-// סטטוס לוקרים (משולב עם ESP32)
-function getLockerStates() {
-  const esp32Status = ESP32Controller.getAllStatus();
-  
-  // אם אין מכשירי ESP32, החזר נתונים דמו
-  if (Object.keys(esp32Status).length === 0) {
-    return {
-      'LOC001': {
-        cells: {
-          'A1': { locked: true, hasPackage: true, packageId: 'PKG001' },
-          'A2': { locked: false, hasPackage: false, packageId: null },
-          'A3': { locked: true, hasPackage: true, packageId: 'PKG002' },
-          'B1': { locked: false, hasPackage: false, packageId: null },
-          'B2': { locked: true, hasPackage: true, packageId: 'PKG003' }
-        }
-      }
-    };
+// פונקציה לשליחת הודעה ללוקר ספציפי
+function sendToLocker(id, messageObj) {
+  const conn = lockerConnections[id];
+  if (conn && conn.readyState === WebSocket.OPEN) {
+    conn.send(JSON.stringify(messageObj));
+    return true;
+  } else {
+    console.log(`🚫 לוקר ${id} לא מחובר`);
+    return false;
   }
-  
-  return esp32Status;
 }
 
-// פונקציה לשליחת עדכון סטטוס לכל הלקוחות המחוברים
+// פונקציה לשליחת עדכון סטטוס לכל ממשקי הניהול
 function broadcastStatus() {
   const message = {
     type: 'lockerUpdate',
@@ -73,11 +65,27 @@ function broadcastStatus() {
     timestamp: Date.now()
   };
   
-  wss.clients.forEach(client => {
+  adminConnections.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(message));
     }
   });
+}
+
+// סטטוס לוקרים
+function getLockerStates() {
+  const states = {};
+  
+  // מיפוי כל הלוקרים המחוברים
+  for (const [id, ws] of Object.entries(lockerConnections)) {
+    states[id] = {
+      isOnline: ws.readyState === WebSocket.OPEN,
+      lastSeen: ws.lastSeen || new Date(),
+      cells: ws.cells || {}
+    };
+  }
+  
+  return states;
 }
 
 // פונקציה לפתיחת תא (ESP32 או סימולציה)
@@ -209,97 +217,78 @@ function startESP32Monitoring() {
   }, 60000); // כל דקה
 }
 
-// טיפול בחיבורי WebSocket
-wss.on('connection', (ws, req) => {
-  const clientIp = req.socket.remoteAddress;
-  console.log(`🔌 לקוח חדש התחבר: ${clientIp}`);
+// טיפול בחיבור חדש
+wss.on('connection', (ws) => {
+  console.log('📡 חיבור WebSocket חדש התקבל');
   
-  // טיפול בהודעות מהלקוח
-  ws.on('message', async (message) => {
+  ws.on('message', (msg) => {
     try {
-      const data = JSON.parse(message);
-      console.log('📨 הודעה התקבלה:', data);
+      const data = JSON.parse(msg);
+      console.log('📨 התקבלה הודעה:', data);
       
       switch (data.type) {
         case 'register':
-          // רישום ESP32 חדש
-          ESP32Controller.registerESP32(data.id, ws);
-          ws.send(JSON.stringify({
-            type: 'registerResponse',
-            success: true,
-            message: 'נרשם בהצלחה',
-            timestamp: Date.now()
-          }));
+          // רישום לוקר חדש
+          if (data.id && data.id.startsWith('LOC')) {
+            lockerConnections[data.id] = ws;
+            ws.lockerId = data.id;
+            ws.lastSeen = new Date();
+            ws.cells = data.cells || {};
+            console.log(`📡 נרשם לוקר ${data.id}`);
+            broadcastStatus();
+          }
+          break;
+          
+        case 'identify':
+          // רישום ממשק ניהול
+          if (data.client === 'web-admin') {
+            adminConnections.add(ws);
+            ws.isAdmin = true;
+            console.log('👤 נרשם ממשק ניהול חדש');
+            broadcastStatus();
+          }
+          break;
+          
+        case 'statusUpdate':
+          // עדכון סטטוס מלוקר
+          if (ws.lockerId && data.cells) {
+            ws.cells = data.cells;
+            ws.lastSeen = new Date();
+            broadcastStatus();
+          }
           break;
           
         case 'unlock':
-          // פתיחת תא
-          const unlockSuccess = await ESP32Controller.unlockCell(data.lockerId, data.cellId);
-          ws.send(JSON.stringify({
-            type: 'unlockResponse',
-            success: unlockSuccess,
-            lockerId: data.lockerId,
-            cellId: data.cellId,
-            timestamp: Date.now()
-          }));
+          // פקודת פתיחת תא
+          if (ws.isAdmin && data.lockerId && data.cellId) {
+            sendToLocker(data.lockerId, {
+              type: 'unlock',
+              cellId: data.cellId
+            });
+          }
           break;
-          
-        case 'lock':
-          // נעילת תא
-          const lockSuccess = await ESP32Controller.lockCell(data.lockerId, data.cellId, data.packageId);
-          ws.send(JSON.stringify({
-            type: 'lockResponse',
-            success: lockSuccess,
-            lockerId: data.lockerId,
-            cellId: data.cellId,
-            packageId: data.packageId,
-            timestamp: Date.now()
-          }));
-          break;
-          
-        case 'getStatus':
-          // קבלת סטטוס כל הלוקרים
-          ws.send(JSON.stringify({
-            type: 'statusResponse',
-            data: ESP32Controller.getAllStatus(),
-            timestamp: Date.now()
-          }));
-          break;
-          
-        case 'pong':
-          // תגובה לבדיקת חיבור
-          console.log(`📶 התקבל pong מלוקר ${data.id}`);
-          break;
-          
-        default:
-          console.log('❓ סוג הודעה לא מוכר:', data.type);
       }
+      
     } catch (error) {
       console.error('❌ שגיאה בעיבוד הודעה:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        message: 'שגיאה בעיבוד הבקשה',
-        timestamp: Date.now()
-      }));
     }
   });
   
-  // טיפול בניתוק
   ws.on('close', () => {
-    console.log(`🔌 לקוח התנתק: ${clientIp}`);
-    // הסרת החיבור מהמפה אם זה ESP32
-    for (const [lockerId, lockerWs] of lockerConnections.entries()) {
-      if (lockerWs === ws) {
-        lockerConnections.delete(lockerId);
-        console.log(`📡 ESP32 ${lockerId} התנתק`);
-        break;
-      }
+    if (ws.isAdmin) {
+      // הסרת ממשק ניהול
+      adminConnections.delete(ws);
+      console.log('👤 ממשק ניהול התנתק');
+    } else if (ws.lockerId) {
+      // הסרת לוקר
+      delete lockerConnections[ws.lockerId];
+      console.log(`🔌 נותק לוקר ${ws.lockerId}`);
+      broadcastStatus();
     }
   });
   
-  // טיפול בשגיאות
   ws.on('error', (error) => {
-    console.error(`❌ שגיאת WebSocket עם ${clientIp}:`, error);
+    console.error('❌ שגיאת WebSocket:', error);
   });
 });
 

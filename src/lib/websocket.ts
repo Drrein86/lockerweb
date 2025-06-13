@@ -1,5 +1,7 @@
 // הגדרות חיבור לשרת החומרה
-const HARDWARE_WS_URL = 'wss://b6db-77-137-30-226.ngrok-free.app/ws'
+const HARDWARE_WS_URL = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app/ws')
+  : 'wss://lockerweb-production.up.railway.app/ws'
 
 // מפה לסימולציה של לוקרים מחוברים (בלי WebSocket server עבור Vercel)
 const activeConnections = new Map<number, boolean>()
@@ -9,29 +11,40 @@ let hardwareWebSocket: WebSocket | null = null
 
 function connectToHardwareServer() {
   if (typeof window === 'undefined') {
-    // Server-side - לא ניתן להשתמש ב-WebSocket
+    console.log('🔧 Server-side - לא ניתן להשתמש ב-WebSocket')
     return null
   }
   
   try {
+    console.log('🔌 מנסה להתחבר לשרת החומרה בכתובת:', HARDWARE_WS_URL)
     hardwareWebSocket = new WebSocket(HARDWARE_WS_URL)
     
     hardwareWebSocket.onopen = () => {
-      console.log('🔌 מחובר לשרת החומרה')
+      console.log('✅ התחברות לשרת החומרה הצליחה!')
+      
+      // שליחת הודעת זיהוי ראשונית
+      const identifyMessage = {
+        type: 'identify',
+        client: 'web-admin'
+      }
+      hardwareWebSocket?.send(JSON.stringify(identifyMessage))
     }
     
     hardwareWebSocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('📨 הודעה מהשרת:', data)
-        // כאן אפשר להוסיף טיפול בעדכונים מהחומרה
+        console.log('📨 התקבלה הודעה מהשרת:', data)
+        
+        if (data.type === 'lockerUpdate') {
+          console.log('🔄 עדכון סטטוס לוקרים:', data.lockers)
+        }
       } catch (error) {
         console.error('❌ שגיאה בעיבוד הודעה:', error)
       }
     }
     
-    hardwareWebSocket.onclose = () => {
-      console.log('🔌 החיבור לשרת החומרה נסגר')
+    hardwareWebSocket.onclose = (event) => {
+      console.log('🔌 החיבור לשרת החומרה נסגר:', event.code, event.reason)
       // ניסיון התחברות מחדש אחרי 5 שניות
       setTimeout(connectToHardwareServer, 5000)
     }
