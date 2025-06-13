@@ -308,10 +308,15 @@ setInterval(() => {
 
 // הפעלת השרת
 server.listen(PORT, () => {
+  const esp32_devices = [
+    process.env.ESP32_LOCKER1_IP || '192.168.0.104',
+    process.env.ESP32_LOCKER2_IP || '192.168.0.105'
+  ];
+  
   logEvent('server_start', `🚀 שרת הלוקרים פועל על פורט ${PORT}`, {
     port: PORT,
     ssl: USE_SSL,
-    esp32_devices: [ESP32_LOCKER1_IP, ESP32_LOCKER2_IP]
+    esp32_devices
   });
   startESP32Monitoring();
 });
