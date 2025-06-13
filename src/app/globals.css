@@ -11,6 +11,17 @@
   --dark-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
 }
 
 * {
@@ -26,8 +37,8 @@ html {
 
 body {
   min-height: 100vh;
-  background: var(--dark-gradient);
-  color: white;
+  background: rgb(var(--background-start-rgb));
+  color: rgb(var(--foreground-rgb));
   direction: rtl;
   text-align: right;
   overflow-x: hidden;
@@ -37,11 +48,11 @@ body {
 @layer components {
   /* כפתורים ראשיים */
   .btn-primary {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl px-6 py-4 text-white font-semibold hover:bg-white/20 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl;
+    @apply bg-blue-600 text-white hover:bg-blue-700;
   }
   
   .btn-secondary {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl px-4 py-3 text-gray-300 font-medium hover:bg-white/10 hover:text-white transition-all duration-300;
+    @apply bg-gray-600 text-white hover:bg-gray-700;
   }
   
   .btn-danger {
@@ -103,11 +114,11 @@ body {
   }
   
   .table-header {
-    @apply bg-white/10 text-white font-semibold px-4 py-3 border-b border-white/20;
+    @apply grid gap-4 p-4 font-bold text-gray-700 border-b;
   }
   
-  .table-cell {
-    @apply px-4 py-3 text-gray-300 border-b border-white/10;
+  .table-row {
+    @apply grid gap-4 p-4 border-b hover:bg-gray-50;
   }
 
   /* אלמנטי QR */
@@ -182,5 +193,39 @@ body {
 @media (max-width: 640px) {
   ::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* טיפוגרפיה */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+  
+  h1 {
+    @apply text-2xl;
+  }
+  
+  h2 {
+    @apply text-xl;
+  }
+  
+  h3 {
+    @apply text-lg;
+  }
+}
+
+/* טפסים */
+@layer components {
+  .form-input {
+    @apply w-full px-4 py-2 border rounded;
+  }
+  
+  .form-label {
+    @apply block mb-2 font-medium;
+  }
+  
+  .form-select {
+    @apply w-full px-4 py-2 border rounded;
   }
 } 
