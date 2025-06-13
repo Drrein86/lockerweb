@@ -2,6 +2,7 @@
 #include <WebServer.h>
 #include <WebSocketClient.h>
 #include <ArduinoJson.h>
+#include <EEPROM.h>
 
 // הגדרות WiFi
 const char* ssid = "WIFI_NAME";       // החלף עם שם הרשת שלך
@@ -12,13 +13,26 @@ const char* wsHost = "your-server.com";  // החלף עם כתובת השרת ש
 const int wsPort = 8080;
 const char* wsPath = "/ws";
 
-// הגדרות לוקר
-const String LOCKER_ID = "LOC001";
+// הגדרות EEPROM
+#define EEPROM_SIZE 512
+#define LOCKER_ID_ADDR 0
+#define LOCKER_ID_LENGTH 10
 
-// פינים לממסרים (נעילה/פתיחה)
-const int RELAY_PINS[] = {2, 4, 5, 18, 19}; // פינים עבור תאים A1, A2, A3, B1, B2
-const String CELL_IDS[] = {"A1", "A2", "A3", "B1", "B2"};
-const int NUM_CELLS = 5;
+// הגדרות לוקר
+struct Cell {
+  int lockPin;
+  int sensorPin;
+  bool isLocked;
+  bool hasPackage;
+};
+
+Cell cells[5] = {
+  {2, 12, false, false},  // תא 1
+  {4, 13, false, false},  // תא 2
+  {5, 14, false, false},  // תא 3
+  {18, 25, false, false}, // תא 4
+  {19, 26, false, false}  // תא 5
+};
 
 // פינים לחיישני דלת (Reed switches או מגנטיים)
 const int SENSOR_PINS[] = {12, 13, 14, 25, 26}; // חיישנים עבור כל תא
@@ -31,7 +45,7 @@ struct CellState {
   unsigned long lastActivity;
 };
 
-CellState cellStates[NUM_CELLS];
+CellState cellStates[5];
 
 // שרת Web
 WebServer server(80);
@@ -45,6 +59,8 @@ const unsigned long WS_RECONNECT_INTERVAL = 5000; // 5 שניות
 
 // LED סטטוס
 const int STATUS_LED = 2;
+
+char lockerId[LOCKER_ID_LENGTH + 1];  // +1 עבור תו סיום המחרוזת
 
 void setup() {
   Serial.begin(115200);
@@ -72,6 +88,10 @@ void setup() {
   
   // אתחול מצבי תאים
   initializeCellStates();
+  
+  // טעינת מזהה הלוקר
+  loadLockerId();
+  Serial.println("מזהה הלוקר: " + String(lockerId));
   
   Serial.println("✅ ESP32 Smart Locker מוכן לשימוש!");
 }
@@ -106,14 +126,14 @@ void loop() {
 
 void initializePins() {
   // הגדרת פיני ממסרים כיציאות
-  for (int i = 0; i < NUM_CELLS; i++) {
-    pinMode(RELAY_PINS[i], OUTPUT);
-    digitalWrite(RELAY_PINS[i], LOW); // ממסרים כבויים (נעול)
+  for (int i = 0; i < 5; i++) {
+    pinMode(cells[i].lockPin, OUTPUT);
+    digitalWrite(cells[i].lockPin, LOW); // ממסרים כבויים (נעול)
   }
   
   // הגדרת פיני חיישנים כקלטים עם pull-up
-  for (int i = 0; i < NUM_CELLS; i++) {
-    pinMode(SENSOR_PINS[i], INPUT_PULLUP);
+  for (int i = 0; i < 5; i++) {
+    pinMode(cells[i].sensorPin, INPUT_PULLUP);
   }
   
   // LED סטטוס
@@ -159,7 +179,7 @@ void connectToWebSocket() {
       // שליחת הודעת register
       DynamicJsonDocument doc(256);
       doc["type"] = "register";
-      doc["id"] = LOCKER_ID;
+      doc["id"] = lockerId;
       doc["ip"] = WiFi.localIP().toString();
       doc["status"] = "online";
       
@@ -249,7 +269,7 @@ void handleLockerCommand() {
     else if (action == "checkCell") {
       int cellIndex = getCellIndex(cellId);
       if (cellIndex >= 0) {
-        bool isClosed = digitalRead(SENSOR_PINS[cellIndex]) == HIGH;
+        bool isClosed = digitalRead(cells[cellIndex].sensorPin) == HIGH;
         success = true;
         
         // יצירת תגובה מיוחדת לבדיקת סגירה
@@ -281,7 +301,7 @@ void handleLockerCommand() {
     DynamicJsonDocument response(512);
     response["success"] = success;
     response["message"] = message;
-    response["lockerId"] = LOCKER_ID;
+    response["lockerId"] = lockerId;
     response["cellId"] = cellId;
     response["timestamp"] = millis();
     
@@ -304,12 +324,12 @@ bool unlockCell(String cellId) {
   }
   
   // הפעלת ממסר לפתיחה (3 שניות)
-  digitalWrite(RELAY_PINS[cellIndex], HIGH);
+  digitalWrite(cells[cellIndex].lockPin, HIGH);
   Serial.println("🔓 פותח תא " + cellId);
   
   delay(3000); // פתיחה למשך 3 שניות
   
-  digitalWrite(RELAY_PINS[cellIndex], LOW);
+  digitalWrite(cells[cellIndex].lockPin, LOW);
   
   // עדכון מצב
   cellStates[cellIndex].locked = false;
@@ -338,8 +358,8 @@ bool lockCell(String cellId, String packageId) {
 }
 
 int getCellIndex(String cellId) {
-  for (int i = 0; i < NUM_CELLS; i++) {
-    if (CELL_IDS[i] == cellId) {
+  for (int i = 0; i < 5; i++) {
+    if (String(i + 1) == cellId) {
       return i;
     }
   }
@@ -351,17 +371,17 @@ void checkDoorSensors() {
   if (millis() - lastCheck < 500) return; // בדיקה כל 500ms
   lastCheck = millis();
   
-  for (int i = 0; i < NUM_CELLS; i++) {
-    bool currentState = digitalRead(SENSOR_PINS[i]) == HIGH; // HIGH = סגור
+  for (int i = 0; i < 5; i++) {
+    bool currentState = digitalRead(cells[i].sensorPin) == HIGH; // HIGH = סגור
     
     // זיהוי שינוי מצב
     if (cellStates[i].opened && currentState) {
-      Serial.println("🚪 תא " + CELL_IDS[i] + " נסגר");
+      Serial.println("🚪 תא " + String(i + 1) + " נסגר");
       cellStates[i].opened = false;
       cellStates[i].lastActivity = millis();
     }
     else if (!cellStates[i].opened && !currentState) {
-      Serial.println("🚪 תא " + CELL_IDS[i] + " נפתח");
+      Serial.println("🚪 תא " + String(i + 1) + " נפתח");
       cellStates[i].opened = true;
       cellStates[i].lastActivity = millis();
     }
@@ -386,7 +406,7 @@ void updateStatusLED() {
 }
 
 void initializeCellStates() {
-  for (int i = 0; i < NUM_CELLS; i++) {
+  for (int i = 0; i < 5; i++) {
     cellStates[i].locked = true;
     cellStates[i].opened = false;
     cellStates[i].packageId = "";
@@ -399,7 +419,7 @@ void initializeCellStates() {
 String buildStatusJSON() {
   DynamicJsonDocument doc(2048);
   
-  doc["lockerId"] = LOCKER_ID;
+  doc["lockerId"] = lockerId;
   doc["status"] = "active";
   doc["wifiConnected"] = (WiFi.status() == WL_CONNECTED);
   doc["ipAddress"] = WiFi.localIP().toString();
@@ -408,13 +428,13 @@ String buildStatusJSON() {
   
   JsonObject cells = doc.createNestedObject("cells");
   
-  for (int i = 0; i < NUM_CELLS; i++) {
-    JsonObject cell = cells.createNestedObject(CELL_IDS[i]);
+  for (int i = 0; i < 5; i++) {
+    JsonObject cell = cells.createNestedObject(String(i + 1));
     cell["locked"] = cellStates[i].locked;
     cell["opened"] = cellStates[i].opened;
     cell["packageId"] = cellStates[i].packageId;
     cell["lastActivity"] = cellStates[i].lastActivity;
-    cell["sensorState"] = digitalRead(SENSOR_PINS[i]);
+    cell["sensorState"] = digitalRead(cells[i].sensorPin);
   }
   
   String jsonString;
@@ -427,7 +447,7 @@ String buildStatusHTML() {
   html += "<head><meta charset='utf-8'><title>ESP32 Smart Locker</title>";
   html += "<style>body{font-family:Arial;margin:20px;direction:rtl;}</style></head>";
   html += "<body><h1>🔒 ESP32 Smart Locker</h1>";
-  html += "<h2>מזהה לוקר: " + LOCKER_ID + "</h2>";
+  html += "<h2>מזהה לוקר: " + String(lockerId) + "</h2>";
   html += "<p>WiFi: " + String(WiFi.status() == WL_CONNECTED ? "מחובר ✅" : "לא מחובר ❌") + "</p>";
   html += "<p>כתובת IP: " + WiFi.localIP().toString() + "</p>";
   html += "<p>זמן פעילות: " + String(millis()/1000) + " שניות</p>";
@@ -435,13 +455,13 @@ String buildStatusHTML() {
   html += "<h3>סטטוס תאים:</h3><table border='1'>";
   html += "<tr><th>תא</th><th>נעול</th><th>פתוח</th><th>חבילה</th><th>חיישן</th></tr>";
   
-  for (int i = 0; i < NUM_CELLS; i++) {
+  for (int i = 0; i < 5; i++) {
     html += "<tr>";
-    html += "<td>" + CELL_IDS[i] + "</td>";
+    html += "<td>" + String(i + 1) + "</td>";
     html += "<td>" + String(cellStates[i].locked ? "כן" : "לא") + "</td>";
     html += "<td>" + String(cellStates[i].opened ? "כן" : "לא") + "</td>";
     html += "<td>" + cellStates[i].packageId + "</td>";
-    html += "<td>" + String(digitalRead(SENSOR_PINS[i])) + "</td>";
+    html += "<td>" + String(digitalRead(cells[i].sensorPin)) + "</td>";
     html += "</tr>";
   }
   
@@ -450,4 +470,65 @@ String buildStatusHTML() {
   html += "</body></html>";
   
   return html;
+}
+
+// פונקציה לטעינת מזהה הלוקר מה-EEPROM
+void loadLockerId() {
+  EEPROM.begin(EEPROM_SIZE);
+  for (int i = 0; i < LOCKER_ID_LENGTH; i++) {
+    lockerId[i] = EEPROM.read(LOCKER_ID_ADDR + i);
+  }
+  lockerId[LOCKER_ID_LENGTH] = '\0';  // הוספת תו סיום
+  EEPROM.end();
+  
+  // אם המזהה ריק או לא תקין, ניצור מזהה ברירת מחדל מה-MAC address
+  if (strlen(lockerId) < 3 || !isValidLockerId(lockerId)) {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    snprintf(lockerId, LOCKER_ID_LENGTH + 1, "LOC%02X%02X%02X", mac[3], mac[4], mac[5]);
+    saveLockerId();
+  }
+}
+
+// פונקציה לשמירת מזהה הלוקר ב-EEPROM
+void saveLockerId() {
+  EEPROM.begin(EEPROM_SIZE);
+  for (int i = 0; i < LOCKER_ID_LENGTH; i++) {
+    EEPROM.write(LOCKER_ID_ADDR + i, lockerId[i]);
+  }
+  EEPROM.commit();
+  EEPROM.end();
+}
+
+// בדיקת תקינות מזהה הלוקר
+bool isValidLockerId(const char* id) {
+  if (strlen(id) < 3) return false;
+  if (strncmp(id, "LOC", 3) != 0) return false;
+  for (int i = 3; i < strlen(id); i++) {
+    if (!isalnum(id[i])) return false;
+  }
+  return true;
+}
+
+// פונקציה לעדכון מזהה הלוקר דרך סריאל
+void handleSerialCommands() {
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    
+    if (cmd.startsWith("setid ")) {
+      String newId = cmd.substring(6);
+      if (newId.length() <= LOCKER_ID_LENGTH && isValidLockerId(newId.c_str())) {
+        strncpy(lockerId, newId.c_str(), LOCKER_ID_LENGTH);
+        saveLockerId();
+        Serial.println("מזהה הלוקר עודכן ל: " + String(lockerId));
+        
+        // התחברות מחדש לשרת עם המזהה החדש
+        webSocket.disconnect();
+        connectToWebSocket();
+      } else {
+        Serial.println("שגיאה: מזהה לא תקין. השתמש בפורמט LOCxxxxx");
+      }
+    }
+  }
 } 
