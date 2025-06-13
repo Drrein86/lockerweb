@@ -76,12 +76,25 @@ export default function WebSocketPage() {
       console.log('❌ WebSocket disconnected')
       setWsConnected(false)
       setLoading(false)
+      
+      // ניסיון התחברות מחדש אחרי 5 שניות
+      setTimeout(() => {
+        console.log('🔄 מנסה להתחבר מחדש...')
+        wsRef.current = new WebSocket('wss://lockerweb-production.up.railway.app')
+      }, 5000)
     }
     
     wsRef.current.onmessage = (event) => {
       console.log('📩 WebSocket message:', event.data)
       try {
         const data = JSON.parse(event.data)
+        
+        // טיפול ב-ping
+        if (data.type === 'ping') {
+          wsRef.current?.send(JSON.stringify({ type: 'pong' }))
+          return
+        }
+        
         if (data.type === 'status') {
           setWsStatus(data)
           setLastUpdate(new Date())
@@ -91,6 +104,11 @@ export default function WebSocketPage() {
         console.error('Error parsing WebSocket message:', error)
         setLoading(false)
       }
+    }
+
+    wsRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      setLoading(false)
     }
 
     // ניקוי בעת יציאה מהדף

@@ -3,11 +3,55 @@ const HARDWARE_WS_URL = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app')
   : 'wss://lockerweb-production.up.railway.app'
 
+const PING_INTERVAL = 30000 // 30 שניות
+const RECONNECT_DELAY = 5000 // 5 שניות
+const CONNECTION_TIMEOUT = 5000 // 5 שניות
+
 // מפה לסימולציה של לוקרים מחוברים (בלי WebSocket server עבור Vercel)
 const activeConnections = new Map<number, boolean>()
 
 // יצירת חיבור WebSocket לשרת החומרה
 let hardwareWebSocket: WebSocket | null = null
+let pingInterval: NodeJS.Timeout | null = null
+let reconnectTimeout: NodeJS.Timeout | null = null
+let lastPongTime: number = 0
+
+function startPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval)
+  }
+
+  pingInterval = setInterval(() => {
+    if (hardwareWebSocket?.readyState === WebSocket.OPEN) {
+      hardwareWebSocket.send(JSON.stringify({ type: 'ping' }))
+      
+      // בדיקה אם קיבלנו pong בזמן סביר
+      if (Date.now() - lastPongTime > PING_INTERVAL * 2) {
+        console.log('❌ לא התקבל pong - מנתק ומנסה להתחבר מחדש')
+        hardwareWebSocket.close()
+      }
+    }
+  }, PING_INTERVAL)
+}
+
+function stopPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval)
+    pingInterval = null
+  }
+}
+
+function cleanupConnection() {
+  stopPingInterval()
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout)
+    reconnectTimeout = null
+  }
+  if (hardwareWebSocket) {
+    hardwareWebSocket.close()
+    hardwareWebSocket = null
+  }
+}
 
 function connectToHardwareServer() {
   if (typeof window === 'undefined') {
@@ -15,12 +59,24 @@ function connectToHardwareServer() {
     return null
   }
   
+  // ניקוי חיבור קודם אם קיים
+  cleanupConnection()
+  
   try {
     console.log('🔌 מנסה להתחבר לשרת החומרה בכתובת:', HARDWARE_WS_URL)
     hardwareWebSocket = new WebSocket(HARDWARE_WS_URL)
     
+    // טיימאאוט להתחברות ראשונית
+    const connectionTimeout = setTimeout(() => {
+      if (hardwareWebSocket?.readyState !== WebSocket.OPEN) {
+        console.log('❌ זמן התחברות פג - מנסה שוב')
+        hardwareWebSocket?.close()
+      }
+    }, CONNECTION_TIMEOUT)
+    
     hardwareWebSocket.onopen = () => {
       console.log('✅ התחברות לשרת החומרה הצליחה!')
+      clearTimeout(connectionTimeout)
       
       // שליחת הודעת זיהוי ראשונית
       const identifyMessage = {
@@ -28,11 +84,22 @@ function connectToHardwareServer() {
         client: 'web-admin'
       }
       hardwareWebSocket?.send(JSON.stringify(identifyMessage))
+      
+      // התחלת מנגנון ping-pong
+      startPingInterval()
+      lastPongTime = Date.now()
     }
     
     hardwareWebSocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        
+        // טיפול ב-pong
+        if (data.type === 'pong') {
+          lastPongTime = Date.now()
+          return
+        }
+        
         console.log('📨 התקבלה הודעה מהשרת:', data)
         
         if (data.type === 'lockerUpdate') {
@@ -45,8 +112,15 @@ function connectToHardwareServer() {
     
     hardwareWebSocket.onclose = (event) => {
       console.log('🔌 החיבור לשרת החומרה נסגר:', event.code, event.reason)
-      // ניסיון התחברות מחדש אחרי 5 שניות
-      setTimeout(connectToHardwareServer, 5000)
+      stopPingInterval()
+      
+      // ניסיון התחברות מחדש
+      if (!reconnectTimeout) {
+        reconnectTimeout = setTimeout(() => {
+          console.log('🔄 מנסה להתחבר מחדש...')
+          connectToHardwareServer()
+        }, RECONNECT_DELAY)
+      }
     }
     
     hardwareWebSocket.onerror = (error) => {
