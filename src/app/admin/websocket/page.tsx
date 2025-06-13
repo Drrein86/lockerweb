@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 // SVG Icons
@@ -56,60 +56,85 @@ export default function WebSocketPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [wsConnected, setWsConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    fetchWebSocketStatus()
+    // יצירת חיבור WebSocket
+    wsRef.current = new WebSocket('wss://lockerweb-production.up.railway.app')
     
-    // רענון אוטומטי כל 5 שניות
-    const interval = setInterval(fetchWebSocketStatus, 5000)
-    
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchWebSocketStatus = async () => {
-    try {
-      const response = await fetch('/api/websocket')
-      const data = await response.json()
-      
-      if (response.ok) {
-        setWsStatus(data)
-        setLastUpdate(new Date())
-      }
-    } catch (error) {
-      console.error('שגיאה בטעינת סטטוס WebSocket:', error)
-    } finally {
-      setLoading(false)
+    wsRef.current.onopen = () => {
+      console.log('✅ WebSocket connected')
+      setWsConnected(true)
     }
-  }
+    
+    wsRef.current.onclose = () => {
+      console.log('❌ WebSocket disconnected')
+      setWsConnected(false)
+    }
+    
+    wsRef.current.onmessage = (event) => {
+      console.log('📩 WebSocket message:', event.data)
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'status') {
+          setWsStatus(data)
+          setLastUpdate(new Date())
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error)
+      }
+    }
+
+    // ניקוי בעת יציאה מהדף
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
 
   const unlockCell = async (lockerId: string, cellId: string) => {
     const actionKey = `${lockerId}-${cellId}`
     setActionLoading(actionKey)
     
     try {
-      const response = await fetch('/api/websocket', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'openCell',
-          lockerId,
-          cellCode: cellId
-        })
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        alert(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
-        fetchWebSocketStatus() // רענון נתונים
-      } else {
-        alert(`❌ שגיאה בפתיחת תא: ${result.error}`)
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket לא מחובר')
       }
+
+      wsRef.current.send(JSON.stringify({
+        type: 'openCell',
+        lockerId,
+        cellCode: cellId
+      }))
+
+      // נחכה לתשובה מהשרת
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('פג זמן המתנה לתשובה'))
+        }, 5000)
+
+        const messageHandler = (event: MessageEvent) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.type === 'openCellResponse' && data.lockerId === lockerId && data.cellCode === cellId) {
+              clearTimeout(timeout)
+              wsRef.current?.removeEventListener('message', messageHandler)
+              resolve(data)
+            }
+          } catch (error) {
+            console.error('שגיאה בפענוח תשובה:', error)
+          }
+        }
+
+        wsRef.current?.addEventListener('message', messageHandler)
+      })
+
+      alert(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
     } catch (error) {
       console.error('שגיאה בפתיחת תא:', error)
-      alert('❌ שגיאה בחיבור לשרת')
+      alert(`❌ שגיאה בפתיחת תא: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
     } finally {
       setActionLoading(null)
     }
@@ -117,7 +142,21 @@ export default function WebSocketPage() {
 
   const refreshStatus = () => {
     setLoading(true)
-    fetchWebSocketStatus()
+    
+    try {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket לא מחובר')
+      }
+
+      wsRef.current.send(JSON.stringify({
+        type: 'getStatus'
+      }))
+    } catch (error) {
+      console.error('שגיאה בבקשת סטטוס:', error)
+      alert(`❌ שגיאה בבקשת סטטוס: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading && !wsStatus) {
@@ -146,7 +185,13 @@ export default function WebSocketPage() {
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${wsConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+              {wsConnected ? <ConnectedIcon /> : <DisconnectedIcon />}
+              <span className="text-sm font-medium">
+                {wsConnected ? 'מחובר' : 'מנותק'}
+              </span>
+            </div>
             <button
               onClick={refreshStatus}
               disabled={loading}
