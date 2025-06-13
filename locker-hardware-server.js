@@ -13,6 +13,9 @@ const USE_SSL = process.env.USE_SSL === 'true';
 const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
 
+// מפת חיבורים של לוקרים
+const lockerConnections = new Map();
+
 // יצירת HTTP/HTTPS server עבור מידע על המערכת
 let server;
 if (USE_SSL && SSL_KEY && SSL_CERT) {
