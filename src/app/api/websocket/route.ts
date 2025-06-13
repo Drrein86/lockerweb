@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
+import esp32Controller from '@/lib/esp32-controller'
 
 // מדמה זיכרון לוקרים מחוברים (ב-production צריך Redis או דטאבייס)
 const connectedLockers = new Map<number, { status: string, lastSeen: Date }>()
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    const { action, lockerId, cellCode } = body
+    const body = await req.json()
+    const { action, lockerId, cellId, packageId } = body
 
     switch (action) {
       case 'connect':
@@ -25,29 +26,12 @@ export async function POST(request: Request) {
         })
 
       case 'openCell':
-        // פתיחת תא
-        const locker = connectedLockers.get(lockerId)
-        
-        if (!locker) {
-          return NextResponse.json({
-            success: false,
-            error: `לוקר ${lockerId} לא מחובר`
-          }, { status: 404 })
-        }
+        const unlockSuccess = await esp32Controller.unlockCell(lockerId, cellId)
+        return NextResponse.json({ success: unlockSuccess })
 
-        // עדכון זמן אחרון
-        locker.lastSeen = new Date()
-        
-        console.log(`🔓 פקודת פתיחה נשלחה ללוקר ${lockerId}, תא ${cellCode}`)
-        
-        // סימולציה של פתיחה מוצלחת
-        return NextResponse.json({
-          success: true,
-          message: `תא ${cellCode} נפתח בלוקר ${lockerId}`,
-          lockerId,
-          cellCode,
-          timestamp: new Date().toISOString()
-        })
+      case 'lockCell':
+        const lockSuccess = await esp32Controller.lockCell(lockerId, cellId, packageId)
+        return NextResponse.json({ success: lockSuccess })
 
       case 'status':
         // בדיקת סטטוס לוקרים
@@ -65,18 +49,12 @@ export async function POST(request: Request) {
         })
 
       default:
-        return NextResponse.json({
-          success: false,
-          error: 'פעולה לא מזוהה'
-        }, { status: 400 })
+        return NextResponse.json({ error: 'פעולה לא נתמכת' }, { status: 400 })
     }
 
   } catch (error) {
-    console.error('❌ שגיאה ב-WebSocket API:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'שגיאה בשרת'
-    }, { status: 500 })
+    console.error('שגיאה בטיפול בבקשת WebSocket:', error)
+    return NextResponse.json({ error: 'שגיאה בטיפול בבקשה' }, { status: 500 })
   }
 }
 
