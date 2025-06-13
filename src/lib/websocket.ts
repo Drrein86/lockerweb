@@ -1,7 +1,7 @@
 // הגדרות חיבור לשרת החומרה
 const HARDWARE_WS_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app/ws')
-  : 'wss://lockerweb-production.up.railway.app/ws'
+  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app')
+  : 'wss://lockerweb-production.up.railway.app'
 
 // מפה לסימולציה של לוקרים מחוברים (בלי WebSocket server עבור Vercel)
 const activeConnections = new Map<number, boolean>()
