@@ -94,7 +94,25 @@ export default function AdminLockersPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('📨 התקבלה הודעה:', data)
+        
+        // בדיקת תקינות בסיסית
+        if (!data || typeof data !== 'object') {
+          throw new Error('נתונים לא תקינים התקבלו מהשרת');
+        }
+
+        if (!data.type) {
+          throw new Error('חסר שדה type בנתונים');
+        }
+
+        if (data.type === 'lockerUpdate' && (!data.data || typeof data.data !== 'object')) {
+          throw new Error('נתוני לוקר לא תקינים');
+        }
+
+        console.log('📨 התקבלה הודעה:', {
+          type: data.type,
+          timestamp: new Date(data.timestamp).toLocaleString('he-IL'),
+          data: data.data
+        })
 
         switch (data.type) {
           case 'register':
@@ -130,18 +148,26 @@ export default function AdminLockersPage() {
           case 'lockerUpdate':
             // עדכון כל הלוקרים
             if (data.data) {
-              const formattedLockers = Object.entries(data.data).reduce((acc: any, [id, locker]: [string, any]) => {
-                acc[id] = {
-                  id,
-                  isOnline: locker.isOnline,
-                  lastSeen: locker.lastSeen || new Date().toISOString(),
-                  cells: locker.cells || {},
-                  ip: locker.ip
-                }
-                return acc
-              }, {})
-              setLockers(formattedLockers)
-              setLoading(false)
+              setLockers(prev => {
+                const updatedLockers = { ...prev };
+                
+                // עדכון או הוספת לוקרים חדשים
+                Object.entries(data.data).forEach(([id, lockerData]: [string, any]) => {
+                  updatedLockers[id] = {
+                    id,
+                    isOnline: lockerData.isOnline ?? true,
+                    lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
+                    cells: {
+                      ...(prev[id]?.cells || {}),
+                      ...(lockerData.cells || {})
+                    },
+                    ip: lockerData.ip || prev[id]?.ip
+                  };
+                });
+                
+                return updatedLockers;
+              });
+              setLoading(false);
             }
             break
 
