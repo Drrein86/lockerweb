@@ -98,11 +98,11 @@ export default function AdminLockersPage() {
           console.log('✅ התחברות לשרת החומרה הצליחה');
           reconnectAttempts = 0;
           
-          // שליחת הודעת זיהוי
+          // שליחת הודעת זיהוי עם הסיסמה הקבועה
           ws?.send(JSON.stringify({
             type: 'identify',
             client: 'web-admin',
-            secret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+            secret: '86428642'
           }));
 
           // התחלת פינג תקופתי
