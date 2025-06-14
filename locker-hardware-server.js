@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 8080;
 const USE_SSL = process.env.USE_SSL === 'true';
 const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '86428642';
 
 // מפת חיבורים של לוקרים
 const lockerConnections = new Map();
@@ -223,105 +224,53 @@ function startESP32Monitoring() {
 }
 
 // טיפול בחיבור חדש
-wss.on('connection', (ws) => {
-  console.log('📡 חיבור WebSocket חדש התקבל');
-  
-  ws.on('message', (msg) => {
+wss.on('connection', (ws, req) => {
+  console.log('🔌 חיבור חדש התקבל');
+  let isAdmin = false;
+  let lockerId = null;
+
+  ws.on('message', async (message) => {
     try {
-      const data = JSON.parse(msg);
-      console.log('📨 התקבלה הודעה:', data);
+      const data = JSON.parse(message);
       
-      // רק אם יש data.data
-      let lockersData = undefined;
-      if (data.data && (data.data.lockers || typeof data.data === 'object')) {
-        lockersData = data.data.lockers || data.data;
-      }
-      
-      switch (data.type) {
-        case 'register':
-          // רישום לוקר חדש
-          if (data.id && data.id.startsWith('LOC')) {
-            lockerConnections.set(data.id, ws);
-            ws.lockerId = data.id;
-            ws.lastSeen = new Date();
-            ws.cells = data.cells || {};
-            console.log(`📡 נרשם לוקר ${data.id}`);
-            broadcastStatus();
-          }
-          break;
-          
-        case 'identify':
-          // רישום ממשק ניהול
-          if (data.client === 'web-admin') {
+      // טיפול בהודעת זיהוי
+      if (data.type === 'identify') {
+        if (data.client === 'web-admin') {
+          if (data.secret === ADMIN_SECRET) {
+            console.log('✅ ממשק ניהול מזוהה התחבר');
+            isAdmin = true;
             adminConnections.add(ws);
-            ws.isAdmin = true;
-            console.log('👤 נרשם ממשק ניהול חדש');
+            ws.send(JSON.stringify({
+              type: 'authSuccess',
+              message: 'התחברת בהצלחה כמנהל'
+            }));
+            // שליחת סטטוס נוכחי
             broadcastStatus();
+          } else {
+            console.log('❌ ניסיון התחברות כמנהל נכשל - סיסמה שגויה');
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'סיסמת מנהל שגויה'
+            }));
+            ws.close();
           }
-          break;
-          
-        case 'statusUpdate':
-          // עדכון סטטוס מלוקר
-          if (ws.lockerId && data.cells) {
-            ws.cells = data.cells;
-            ws.lastSeen = new Date();
-            broadcastStatus();
-          }
-          break;
-          
-        case 'unlock':
-          // פקודת פתיחת תא
-          if (ws.isAdmin && data.lockerId && data.cellId) {
-            sendToLocker(data.lockerId, {
-              type: 'unlock',
-              cellId: data.cellId
-            });
-          }
-          break;
-          
-        case 'lockerUpdate':
-          console.log('📨 התקבלה הודעת עדכון לוקר:', data);
-          if (!data.data || typeof data.data !== 'object') {
-            throw new Error('נתוני עדכון לוקר לא תקינים');
-          }
-          setLockers(prev => {
-            const updatedLockers = { ...prev };
-            const lockersData = data.data.lockers || data.data;
-            console.log('📦 נתוני לוקרים:', lockersData);
-
-            Object.entries(lockersData).forEach(([id, lockerData]) => {
-              updatedLockers[id] = {
-                id,
-                isOnline: lockerData.isOnline ?? true,
-                lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
-                cells: {
-                  ...(prev[id]?.cells || {}),
-                  ...(lockerData.cells || {})
-                },
-                ip: lockerData.ip || prev[id]?.ip
-              };
-            });
-
-            return updatedLockers;
-          });
-          setLoading(false); // תמיד לשים כאן!
-          break;
+        }
+        // ... rest of the existing code ...
       }
-      
     } catch (error) {
       console.error('❌ שגיאה בעיבוד הודעה:', error);
     }
   });
-  
+
   ws.on('close', () => {
-    if (ws.isAdmin) {
+    if (isAdmin) {
       // הסרת ממשק ניהול
       adminConnections.delete(ws);
       console.log('👤 ממשק ניהול התנתק');
-    } else if (ws.lockerId) {
+    } else if (lockerId) {
       // הסרת לוקר
-      lockerConnections.delete(ws.lockerId);
-      console.log(`🔌 נותק לוקר ${ws.lockerId}`);
+      lockerConnections.delete(lockerId);
+      console.log(`🔌 נותק לוקר ${lockerId}`);
       broadcastStatus();
     }
   });
