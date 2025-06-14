@@ -231,8 +231,9 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', async (message) => {
     try {
-      const data = JSON.parse(message);
-      
+      const data = JSON.parse(message.toString());
+      console.log('📨 התקבלה הודעה:', data);
+
       // טיפול בהודעת זיהוי
       if (data.type === 'identify') {
         if (data.client === 'web-admin') {
@@ -254,8 +255,65 @@ wss.on('connection', (ws, req) => {
             }));
             ws.close();
           }
+        } else if (data.client === 'locker') {
+          // רישום לוקר חדש
+          if (data.id && data.id.startsWith('LOC')) {
+            lockerId = data.id;
+            lockerConnections.set(lockerId, ws);
+            ws.lastSeen = new Date();
+            ws.cells = data.cells || {};
+            console.log(`📡 נרשם לוקר ${lockerId}`);
+            broadcastStatus();
+          }
         }
-        // ... rest of the existing code ...
+        return;
+      }
+
+      // בדיקת הרשאות לפני ביצוע פעולות
+      if (!isAdmin && !lockerId) {
+        console.log('❌ ניסיון גישה ללא הרשאות');
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'אין הרשאות מתאימות'
+        }));
+        return;
+      }
+
+      // טיפול בפקודות אחרות
+      switch (data.type) {
+        case 'ping':
+          ws.send(JSON.stringify({ type: 'pong' }));
+          break;
+
+        case 'unlock':
+          if (isAdmin) {
+            const success = await unlockCell(data.lockerId, data.cellId);
+            ws.send(JSON.stringify({
+              type: 'unlockResponse',
+              success,
+              cellId: data.cellId
+            }));
+          }
+          break;
+
+        case 'lock':
+          if (isAdmin) {
+            const success = await lockCell(data.lockerId, data.cellId, data.packageId);
+            ws.send(JSON.stringify({
+              type: 'lockResponse',
+              success,
+              cellId: data.cellId
+            }));
+          }
+          break;
+
+        case 'statusUpdate':
+          if (lockerId) {
+            ws.cells = data.cells || {};
+            ws.lastSeen = new Date();
+            broadcastStatus();
+          }
+          break;
       }
     } catch (error) {
       console.error('❌ שגיאה בעיבוד הודעה:', error);
@@ -264,11 +322,9 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     if (isAdmin) {
-      // הסרת ממשק ניהול
       adminConnections.delete(ws);
       console.log('👤 ממשק ניהול התנתק');
     } else if (lockerId) {
-      // הסרת לוקר
       lockerConnections.delete(lockerId);
       console.log(`🔌 נותק לוקר ${lockerId}`);
       broadcastStatus();
