@@ -77,153 +77,206 @@ export default function AdminLockersPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
-    // התחברות לשרת WebSocket
-    const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
-    const ws = new WebSocket(wsUrl)
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+    let pingInterval: NodeJS.Timeout;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
 
-    ws.onopen = () => {
-      console.log('✅ התחברות לשרת החומרה הצליחה')
-      // שליחת הודעת זיהוי
-      ws.send(JSON.stringify({
-        type: 'identify',
-        client: 'web-admin',
-        secret: process.env.NEXT_PUBLIC_ADMIN_SECRET
-      }))
-    }
-
-    ws.onmessage = (event) => {
+    const connect = () => {
       try {
-        const data = JSON.parse(event.data)
-        
-        // בדיקת תקינות בסיסית
-        if (!data || typeof data !== 'object') {
-          throw new Error('נתונים לא תקינים התקבלו מהשרת');
-        }
+        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app';
+        ws = new WebSocket(wsUrl);
 
-        if (!data.type) {
-          throw new Error('חסר שדה type בנתונים');
-        }
+        ws.onopen = () => {
+          console.log('✅ התחברות לשרת החומרה הצליחה');
+          reconnectAttempts = 0;
+          
+          // שליחת הודעת זיהוי
+          ws?.send(JSON.stringify({
+            type: 'identify',
+            client: 'web-admin',
+            secret: process.env.NEXT_PUBLIC_ADMIN_SECRET
+          }));
 
-        if (data.type === 'lockerUpdate' && (!data.data || typeof data.data !== 'object')) {
-          throw new Error('נתוני לוקר לא תקינים');
-        }
+          // התחלת פינג תקופתי
+          pingInterval = setInterval(() => {
+            if (ws?.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 30000);
+        };
 
-        console.log('📨 התקבלה הודעה:', {
-          type: data.type,
-          timestamp: new Date(data.timestamp).toLocaleString('he-IL'),
-          data: data.data
-        })
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // בדיקת תקינות בסיסית
+            if (!data || typeof data !== 'object') {
+              throw new Error('נתונים לא תקינים התקבלו מהשרת');
+            }
 
-        switch (data.type) {
-          case 'register':
-            // עדכון לוקר בודד
-            setLockers(prev => ({
-              ...prev,
-              [data.id]: {
-                id: data.id,
-                isOnline: data.status === 'online',
-                lastSeen: new Date().toISOString(),
-                cells: prev[data.id]?.cells || {},
-                ip: data.ip
-              }
-            }))
-            setLoading(false)
-            break
+            if (!data.type) {
+              throw new Error('חסר שדה type בנתונים');
+            }
 
-          case 'disconnect':
-            // עדכון סטטוס לוקר שהתנתק
-            setLockers(prev => {
-              if (!prev[data.id]) return prev
-              return {
-                ...prev,
-                [data.id]: {
-                  ...prev[data.id],
-                  isOnline: false,
-                  lastSeen: new Date().toISOString()
+            // הוספת לוג מפורט
+            const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleString('he-IL') : new Date().toLocaleString('he-IL');
+            console.log('📨 התקבלה הודעה:', {
+              type: data.type,
+              timestamp,
+              data: JSON.stringify(data.data, null, 2)
+            });
+
+            switch (data.type) {
+              case 'error':
+                console.error('❌ שגיאה מהשרת:', data.message);
+                break;
+
+              case 'register':
+                if (!data.id) {
+                  throw new Error('חסר מזהה לוקר בהודעת הרשמה');
                 }
-              }
-            })
-            break
+                setLockers(prev => ({
+                  ...prev,
+                  [data.id]: {
+                    id: data.id,
+                    isOnline: data.status === 'online',
+                    lastSeen: new Date().toISOString(),
+                    cells: prev[data.id]?.cells || {},
+                    ip: data.ip
+                  }
+                }));
+                setLoading(false);
+                break;
 
-          case 'lockerUpdate':
-            // עדכון כל הלוקרים
-            if (data.data) {
-              setLockers(prev => {
-                const updatedLockers = { ...prev };
-                
-                // עדכון או הוספת לוקרים חדשים
-                Object.entries(data.data).forEach(([id, lockerData]: [string, any]) => {
-                  updatedLockers[id] = {
-                    id,
-                    isOnline: lockerData.isOnline ?? true,
-                    lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
-                    cells: {
-                      ...(prev[id]?.cells || {}),
-                      ...(lockerData.cells || {})
-                    },
-                    ip: lockerData.ip || prev[id]?.ip
+              case 'disconnect':
+                if (!data.id) {
+                  throw new Error('חסר מזהה לוקר בהודעת ניתוק');
+                }
+                setLockers(prev => {
+                  if (!prev[data.id]) return prev;
+                  return {
+                    ...prev,
+                    [data.id]: {
+                      ...prev[data.id],
+                      isOnline: false,
+                      lastSeen: new Date().toISOString()
+                    }
                   };
                 });
-                
-                return updatedLockers;
-              });
-              setLoading(false);
-            }
-            break
+                break;
 
-          case 'cellUpdate':
-            // עדכון תא ספציפי
-            setLockers(prev => {
-              if (!prev[data.lockerId]) return prev
-              return {
-                ...prev,
-                [data.lockerId]: {
-                  ...prev[data.lockerId],
-                  cells: {
-                    ...prev[data.lockerId].cells,
-                    [data.cellId]: {
-                      id: data.cellId,
-                      locked: data.locked,
-                      hasPackage: data.hasPackage,
-                      packageId: data.packageId
-                    }
-                  }
+              case 'lockerUpdate':
+                if (!data.data || typeof data.data !== 'object') {
+                  throw new Error('נתוני עדכון לוקר לא תקינים');
                 }
-              }
-            })
-            break
-        }
+                setLockers(prev => {
+                  const updatedLockers = { ...prev };
+                  
+                  // עדכון או הוספת לוקרים חדשים
+                  Object.entries(data.data).forEach(([id, lockerData]: [string, any]) => {
+                    updatedLockers[id] = {
+                      id,
+                      isOnline: lockerData.isOnline ?? true,
+                      lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
+                      cells: {
+                        ...(prev[id]?.cells || {}),
+                        ...(lockerData.cells || {})
+                      },
+                      ip: lockerData.ip || prev[id]?.ip
+                    };
+                  });
+                  
+                  return updatedLockers;
+                });
+                setLoading(false);
+                break;
+
+              case 'cellUpdate':
+                if (!data.lockerId || !data.cellId) {
+                  throw new Error('חסרים פרטי זיהוי בעדכון תא');
+                }
+                setLockers(prev => {
+                  if (!prev[data.lockerId]) return prev;
+                  return {
+                    ...prev,
+                    [data.lockerId]: {
+                      ...prev[data.lockerId],
+                      cells: {
+                        ...prev[data.lockerId].cells,
+                        [data.cellId]: {
+                          id: data.cellId,
+                          locked: data.locked,
+                          hasPackage: data.hasPackage,
+                          packageId: data.packageId
+                        }
+                      }
+                    }
+                  };
+                });
+                break;
+
+              default:
+                console.warn('⚠️ התקבל סוג הודעה לא מוכר:', data.type);
+            }
+          } catch (error) {
+            console.error('❌ שגיאה בעיבוד הודעה:', error);
+            
+            // שליחת שגיאה לשרת לוגים
+            fetch('/api/log', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                level: 'error',
+                message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+                source: 'websocket',
+                data: event.data
+              })
+            }).catch(console.error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('❌ שגיאת WebSocket:', error);
+          setLoading(false);
+        };
+
+        ws.onclose = () => {
+          console.log('🔌 החיבור לשרת החומרה נסגר');
+          setLoading(true);
+          
+          // ניקוי טיימרים
+          clearInterval(pingInterval);
+          
+          // ניסיון התחברות מחדש
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`🔄 ניסיון התחברות מחדש ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`);
+            reconnectTimeout = setTimeout(connect, 5000);
+          } else {
+            console.error('❌ נכשלו כל ניסיונות ההתחברות');
+            setLoading(false);
+          }
+        };
       } catch (error) {
-        console.error('שגיאה בעיבוד הודעה:', error)
+        console.error('❌ שגיאה ביצירת חיבור WebSocket:', error);
+        setLoading(false);
       }
-    }
-
-    ws.onerror = (error) => {
-      console.error('❌ שגיאת WebSocket:', error);
-      setLoading(false);
     };
 
-    ws.onclose = () => {
-      console.log('🔌 החיבור לשרת החומרה נסגר');
-      setLoading(true);
-      
-      // ניסיון התחברות מחדש אחרי 5 שניות
-      setTimeout(() => {
-        console.log('🔄 מנסה להתחבר מחדש...');
-        window.location.reload();
-      }, 5000);
-    };
+    // התחברות ראשונית
+    connect();
 
-    // טיימר לבדיקת חיבור
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000);
-
+    // ניקוי בעת עזיבת הדף
     return () => {
+      clearTimeout(reconnectTimeout);
       clearInterval(pingInterval);
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
     };
   }, [])
 
@@ -264,6 +317,25 @@ export default function AdminLockersPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
           <p className="mt-4 text-white/80">טוען לוקרים...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // בדיקה אם אין לוקרים
+  if (Object.keys(lockers).length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📦</div>
+          <h2 className="text-2xl font-bold text-white mb-2">אין לוקרים זמינים</h2>
+          <p className="text-white/80">מחכה לחיבור לוקרים למערכת...</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
+          >
+            רענן דף
+          </button>
         </div>
       </div>
     )
@@ -313,7 +385,7 @@ export default function AdminLockersPage() {
             </div>
             <p className="text-3xl font-bold text-orange-400">
               {Object.values(lockers).reduce((total, locker) => 
-                total + Object.values(locker.cells).filter(cell => cell.hasPackage).length, 0
+                total + Object.values(locker.cells || {}).filter(cell => cell.hasPackage).length, 0
               )}
             </p>
             <p className="text-sm text-white/60 mt-2">מכילים חבילות</p>
@@ -322,14 +394,17 @@ export default function AdminLockersPage() {
 
         {/* רשימת לוקרים */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.values(lockers).map((locker) => (
-            <div key={locker.id} className="glass-card">
+          {Object.entries(lockers).map(([lockerId, locker]) => (
+            <div key={lockerId} className="glass-card relative overflow-hidden">
+              {/* סטטוס חיבור */}
+              <div className={`absolute top-0 right-0 left-0 h-1 ${locker.isOnline ? 'bg-green-400' : 'bg-red-400'}`} />
+              
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <StatusIcon isOnline={locker.isOnline} />
-                  <h3 className="text-lg font-semibold text-white">{locker.id}</h3>
+                  <h3 className="text-lg font-semibold text-white">{lockerId}</h3>
                 </div>
-                <span className="text-sm text-white/60">
+                <span className={`text-sm ${locker.isOnline ? 'text-green-400' : 'text-red-400'}`}>
                   {locker.isOnline ? 'מחובר' : 'מנותק'}
                 </span>
               </div>
@@ -339,13 +414,14 @@ export default function AdminLockersPage() {
                 <p>עדכון אחרון: {new Date(locker.lastSeen).toLocaleString('he-IL')}</p>
               </div>
 
+              {/* תאים */}
               <div className="grid grid-cols-2 gap-4">
-                {Object.entries(locker.cells).map(([cellId, cell]) => (
+                {Object.entries(locker.cells || {}).map(([cellId, cell]) => (
                   <button
                     key={cellId}
-                    onClick={() => unlockCell(locker.id, cellId)}
-                    disabled={!locker.isOnline || actionLoading === `${locker.id}-${cellId}`}
-                    className={`p-3 rounded-lg flex flex-col items-center justify-center gap-2 transition-all duration-300
+                    onClick={() => unlockCell(lockerId, cellId)}
+                    disabled={!locker.isOnline || actionLoading === `${lockerId}-${cellId}`}
+                    className={`relative p-3 rounded-lg flex flex-col items-center justify-center gap-2 transition-all duration-300
                       ${cell.hasPackage ? 'bg-orange-500/20 text-orange-400' : 'bg-white/10 text-white/80'}
                       ${!locker.isOnline && 'opacity-50 cursor-not-allowed'}
                       hover:bg-white/20`}
@@ -357,13 +433,19 @@ export default function AdminLockersPage() {
                         {cell.packageId ? `חבילה ${cell.packageId}` : 'תפוס'}
                       </span>
                     )}
-                    {actionLoading === `${locker.id}-${cellId}` && (
+                    {actionLoading === `${lockerId}-${cellId}` && (
                       <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                       </div>
                     )}
                   </button>
                 ))}
+                {/* אם אין תאים */}
+                {(!locker.cells || Object.keys(locker.cells).length === 0) && (
+                  <div className="col-span-2 text-center py-4 text-white/60">
+                    אין תאים זמינים
+                  </div>
+                )}
               </div>
             </div>
           ))}
