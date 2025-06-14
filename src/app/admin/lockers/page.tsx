@@ -75,6 +75,9 @@ export default function AdminLockersPage() {
   const [lockers, setLockers] = useState<{ [key: string]: Locker }>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  // --- WebSocket Status ---
+  const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר');
+  const [lastMessage, setLastMessage] = useState<string>('');
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -85,10 +88,13 @@ export default function AdminLockersPage() {
 
     const connect = () => {
       try {
+        setWsStatus('מתחבר');
         const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app';
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
+          setWsStatus('מחובר');
+          setLastMessage('התחברת בהצלחה לשרת החומרה');
           console.log('✅ התחברות לשרת החומרה הצליחה');
           reconnectAttempts = 0;
           
@@ -110,6 +116,7 @@ export default function AdminLockersPage() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            setLastMessage(event.data);
             
             // בדיקת תקינות בסיסית
             if (!data || typeof data !== 'object') {
@@ -247,11 +254,15 @@ export default function AdminLockersPage() {
         };
 
         ws.onerror = (error) => {
+          setWsStatus('שגיאה');
+          setLastMessage('שגיאה בחיבור לשרת החומרה');
           console.error('❌ שגיאת WebSocket:', error);
           setLoading(false);
         };
 
         ws.onclose = () => {
+          setWsStatus('מנותק');
+          setLastMessage('החיבור לשרת החומרה נסגר');
           console.log('🔌 החיבור לשרת החומרה נסגר');
           setLoading(true);
           
@@ -348,6 +359,9 @@ export default function AdminLockersPage() {
     )
   }
 
+  // --- תצוגת סטטוס WebSocket ---
+  const wsStatusColor = wsStatus === 'מחובר' ? 'bg-green-500' : wsStatus === 'מתחבר' ? 'bg-yellow-400' : wsStatus === 'מנותק' ? 'bg-gray-400' : 'bg-red-500';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white" dir="rtl">
       <div className="container mx-auto px-4 py-8">
@@ -361,6 +375,14 @@ export default function AdminLockersPage() {
           <p className="text-white/70 mt-2">
             ניהול וצפייה בכל הלוקרים והתאים במערכת
           </p>
+        </div>
+
+        {/* חלון סטטוס WebSocket */}
+        <div className="mb-4 p-3 rounded-lg border border-gray-300 bg-white flex items-center gap-4 shadow-sm">
+          <div className={`w-3 h-3 rounded-full ${wsStatusColor}`}></div>
+          <span className="font-bold">סטטוס חיבור:</span>
+          <span className="mr-2">{wsStatus}</span>
+          <span className="ml-auto text-xs text-gray-500 truncate max-w-xs" title={lastMessage}>הודעה אחרונה: {lastMessage}</span>
         </div>
 
         {/* סיכום כללי */}
