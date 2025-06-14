@@ -184,10 +184,19 @@ class WebSocketManager {
       this.adminConnections.add(ws);
       
       this.logEvent('admin', '👤 נרשם ממשק ניהול חדש');
-      ws.send(JSON.stringify({
-        type: 'status',
-        lockers: this.getLockerStates()
-      }));
+      
+      // שליחת סטטוס ראשוני
+      const message = {
+        type: 'lockerUpdate',
+        data: {
+          message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
+          status: 'פעיל',
+          lockers: this.getLockerStates(),
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      ws.send(JSON.stringify(message));
     } else {
       this.logEvent('warning', '⚠️ ניסיון זיהוי ממשק ניהול נכשל');
       ws.close();
