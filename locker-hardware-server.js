@@ -62,9 +62,9 @@ function broadcastStatus() {
   const message = {
     type: 'lockerUpdate',
     data: {
+      lockers: getLockerStates(),
       message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
       status: 'פעיל',
-      lockers: getLockerStates(),
       timestamp: Date.now()
     },
     timestamp: Date.now()
@@ -230,6 +230,8 @@ wss.on('connection', (ws) => {
     try {
       const data = JSON.parse(msg);
       console.log('📨 התקבלה הודעה:', data);
+      
+      const lockersData = data.data.lockers || data.data;
       
       switch (data.type) {
         case 'register':

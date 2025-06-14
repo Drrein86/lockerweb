@@ -175,8 +175,12 @@ export default function AdminLockersPage() {
                 setLockers(prev => {
                   const updatedLockers = { ...prev };
                   
+                  // בדיקה אם הנתונים מגיעים בפורמט החדש (lockers)
+                  const lockersData = data.data.lockers || data.data;
+                  console.log('📦 נתוני לוקרים:', lockersData);
+                  
                   // עדכון או הוספת לוקרים חדשים
-                  Object.entries(data.data).forEach(([id, lockerData]: [string, any]) => {
+                  Object.entries(lockersData).forEach(([id, lockerData]: [string, any]) => {
                     console.log(`🔄 מעדכן לוקר ${id}:`, lockerData);
                     updatedLockers[id] = {
                       id,
