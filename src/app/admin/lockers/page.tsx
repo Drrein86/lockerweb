@@ -168,6 +168,7 @@ export default function AdminLockersPage() {
                 break;
 
               case 'lockerUpdate':
+                console.log('📨 התקבלה הודעת עדכון לוקר:', data);
                 if (!data.data || typeof data.data !== 'object') {
                   throw new Error('נתוני עדכון לוקר לא תקינים');
                 }
@@ -176,6 +177,7 @@ export default function AdminLockersPage() {
                   
                   // עדכון או הוספת לוקרים חדשים
                   Object.entries(data.data).forEach(([id, lockerData]: [string, any]) => {
+                    console.log(`🔄 מעדכן לוקר ${id}:`, lockerData);
                     updatedLockers[id] = {
                       id,
                       isOnline: lockerData.isOnline ?? true,
@@ -188,6 +190,7 @@ export default function AdminLockersPage() {
                     };
                   });
                   
+                  console.log('✅ לוקרים מעודכנים:', updatedLockers);
                   return updatedLockers;
                 });
                 setLoading(false);

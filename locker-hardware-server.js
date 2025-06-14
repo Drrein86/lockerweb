@@ -61,7 +61,12 @@ function sendToLocker(id, messageObj) {
 function broadcastStatus() {
   const message = {
     type: 'lockerUpdate',
-    data: getLockerStates(),
+    data: {
+      message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
+      status: 'פעיל',
+      lockers: getLockerStates(),
+      timestamp: Date.now()
+    },
     timestamp: Date.now()
   };
   

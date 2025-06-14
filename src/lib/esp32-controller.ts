@@ -206,11 +206,9 @@ class ESP32Controller {
     
     for (const [lockerId, connection] of this.lockerConnections) {
       status[lockerId] = {
-        status: connection.status,
-        lastSeen: connection.lastSeen,
-        cells: connection.cells,
         isOnline: connection.ws.readyState === WebSocket.OPEN,
-        ip: connection.ip
+        lastSeen: connection.lastSeen,
+        cells: connection.cells || {}
       };
     }
     
@@ -457,7 +455,12 @@ class ESP32Controller {
    * שליחת הודעה לכל ממשקי הניהול
    */
   private broadcastToAdmins(message: any): void {
-    const messageStr = JSON.stringify(message);
+    const messageStr = JSON.stringify({
+      type: 'lockerUpdate',
+      data: this.getAllStatus(),
+      timestamp: Date.now()
+    });
+    
     for (const ws of this.adminConnections) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(messageStr);
