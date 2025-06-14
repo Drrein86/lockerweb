@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // הסרת appDir כי זה כבר הברירת מחדל ב-Next.js 14
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production"
+  },
+  images: {
+    domains: ['lockerweb.vercel.app']
+  },
+  typescript: {
+    ignoreBuildErrors: false
+  }
 }
 
 module.exports = nextConfig 

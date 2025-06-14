@@ -255,21 +255,33 @@ wss.on('connection', (ws, req) => {
             }));
             ws.close();
           }
-        } else if (data.client === 'locker') {
-          // רישום לוקר חדש
-          if (data.id && data.id.startsWith('LOC')) {
-            lockerId = data.id;
-            lockerConnections.set(lockerId, ws);
-            ws.lastSeen = new Date();
-            ws.cells = data.cells || {};
-            console.log(`📡 נרשם לוקר ${lockerId}`);
-            broadcastStatus();
-          }
         }
         return;
       }
 
-      // בדיקת הרשאות לפני ביצוע פעולות
+      // טיפול בהודעת רישום לוקר
+      if (data.type === 'register') {
+        if (data.id && data.id.startsWith('LOC')) {
+          lockerId = data.id;
+          lockerConnections.set(lockerId, ws);
+          ws.lastSeen = new Date();
+          ws.cells = data.cells || {};
+          ws.ip = data.ip;
+          console.log(`📡 נרשם לוקר ${lockerId} מכתובת ${data.ip}`);
+          
+          // שליחת אישור רישום ללוקר
+          ws.send(JSON.stringify({
+            type: 'registerSuccess',
+            message: `נרשמת בהצלחה כלוקר ${lockerId}`
+          }));
+          
+          // עדכון כל הממשקים
+          broadcastStatus();
+          return;
+        }
+      }
+
+      // בדיקת הרשאות לפני ביצוע פעולות אחרות
       if (!isAdmin && !lockerId) {
         console.log('❌ ניסיון גישה ללא הרשאות');
         ws.send(JSON.stringify({

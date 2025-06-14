@@ -13,6 +13,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model CellStatus {
+  id        Int      @id @default(autoincrement())
+  lockerId  String
+  cellId    String
+  locked    Boolean  @default(true)
+  packageId String?
+  updatedAt DateTime @default(now())
+
+  @@unique([lockerId, cellId])
+}
+
 model Locker {
   id          Int      @id @default(autoincrement())
   location    String

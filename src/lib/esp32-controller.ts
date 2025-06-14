@@ -117,6 +117,12 @@ class ESP32Controller {
     }
 
     try {
+      // בדיקה שהחיבור קיים ופעיל
+      if (!connection || !connection.ws || connection.ws.readyState !== WebSocket.OPEN) {
+        this.log(`❌ החיבור ללוקר ${lockerId} לא זמין`, 'error');
+        return false;
+      }
+
       // שליחת פקודת פתיחה
       connection.ws.send(JSON.stringify({
         type: 'unlock',
@@ -161,6 +167,12 @@ class ESP32Controller {
     }
 
     try {
+      // בדיקה שהחיבור קיים ופעיל
+      if (!connection || !connection.ws || connection.ws.readyState !== WebSocket.OPEN) {
+        this.log(`❌ החיבור ללוקר ${lockerId} לא זמין`, 'error');
+        return false;
+      }
+
       // שליחת פקודת נעילה
       connection.ws.send(JSON.stringify({
         type: 'lock',
@@ -281,12 +293,9 @@ class ESP32Controller {
     }
 
     // בדיקת מתודות נדרשות
-    const requiredMethods = ['on', 'send', 'close'];
-    for (const method of requiredMethods) {
-      if (typeof ws[method] !== 'function') {
-        this.log(`❌ חיבור WebSocket חסר את המתודה ${method} עבור לוקר ${lockerId}`, 'error');
-        return false;
-      }
+    if (typeof ws.on !== 'function' || typeof ws.send !== 'function' || typeof ws.close !== 'function') {
+      this.log(`❌ חיבור WebSocket חסר מתודות נדרשות עבור לוקר ${lockerId}`, 'error');
+      return false;
     }
 
     return true;
