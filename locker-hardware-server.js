@@ -4,11 +4,13 @@ const https = require('https');
 const fs = require('fs');
 require('dotenv').config();
 
+// רווח רנדומלי לצורך טריגר דיפלוי
+
 // ייבוא מחלקת ESP32
 const ESP32Controller = require('./esp32-wifi-integration');
 
 // הגדרות סביבה
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 const USE_SSL = process.env.USE_SSL === 'true';
 const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;
@@ -238,7 +240,7 @@ wss.on('connection', (ws, req) => {
       if (data.type === 'identify') {
         if (data.client === 'web-admin') {
           if (data.secret === ADMIN_SECRET) {
-            console.log('✅ ממשק ניהול מזוהה התחבר');
+            console.log('✅ ממשק ניהול לוקרים מזוהה התחבר');
             isAdmin = true;
             adminConnections.add(ws);
             ws.send(JSON.stringify({
@@ -335,7 +337,7 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     if (isAdmin) {
       adminConnections.delete(ws);
-      console.log('👤 ממשק ניהול התנתק');
+      console.log('👤 ממשק ניהול לוקרים התנתק');
     } else if (lockerId) {
       lockerConnections.delete(lockerId);
       console.log(`🔌 נותק לוקר ${lockerId}`);
@@ -400,3 +402,5 @@ function logEvent(type, message, data = {}) {
     ...data
   }));
 } 
+
+// trigger - שינוי יזום לצורך דיפלוי 

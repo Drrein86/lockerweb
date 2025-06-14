@@ -39,7 +39,7 @@ interface WebSocketMessage {
 
 // קונפיגורציה
 const CONFIG = {
-  PORT: process.env.PORT || 8080,
+  PORT: process.env.PORT || 3000,
   USE_SSL: process.env.USE_SSL === 'true',
   SSL_KEY: process.env.SSL_KEY_PATH,
   SSL_CERT: process.env.SSL_CERT_PATH,
@@ -60,9 +60,9 @@ class WebSocketManager {
   private wss: WebSocketServer;
   private lockerConnections: Map<string, LockerConnection>;
   private adminConnections: Set<LockerConnection>;
-  private heartbeatInterval: NodeJS.Timeout;
-  private statusInterval: NodeJS.Timeout;
-  private monitoringInterval: NodeJS.Timeout;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private statusInterval: NodeJS.Timeout | null = null;
+  private monitoringInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.lockerConnections = new Map();
@@ -245,21 +245,16 @@ class WebSocketManager {
   private handleClose(ws: LockerConnection): void {
     if (ws.isAdmin) {
       this.adminConnections.delete(ws);
-      this.logEvent('admin', '👤 ממשק ניהול התנתק');
+      this.logEvent('disconnect', '👤 ממשק ניהול התנתק');
     } else if (ws.lockerId) {
       this.lockerConnections.delete(ws.lockerId);
-      this.logEvent('disconnect', `🔌 נותק לוקר ${ws.lockerId}`);
-      
-      // שליחת עדכון למנהלים
-      this.broadcastToAdmins({
-        type: 'disconnect',
-        id: ws.lockerId,
-        timestamp: new Date().toISOString()
-      });
+      this.logEvent('disconnect', `📡 לוקר ${ws.lockerId} התנתק`);
       
       // ניסיון חיבור מחדש
       setTimeout(() => {
-        this.attemptReconnect(ws.lockerId, ws);
+        if (ws.lockerId) {
+          this.attemptReconnect(ws.lockerId, ws);
+        }
       }, 5000);
     }
   }
@@ -427,13 +422,31 @@ class WebSocketManager {
    * עצירת השרת
    */
   public stop(): void {
-    this.logEvent('server_stop', '🛑 סוגר את השרת...');
-    
+    // סגירת חיבורים
+    for (const [_, connection] of this.lockerConnections) {
+      connection.close();
+    }
+    this.lockerConnections.clear();
+
+    for (const connection of this.adminConnections) {
+      connection.close();
+    }
+    this.adminConnections.clear();
+
     // ניקוי טיימרים
-    clearInterval(this.heartbeatInterval);
-    clearInterval(this.statusInterval);
-    clearInterval(this.monitoringInterval);
-    
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+      this.statusInterval = null;
+    }
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = null;
+    }
+
     // עצירת מעקב ESP32
     esp32Controller.stopPeriodicHealthCheck();
     
