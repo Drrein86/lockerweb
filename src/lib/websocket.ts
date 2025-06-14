@@ -3,6 +3,7 @@ const HARDWARE_WS_URL = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app')
   : 'wss://lockerweb-production.up.railway.app'
 
+const ADMIN_SECRET = '86428642'
 const PING_INTERVAL = 30000 // 30 שניות
 const RECONNECT_DELAY = 5000 // 5 שניות
 const CONNECTION_TIMEOUT = 5000 // 5 שניות
@@ -81,7 +82,8 @@ function connectToHardwareServer() {
       // שליחת הודעת זיהוי ראשונית
       const identifyMessage = {
         type: 'identify',
-        client: 'web-admin'
+        client: 'web-admin',
+        secret: ADMIN_SECRET
       }
       hardwareWebSocket?.send(JSON.stringify(identifyMessage))
       
