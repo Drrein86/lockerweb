@@ -231,7 +231,11 @@ wss.on('connection', (ws) => {
       const data = JSON.parse(msg);
       console.log('📨 התקבלה הודעה:', data);
       
-      const lockersData = data.data.lockers || data.data;
+      // רק אם יש data.data
+      let lockersData = undefined;
+      if (data.data && (data.data.lockers || typeof data.data === 'object')) {
+        lockersData = data.data.lockers || data.data;
+      }
       
       switch (data.type) {
         case 'register':
