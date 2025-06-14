@@ -278,6 +278,34 @@ wss.on('connection', (ws) => {
             });
           }
           break;
+          
+        case 'lockerUpdate':
+          console.log('📨 התקבלה הודעת עדכון לוקר:', data);
+          if (!data.data || typeof data.data !== 'object') {
+            throw new Error('נתוני עדכון לוקר לא תקינים');
+          }
+          setLockers(prev => {
+            const updatedLockers = { ...prev };
+            const lockersData = data.data.lockers || data.data;
+            console.log('📦 נתוני לוקרים:', lockersData);
+
+            Object.entries(lockersData).forEach(([id, lockerData]) => {
+              updatedLockers[id] = {
+                id,
+                isOnline: lockerData.isOnline ?? true,
+                lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
+                cells: {
+                  ...(prev[id]?.cells || {}),
+                  ...(lockerData.cells || {})
+                },
+                ip: lockerData.ip || prev[id]?.ip
+              };
+            });
+
+            return updatedLockers;
+          });
+          setLoading(false); // תמיד לשים כאן!
+          break;
       }
       
     } catch (error) {
