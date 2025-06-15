@@ -80,7 +80,7 @@ const PackagesPage = () => {
             </div>
           </div>
           
-          {user?.role === 'ADMIN' && (
+          {user?.role === 'admin' && (
             <Link href="/packages/new" className="btn-primary">
               חבילה חדשה
             </Link>
@@ -133,7 +133,7 @@ const PackagesPage = () => {
 
                 {/* פעולות */}
                 <div className="mt-4 flex gap-2">
-                  {user?.role === 'ADMIN' && package_.status === 'PENDING' && (
+                  {user?.role === 'admin' && package_.status === 'PENDING' && (
                     <Link
                       href={`/packages/${package_.id}/assign`}
                       className="btn-secondary flex items-center gap-2"
@@ -143,7 +143,7 @@ const PackagesPage = () => {
                     </Link>
                   )}
 
-                  {user?.role === 'COURIER' && package_.status === 'IN_TRANSIT' && (
+                  {user?.role === 'courier' && package_.status === 'IN_TRANSIT' && (
                     <Link
                       href={`/packages/${package_.id}/place`}
                       className="btn-secondary flex items-center gap-2"
@@ -153,7 +153,7 @@ const PackagesPage = () => {
                     </Link>
                   )}
 
-                  {user?.role === 'CUSTOMER' && 
+                  {user?.role === 'customer' && 
                    package_.status === 'IN_LOCKER' && 
                    package_.recipientId === user.id && (
                     <button
@@ -176,9 +176,9 @@ const PackagesPage = () => {
             <PackageIcon className="w-12 h-12 text-white/20 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">אין חבילות</h3>
             <p className="text-white/70">
-              {user?.role === 'ADMIN'
+              {user?.role === 'admin'
                 ? 'לחץ על "חבילה חדשה" כדי להתחיל'
-                : user?.role === 'COURIER'
+                : user?.role === 'courier'
                 ? 'אין חבילות להעברה כרגע'
                 : 'אין לך חבילות פעילות כרגע'}
             </p>

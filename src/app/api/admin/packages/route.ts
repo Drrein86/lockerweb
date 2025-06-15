@@ -12,7 +12,7 @@ export async function GET() {
         },
         cell: {
           select: {
-            code: true
+            number: true
           }
         }
       },

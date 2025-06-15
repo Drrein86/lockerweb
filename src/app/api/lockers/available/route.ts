@@ -6,44 +6,18 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request, { params }: { params?: any } = {}) {
   try {
-    const url = new URL(request.url || 'http://localhost:3000')
-    const size = url.searchParams.get('size')
-
-    if (!size) {
-      return NextResponse.json(
-        { error: 'חובה להזין גודל חבילה' },
-        { status: 400 }
-      )
-    }
-
-    // המרת גודל מעברית לאנגלית עבור הדאטבייס
-    const sizeMap: { [key: string]: string } = {
-      'קטן': 'SMALL',
-      'בינוני': 'MEDIUM',
-      'גדול': 'LARGE',
-      'רחב': 'WIDE'
-    }
-
-    const dbSize = sizeMap[size]
-    if (!dbSize) {
-      return NextResponse.json(
-        { error: 'גודל חבילה לא תקין' },
-        { status: 400 }
-      )
-    }
-
     // חיפוש תאים זמינים
     const availableCells = await prisma.cell.findMany({
       where: {
-        size: dbSize as any,
-        isOccupied: false
+        isLocked: false,
+        packages: { none: { status: 'IN_LOCKER' } }
       },
       include: {
         locker: {
           select: {
             id: true,
             location: true,
-            description: true
+            name: true
           }
         }
       },
@@ -53,7 +27,7 @@ export async function GET(request: Request, { params }: { params?: any } = {}) {
     if (availableCells.length === 0) {
       return NextResponse.json({
         available: false,
-        message: 'אין תאים זמינים בגודל המבוקש'
+        message: 'אין תאים זמינים'
       })
     }
 
@@ -68,8 +42,9 @@ export async function GET(request: Request, { params }: { params?: any } = {}) {
       }
       acc[lockerId].cells.push({
         id: cell.id,
-        code: cell.code,
-        size: cell.size
+        number: cell.number,
+        isLocked: cell.isLocked,
+        isOpen: cell.isOpen
       })
       return acc
     }, {} as any)

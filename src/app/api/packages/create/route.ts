@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendNotificationEmail } from '@/lib/email'
-import { openLockerCell } from '@/lib/websocket'
+import { useWebSocketStore } from '@/lib/services/websocket.service'
+import bcrypt from 'bcrypt'
 
 export async function POST(request: Request) {
   try {
@@ -10,65 +11,73 @@ export async function POST(request: Request) {
       name, 
       email, 
       phone, 
-      tracking_code, 
-      size, 
+      description, 
       lockerId, 
-      cellId, 
-      cellCode 
+      cellId 
     } = body
 
     // בדיקת שדות חובה
-    if (!name || !email || !phone || !size || !lockerId || !cellId) {
+    if (!name || !email || !phone || !description || !lockerId || !cellId) {
       return NextResponse.json(
         { error: 'חסרים שדות חובה' },
         { status: 400 }
       )
     }
 
-    // המרת גודל מעברית לאנגלית
-    const sizeMap: { [key: string]: string } = {
-      'קטן': 'SMALL',
-      'בינוני': 'MEDIUM',
-      'גדול': 'LARGE',
-      'רחב': 'WIDE'
-    }
-
-    const dbSize = sizeMap[size]
-    if (!dbSize) {
-      return NextResponse.json(
-        { error: 'גודל חבילה לא תקין' },
-        { status: 400 }
-      )
-    }
-
-    // יצירת קוד מעקב אם לא סופק
-    const finalTrackingCode = tracking_code || 
-      'XYZ' + Math.random().toString(36).substr(2, 9).toUpperCase()
-
     // בדיקה שהתא עדיין זמין
     const cell = await prisma.cell.findUnique({
       where: { id: cellId },
-      include: { locker: true }
+      include: { 
+        locker: true,
+        packages: {
+          where: { status: 'IN_LOCKER' }
+        }
+      }
     })
 
-    if (!cell || cell.isOccupied) {
+    if (!cell || cell.packages.length > 0) {
       return NextResponse.json(
         { error: 'התא כבר תפוס או לא קיים' },
         { status: 400 }
       )
     }
 
+    // חיפוש או יצירת משתמש
+    let recipient = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (!recipient) {
+      // יצירת סיסמה זמנית
+      const tempPassword = Math.random().toString(36).slice(-8)
+      const hashedPassword = await bcrypt.hash(tempPassword, 10)
+
+      recipient = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role: 'CUSTOMER'
+        }
+      })
+
+      // TODO: שליחת סיסמה זמנית במייל
+    }
+
     // שמירת החבילה בבסיס הנתונים
     const newPackage = await prisma.package.create({
       data: {
-        trackingCode: finalTrackingCode,
-        userName: name,
-        userEmail: email,
-        userPhone: phone,
-        size: dbSize as any,
-        lockerId,
-        cellId,
-        status: 'WAITING'
+        description,
+        recipient: {
+          connect: { id: recipient.id }
+        },
+        locker: {
+          connect: { id: lockerId }
+        },
+        cell: {
+          connect: { id: cellId }
+        },
+        status: 'PENDING'
       },
       include: {
         locker: true,
@@ -76,10 +85,14 @@ export async function POST(request: Request) {
       }
     })
 
-    // עדכון סטטוס התא לתפוס
+    if (!newPackage.locker || !newPackage.cell) {
+      throw new Error('שגיאה בשמירת החבילה')
+    }
+
+    // עדכון סטטוס התא לנעול
     await prisma.cell.update({
       where: { id: cellId },
-      data: { isOccupied: true }
+      data: { isLocked: true }
     })
 
     // שליחת הודעת אימייל ללקוח
@@ -87,9 +100,9 @@ export async function POST(request: Request) {
       await sendNotificationEmail({
         to: email,
         name,
-        trackingCode: finalTrackingCode,
+        packageId: newPackage.id,
         lockerLocation: cell.locker.location,
-        cellCode: cell.code
+        cellNumber: cell.number
       })
     } catch (emailError) {
       console.error('שגיאה בשליחת אימייל:', emailError)
@@ -98,7 +111,8 @@ export async function POST(request: Request) {
 
     // פתיחת התא דרך WebSocket
     try {
-      await openLockerCell(lockerId, cellCode || cell.code)
+      const { unlockCell } = useWebSocketStore.getState()
+      await unlockCell(lockerId, cellId)
     } catch (wsError) {
       console.error('שגיאה בפתיחת התא:', wsError)
       // לא נעצור את התהליך בגלל שגיאת WebSocket
@@ -108,9 +122,9 @@ export async function POST(request: Request) {
       success: true,
       package: {
         id: newPackage.id,
-        trackingCode: finalTrackingCode,
+        description: newPackage.description,
         locker: newPackage.locker.location,
-        cell: newPackage.cell.code,
+        cell: newPackage.cell.number,
         status: newPackage.status
       }
     })

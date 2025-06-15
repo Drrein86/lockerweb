@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { openLockerCell } from '@/lib/websocket'
+import { useWebSocketStore } from '@/lib/services/websocket.service'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { trackingCode } = body
+    const { packageId } = body
 
-    if (!trackingCode) {
+    if (!packageId) {
       return NextResponse.json(
-        { error: 'קוד מעקב לא סופק' },
+        { error: 'מזהה חבילה לא סופק' },
         { status: 400 }
       )
     }
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     // חיפוש החבילה
     const packageData = await prisma.package.findUnique({
       where: {
-        trackingCode: trackingCode.toUpperCase()
+        id: packageId
       },
       include: {
         locker: true,
@@ -32,8 +32,15 @@ export async function POST(request: Request) {
       )
     }
 
+    if (!packageData.locker || !packageData.cell || !packageData.cellId) {
+      return NextResponse.json(
+        { error: 'נתוני החבילה חסרים' },
+        { status: 500 }
+      )
+    }
+
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'COLLECTED') {
+    if (packageData.status === 'DELIVERED') {
       return NextResponse.json(
         { error: 'החבילה כבר נאספה' },
         { status: 410 }
@@ -53,9 +60,10 @@ export async function POST(request: Request) {
     }
 
     // פתיחת התא דרך WebSocket
-    const unlockSuccess = await openLockerCell(packageData.lockerId, packageData.cell.code)
-    
-    if (!unlockSuccess) {
+    try {
+      const { unlockCell } = useWebSocketStore.getState()
+      await unlockCell(packageData.locker.id, packageData.cell.id)
+    } catch (error) {
       return NextResponse.json(
         { error: 'הלוקר לא מחובר או שגיאה בפתיחה' },
         { status: 503 }
@@ -66,29 +74,32 @@ export async function POST(request: Request) {
     const updatedPackage = await prisma.package.update({
       where: { id: packageData.id },
       data: { 
-        status: 'COLLECTED',
+        status: 'DELIVERED',
         updatedAt: new Date()
       }
     })
 
-    // עדכון התא לפנוי
+    // עדכון התא לפתוח
     await prisma.cell.update({
       where: { id: packageData.cellId },
-      data: { isOccupied: false }
+      data: { 
+        isLocked: false,
+        isOpen: true
+      }
     })
 
     // רישום פעולת איסוף (לוג)
-    console.log(`חבילה נאספה: ${trackingCode} מתא ${packageData.cell.code} בלוקר ${packageData.locker.location}`)
+    console.log(`חבילה נאספה: ${packageId} מתא ${packageData.cell.number} בלוקר ${packageData.locker.location}`)
 
     return NextResponse.json({
       success: true,
       message: 'הלוקר נפתח בהצלחה',
       package: {
-        trackingCode: updatedPackage.trackingCode,
+        id: updatedPackage.id,
         status: 'נאסף',
-        collectedAt: updatedPackage.updatedAt,
+        deliveredAt: updatedPackage.updatedAt,
         locker: packageData.locker.location,
-        cell: packageData.cell.code
+        cell: packageData.cell.number
       }
     })
 

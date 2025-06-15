@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
-        role: 'customer', // ברירת מחדל - לקוח
+        role: 'CUSTOMER', // ברירת מחדל - לקוח
       },
     })
 

@@ -10,19 +10,20 @@ export async function GET(
 
     if (!trackingCode) {
       return NextResponse.json(
-        { error: 'קוד מעקב לא סופק' },
+        { error: 'מזהה חבילה לא סופק' },
         { status: 400 }
       )
     }
 
-    // חיפוש החבילה לפי קוד מעקב
+    // חיפוש החבילה לפי מזהה
     const packageData = await prisma.package.findUnique({
       where: {
-        trackingCode: trackingCode.toUpperCase()
+        id: trackingCode
       },
       include: {
         locker: true,
-        cell: true
+        cell: true,
+        recipient: true
       }
     })
 
@@ -33,15 +34,22 @@ export async function GET(
       )
     }
 
+    if (!packageData.locker || !packageData.cell || !packageData.recipient) {
+      return NextResponse.json(
+        { error: 'נתוני החבילה חסרים' },
+        { status: 500 }
+      )
+    }
+
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'COLLECTED') {
+    if (packageData.status === 'DELIVERED') {
       return NextResponse.json(
         { 
           error: 'החבילה כבר נאספה',
           package: {
-            trackingCode: packageData.trackingCode,
+            id: packageData.id,
             status: packageData.status,
-            collectedAt: packageData.updatedAt
+            deliveredAt: packageData.updatedAt
           }
         },
         { status: 410 } // Gone
@@ -58,7 +66,7 @@ export async function GET(
         { 
           error: 'החבילה פגת תוקף (יותר מ-7 ימים)',
           package: {
-            trackingCode: packageData.trackingCode,
+            id: packageData.id,
             status: 'EXPIRED',
             createdAt: packageData.createdAt
           }
@@ -67,41 +75,33 @@ export async function GET(
       )
     }
 
-    // המרת גודל מאנגלית לעברית
-    const sizeMap: { [key: string]: string } = {
-      'SMALL': 'קטן',
-      'MEDIUM': 'בינוני',
-      'LARGE': 'גדול',
-      'WIDE': 'רחב'
-    }
-
     const statusMap: { [key: string]: string } = {
-      'WAITING': 'ממתין לאיסוף',
-      'COLLECTED': 'נאסף'
+      'PENDING': 'ממתין לשליח',
+      'IN_TRANSIT': 'בדרך',
+      'IN_LOCKER': 'ממתין לאיסוף',
+      'DELIVERED': 'נאסף'
     }
 
     return NextResponse.json({
       success: true,
       package: {
         id: packageData.id,
-        trackingCode: packageData.trackingCode,
-        userName: packageData.userName,
-        userEmail: packageData.userEmail,
-        userPhone: packageData.userPhone,
-        size: sizeMap[packageData.size] || packageData.size,
+        description: packageData.description,
+        recipientName: packageData.recipient.name,
+        recipientEmail: packageData.recipient.email,
         status: statusMap[packageData.status] || packageData.status,
         locker: {
           id: packageData.locker.id,
           location: packageData.locker.location,
-          description: packageData.locker.description
+          name: packageData.locker.name
         },
         cell: {
           id: packageData.cell.id,
-          code: packageData.cell.code
+          number: packageData.cell.number
         },
         createdAt: packageData.createdAt,
         daysLeft: Math.max(0, 7 - daysDiff),
-        canCollect: daysDiff <= 7
+        canCollect: daysDiff <= 7 && packageData.status === 'IN_LOCKER'
       }
     })
 

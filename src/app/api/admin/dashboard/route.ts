@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getConnectedLockers } from '@/lib/websocket'
+import { useWebSocketStore } from '@/lib/services/websocket.service'
 
 export async function GET() {
   try {
@@ -10,28 +10,33 @@ export async function GET() {
     // ספירת תאים
     const totalCells = await prisma.cell.count()
     const occupiedCells = await prisma.cell.count({
-      where: { isOccupied: true }
+      where: { 
+        packages: { some: { status: 'IN_LOCKER' } }
+      }
     })
     
     // ספירת חבילות
     const totalPackages = await prisma.package.count()
-    const waitingPackages = await prisma.package.count({
-      where: { status: 'WAITING' }
+    const pendingPackages = await prisma.package.count({
+      where: { status: 'PENDING' }
     })
-    const collectedPackages = await prisma.package.count({
-      where: { status: 'COLLECTED' }
+    const deliveredPackages = await prisma.package.count({
+      where: { status: 'DELIVERED' }
     })
     
-    // לוקרים מחוברים (מ-WebSocket)
-    const connectedLockers = getConnectedLockers().length
+    // לוקרים מחוברים
+    const connectedLockers = await prisma.locker.count({
+      where: { isOnline: true }
+    })
 
-    // סטטיסטיקות נוספות
+    // חבילות אחרונות
     const recentPackages = await prisma.package.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: {
+        recipient: { select: { name: true } },
         locker: { select: { location: true } },
-        cell: { select: { code: true } }
+        cell: { select: { number: true } }
       }
     })
 
@@ -41,22 +46,9 @@ export async function GET() {
     
     const expiredPackages = await prisma.package.count({
       where: {
-        status: 'WAITING',
+        status: 'IN_LOCKER',
         createdAt: { lt: sevenDaysAgo }
       }
-    })
-
-    // תפוסה לפי גודל תא
-    const cellsBySize = await prisma.cell.groupBy({
-      by: ['size'],
-      _count: { _all: true }
-    })
-    
-    // ספירת תאים תפוסים לפי גודל
-    const cellsOccupiedBySize = await prisma.cell.groupBy({
-      by: ['size'],
-      where: { isOccupied: true },
-      _count: { _all: true }
     })
 
     // סטטיסטיקות יומיות (היום)
@@ -74,9 +66,9 @@ export async function GET() {
       }
     })
 
-    const todayCollected = await prisma.package.count({
+    const todayDelivered = await prisma.package.count({
       where: {
-        status: 'COLLECTED',
+        status: 'DELIVERED',
         updatedAt: {
           gte: today,
           lt: tomorrow
@@ -91,33 +83,24 @@ export async function GET() {
         totalCells,
         occupiedCells,
         totalPackages,
-        waitingPackages,
-        collectedPackages,
+        pendingPackages,
+        deliveredPackages,
         connectedLockers,
         expiredPackages,
         todayPackages,
-        todayCollected,
+        todayDelivered,
         occupancyRate: totalCells > 0 ? Math.round((occupiedCells / totalCells) * 100) : 0,
-        collectionRate: totalPackages > 0 ? Math.round((collectedPackages / totalPackages) * 100) : 0
+        deliveryRate: totalPackages > 0 ? Math.round((deliveredPackages / totalPackages) * 100) : 0
       },
       recentPackages: recentPackages.map(pkg => ({
-        trackingCode: pkg.trackingCode,
-        userName: pkg.userName,
-        status: pkg.status === 'WAITING' ? 'ממתין' : 'נאסף',
-        locker: pkg.locker.location,
-        cell: pkg.cell.code,
+        id: pkg.id,
+        description: pkg.description,
+        status: pkg.status,
+        recipientName: pkg.recipient.name,
+        location: pkg.locker?.location || 'לא במיקום',
+        cellNumber: pkg.cell?.number || '-',
         createdAt: pkg.createdAt
-      })),
-      cellsBySize: cellsBySize.map(item => {
-        const occupiedCount = cellsOccupiedBySize.find(occ => occ.size === item.size)?._count._all || 0
-        return {
-          size: item.size === 'SMALL' ? 'קטן' : 
-                item.size === 'MEDIUM' ? 'בינוני' :
-                item.size === 'LARGE' ? 'גדול' : 'רחב',
-          total: item._count._all,
-          occupied: occupiedCount
-        }
-      })
+      }))
     })
 
   } catch (error) {
