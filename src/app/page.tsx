@@ -28,13 +28,24 @@ function HomePage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-8">ברוכים הבאים למערכת הלוקרים</h1>
-          <div className="space-x-4">
+          <div className="space-x-4 mb-8">
             <Link href="/login" className="btn-primary">
               התחברות
             </Link>
             <Link href="/register" className="btn-secondary">
               הרשמה
             </Link>
+          </div>
+          
+          {/* קישור למפתחים */}
+          <div className="mt-8 pt-8 border-t border-white/20">
+            <Link 
+              href="/dev-login" 
+              className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 rounded-lg text-yellow-400 transition-colors text-sm"
+            >
+              🔧 כניסת מפתח
+            </Link>
+            <p className="text-white/50 text-xs mt-2">למפתחים בלבד - דילוג על הרשמה</p>
           </div>
         </div>
       </div>
