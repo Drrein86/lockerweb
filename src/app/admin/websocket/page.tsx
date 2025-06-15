@@ -1,199 +1,40 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
+import { useWebSocketStore } from '@/lib/services/websocket.service'
+import { useLockerStore, Locker } from '@/lib/services/locker.service'
+import { useToastStore } from '@/lib/services/toast.service'
+import { BackIcon, ConnectedIcon, DisconnectedIcon, UnlockIcon, RefreshIcon } from '@/components/Icons'
+import AuthGuard from '@/components/Auth/AuthGuard'
 
-// SVG Icons
-const BackIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="white" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-  </svg>
-)
-
-const ConnectedIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-  </svg>
-)
-
-const DisconnectedIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 21l4.5-4.5-1.636-1.636M5.636 5.636L3 3l1.636 1.636" />
-  </svg>
-)
-
-const UnlockIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-  </svg>
-)
-
-const RefreshIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-)
-
-interface LockerStatus {
-  lockerId: string
-  ip: string
-  port: number
-  status: string
-  lastSeen: Date
-  cells: Record<string, any>
-  isOnline: boolean
-}
-
-interface WebSocketStatus {
-  success: boolean
-  connectedLockers: number
-  lockers: LockerStatus[]
-  serverTime: string
-}
-
-export default function WebSocketPage() {
-  const [wsStatus, setWsStatus] = useState<WebSocketStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
-  const [wsConnected, setWsConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const [cellMessage, setCellMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+const WebSocketPage = () => {
+  const { connect, connected } = useWebSocketStore()
+  const { lockers, loading, getStatus, unlockCell } = useLockerStore()
+  const { addToast } = useToastStore()
 
   useEffect(() => {
-    // יצירת חיבור WebSocket
-    wsRef.current = new WebSocket('wss://lockerweb-production.up.railway.app')
-    
-    wsRef.current.onopen = () => {
-      console.log('✅ WebSocket connected')
-      setWsConnected(true)
-      // בקשת סטטוס ראשונית
-      wsRef.current?.send(JSON.stringify({
-        type: 'getStatus'
-      }))
-    }
-    
-    wsRef.current.onclose = () => {
-      console.log('❌ WebSocket disconnected')
-      setWsConnected(false)
-      setLoading(false)
-      
-      // ניסיון התחברות מחדש אחרי 5 שניות
-      setTimeout(() => {
-        console.log('🔄 מנסה להתחבר מחדש...')
-        wsRef.current = new WebSocket('wss://lockerweb-production.up.railway.app')
-      }, 5000)
-    }
-    
-    wsRef.current.onmessage = (event) => {
-      console.log('📩 WebSocket message:', event.data)
-      try {
-        const data = JSON.parse(event.data)
-        
-        // טיפול ב-ping
-        if (data.type === 'ping') {
-          wsRef.current?.send(JSON.stringify({ type: 'pong' }))
-          return
-        }
-        
-        if (data.type === 'status') {
-          setWsStatus(data)
-          setLastUpdate(new Date())
-          setLoading(false)
-        }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error)
-        setLoading(false)
-      }
-    }
-
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      setLoading(false)
-    }
-
-    // ניקוי בעת יציאה מהדף
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close()
-      }
-    }
+    connect()
+    getStatus()
   }, [])
 
-  useEffect(() => {
-    if (cellMessage) {
-      const timer = setTimeout(() => setCellMessage(null), 3500)
-      return () => clearTimeout(timer)
-    }
-  }, [cellMessage])
-
-  const unlockCell = async (lockerId: string, cellId: string) => {
-    const actionKey = `${lockerId}-${cellId}`
-    setActionLoading(actionKey)
+  const handleUnlockCell = async (lockerId: string, cellId: string) => {
     try {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        throw new Error('WebSocket לא מחובר')
-      }
-      wsRef.current.send(JSON.stringify({
-        type: 'openCell',
-        lockerId,
-        cellCode: cellId
-      }))
-      // נחכה לתשובה מהשרת
-      const response = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('פג זמן המתנה לתשובה'))
-        }, 5000)
-        const messageHandler = (event: MessageEvent) => {
-          try {
-            const data = JSON.parse(event.data)
-            if (data.type === 'openCellResponse' && data.lockerId === lockerId && data.cellCode === cellId) {
-              clearTimeout(timeout)
-              wsRef.current?.removeEventListener('message', messageHandler)
-              resolve(data)
-            }
-          } catch (error) {
-            console.error('שגיאה בפענוח תשובה:', error)
-          }
-        }
-        wsRef.current?.addEventListener('message', messageHandler)
-      })
-      setCellMessage({ type: 'success', text: `✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}` })
-      refreshStatus() // רענון אוטומטי
+      await unlockCell(lockerId, cellId)
+      addToast('success', `✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
+      getStatus() // רענון אוטומטי
     } catch (error) {
-      console.error('שגיאה בפתיחת תא:', error)
-      setCellMessage({ type: 'error', text: `❌ שגיאה בפתיחת תא: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` })
-    } finally {
-      setActionLoading(null)
+      addToast('error', `❌ שגיאה בפתיחת תא: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
     }
   }
 
-  const refreshStatus = () => {
-    setLoading(true)
-    
-    try {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        throw new Error('WebSocket לא מחובר')
-      }
-
-      wsRef.current.send(JSON.stringify({
-        type: 'getStatus'
-      }))
-    } catch (error) {
-      console.error('שגיאה בבקשת סטטוס:', error)
-      alert(`❌ שגיאה בבקשת סטטוס: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading && !wsStatus) {
+  if (loading && !lockers.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white/80">
-            {wsConnected ? 'מחכה לנתונים מהשרת.....' : 'מתחבר לשרת...'}
+            {connected ? 'מחכה לנתונים מהשרת.....' : 'מתחבר לשרת...'}
           </p>
         </div>
       </div>
@@ -201,15 +42,7 @@ export default function WebSocketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6" dir="rtl">
-      {/* הודעת טוסט */}
-      {cellMessage && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-lg shadow-lg text-lg font-bold transition-all
-          ${cellMessage.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
-          {cellMessage.text}
-          <button className="ml-4 text-white/80" onClick={() => setCellMessage(null)}>✖</button>
-        </div>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* כותרת */}
         <div className="flex items-center justify-between mb-8">
@@ -224,14 +57,14 @@ export default function WebSocketPage() {
           </div>
           
           <div className="flex gap-3 items-center">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${wsConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-              {wsConnected ? <ConnectedIcon /> : <DisconnectedIcon />}
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${connected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+              {connected ? <ConnectedIcon /> : <DisconnectedIcon />}
               <span className="text-sm font-medium">
-                {wsConnected ? 'מחובר' : 'מנותק'}
+                {connected ? 'מחובר' : 'מנותק'}
               </span>
             </div>
             <button
-              onClick={refreshStatus}
+              onClick={getStatus}
               disabled={loading}
               className="btn-secondary flex items-center gap-2"
             >
@@ -241,62 +74,10 @@ export default function WebSocketPage() {
           </div>
         </div>
 
-        {/* סטטוס כללי */}
-        {wsStatus && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="glass-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white/70">לוקרים מחוברים</p>
-                  <p className="text-3xl font-bold text-white">{wsStatus.connectedLockers}</p>
-                </div>
-                <ConnectedIcon />
-              </div>
-              <div className="mt-2">
-                <span className="text-sm text-green-400">
-                  מתוך {wsStatus.lockers.length} רשומים
-                </span>
-              </div>
-            </div>
-
-            <div className="glass-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white/70">שרת WebSocket</p>
-                  <p className="text-lg font-bold text-green-400">פעיל</p>
-                </div>
-                <ConnectedIcon />
-              </div>
-              <div className="mt-2">
-                <span className="text-sm text-white/50">
-                  {wsStatus.serverTime}
-                </span>
-              </div>
-            </div>
-
-            <div className="glass-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white/70">עדכון אחרון</p>
-                  <p className="text-lg font-bold text-white">
-                    {lastUpdate.toLocaleTimeString('he-IL')}
-                  </p>
-                </div>
-                <RefreshIcon />
-              </div>
-              <div className="mt-2">
-                <span className="text-sm text-white/50">
-                  רענון אוטומטי
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* רשימת לוקרים */}
-        {wsStatus && wsStatus.lockers.length > 0 ? (
+        {lockers.length > 0 ? (
           <div className="space-y-6">
-            {wsStatus.lockers.map((locker) => (
+            {lockers.map((locker: Locker) => (
               <div key={locker.lockerId} className="glass-card">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
@@ -327,7 +108,7 @@ export default function WebSocketPage() {
                   
                   {Object.keys(locker.cells).length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Object.entries(locker.cells).map(([cellId, cellData]: [string, any]) => (
+                      {Object.entries(locker.cells).map(([cellId, cellData]) => (
                         <div key={cellId} className="bg-white/10 rounded-lg p-4 border border-white/20">
                           <div className="flex items-center justify-between mb-3">
                             <span className="font-semibold text-white">תא {cellId}</span>
@@ -345,12 +126,12 @@ export default function WebSocketPage() {
                           </div>
                           
                           <button
-                            onClick={() => unlockCell(locker.lockerId, cellId)}
-                            disabled={!locker.isOnline || actionLoading === `${locker.lockerId}-${cellId}`}
+                            onClick={() => handleUnlockCell(locker.lockerId, cellId)}
+                            disabled={!locker.isOnline || loading}
                             className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <UnlockIcon />
-                            {actionLoading === `${locker.lockerId}-${cellId}` ? 'פותח...' : 'פתח תא'}
+                            {loading ? 'פותח...' : 'פתח תא'}
                           </button>
                         </div>
                       ))}
@@ -375,7 +156,7 @@ export default function WebSocketPage() {
               לא נמצאו לוקרים פעילים. בדוק את שרת החומרה והחיבורי הרשת.
             </p>
             <button
-              onClick={refreshStatus}
+              onClick={getStatus}
               className="btn-primary"
             >
               נסה שוב
@@ -407,5 +188,13 @@ export default function WebSocketPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ProtectedWebSocketPage() {
+  return (
+    <AuthGuard allowedRoles={['admin']}>
+      <WebSocketPage />
+    </AuthGuard>
   )
 } 

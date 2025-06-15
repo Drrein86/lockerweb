@@ -25,20 +25,22 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum Role {
+  ADMIN
+  COURIER
+  CUSTOMER
+}
+
 model User {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  role          UserRole
-  status        UserStatus  @default(ACTIVE)
-  lastLoginAt   DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  packages      Package[]
-  deliveries    Delivery[]
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(CUSTOMER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  packages  Package[] @relation("RecipientPackages") // חבילות שהמשתמש אמור לקבל
+  deliveries Package[] @relation("CourierDeliveries") // חבילות שהשליח מעביר
 }
 
 model Customer {
@@ -68,17 +70,15 @@ enum CellStatus {
 }
 
 model Locker {
-  id            Int         @id @default(autoincrement())
-  location      String
-  description   String?
-  ip            String?
-  port          Int?
-  status        LockerStatus @default(OFFLINE)
-  lastSeen      DateTime?
-  cells         Cell[]
-  packages      Package[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id        String   @id @default(cuid())
+  lockerId  String   @unique
+  ip        String
+  port      Int
+  status    String   @default("offline")
+  lastSeen  DateTime @default(now())
+  cells     Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Cell {
@@ -96,21 +96,26 @@ model Cell {
 }
 
 model Package {
-  id            Int         @id @default(autoincrement())
-  trackingCode  String      @unique
-  customerId    Int
-  customer      Customer    @relation(fields: [customerId], references: [id])
-  courierId     Int
-  courier       User        @relation(fields: [courierId], references: [id])
-  size          String      // SMALL, MEDIUM, LARGE
-  status        String      // WAITING, COLLECTED, EXPIRED
-  lockerId      Int
-  cellId        Int
-  locker        Locker      @relation(fields: [lockerId], references: [id])
-  cell          Cell        @relation(fields: [cellId], references: [id])
-  delivery      Delivery?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id          String    @id @default(cuid())
+  status      PackageStatus @default(PENDING)
+  recipientId String    // מי אמור לקבל את החבילה
+  recipient   User      @relation("RecipientPackages", fields: [recipientId], references: [id])
+  courierId   String?   // מי השליח שמעביר את החבילה
+  courier     User?     @relation("CourierDeliveries", fields: [courierId], references: [id])
+  lockerId    String?   // באיזה לוקר נמצאת החבילה
+  cellId      String?   // באיזה תא בלוקר
+  code        String?   // קוד לפתיחת התא (אם נדרש)
+  description String    // תיאור החבילה
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum PackageStatus {
+  PENDING     // ממתין לשליח
+  IN_TRANSIT  // בדרך עם שליח
+  IN_LOCKER   // בלוקר, ממתין לאיסוף
+  DELIVERED   // נאסף על ידי הלקוח
+  CANCELLED   // בוטל
 }
 
 model Delivery {

@@ -1,11 +1,12 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import ToastContainer from '@/components/Toast/Toast'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'מערכת לוקרים חכמים',
-  description: 'מערכת לניהול לוקרים חכמים עבור שליחים ומשתמשים',
+  title: 'LockerWeb - מערכת ניהול לוקרים',
+  description: 'מערכת ניהול לוקרים חכמה',
 }
 
 export default function RootLayout({
@@ -15,7 +16,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="he" dir="rtl">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <ToastContainer />
+        {children}
+      </body>
     </html>
   )
 } 
