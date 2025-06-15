@@ -58,6 +58,7 @@ export default function WebSocketPage() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
+  const [cellMessage, setCellMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
 
   useEffect(() => {
     // יצירת חיבור WebSocket
@@ -119,27 +120,30 @@ export default function WebSocketPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (cellMessage) {
+      const timer = setTimeout(() => setCellMessage(null), 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [cellMessage])
+
   const unlockCell = async (lockerId: string, cellId: string) => {
     const actionKey = `${lockerId}-${cellId}`
     setActionLoading(actionKey)
-    
     try {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         throw new Error('WebSocket לא מחובר')
       }
-
       wsRef.current.send(JSON.stringify({
         type: 'openCell',
         lockerId,
         cellCode: cellId
       }))
-
       // נחכה לתשובה מהשרת
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('פג זמן המתנה לתשובה'))
         }, 5000)
-
         const messageHandler = (event: MessageEvent) => {
           try {
             const data = JSON.parse(event.data)
@@ -152,14 +156,13 @@ export default function WebSocketPage() {
             console.error('שגיאה בפענוח תשובה:', error)
           }
         }
-
         wsRef.current?.addEventListener('message', messageHandler)
       })
-
-      alert(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
+      setCellMessage({ type: 'success', text: `✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}` })
+      refreshStatus() // רענון אוטומטי
     } catch (error) {
       console.error('שגיאה בפתיחת תא:', error)
-      alert(`❌ שגיאה בפתיחת תא: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
+      setCellMessage({ type: 'error', text: `❌ שגיאה בפתיחת תא: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` })
     } finally {
       setActionLoading(null)
     }
@@ -199,6 +202,14 @@ export default function WebSocketPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6" dir="rtl">
+      {/* הודעת טוסט */}
+      {cellMessage && (
+        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-lg shadow-lg text-lg font-bold transition-all
+          ${cellMessage.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+          {cellMessage.text}
+          <button className="ml-4 text-white/80" onClick={() => setCellMessage(null)}>✖</button>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         {/* כותרת */}
         <div className="flex items-center justify-between mb-8">
