@@ -1,6 +1,10 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
-import ToastContainer from '@/components/Toast/Toast'
+import dynamic from 'next/dynamic'
+
+const ToastContainer = dynamic(() => import('@/components/Toast/Toast'), {
+  ssr: false
+})
 
 const inter = Inter({ subsets: ['latin'] })
 

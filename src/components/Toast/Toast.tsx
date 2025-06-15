@@ -1,3 +1,5 @@
+'use client'
+
 import { useToastStore, ToastType } from '@/lib/services/toast.service'
 
 const toastClasses: Record<ToastType, string> = {

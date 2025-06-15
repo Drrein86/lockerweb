@@ -14,7 +14,9 @@ const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
   const { user, loading, checkAuth } = useAuthStore()
 
   useEffect(() => {
-    checkAuth()
+    if (typeof window !== 'undefined') {
+      checkAuth()
+    }
   }, [])
 
   useEffect(() => {

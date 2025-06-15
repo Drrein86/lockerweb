@@ -25,10 +25,12 @@ export const useToastStore = create<ToastState>((set, get) => ({
       toasts: [...state.toasts, toast]
     }))
 
-    // הסרה אוטומטית אחרי 3.5 שניות
-    setTimeout(() => {
-      get().removeToast(id)
-    }, 3500)
+    // הסרה אוטומטית אחרי 3.5 שניות (רק בצד הלקוח)
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        get().removeToast(id)
+      }, 3500)
+    }
   },
 
   removeToast: (id: string) => {

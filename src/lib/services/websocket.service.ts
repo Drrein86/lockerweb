@@ -17,6 +17,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   lastUpdate: null,
 
   connect: () => {
+    if (typeof window === 'undefined') return
+    
     const socket = new WebSocket(WS_URL)
     
     socket.onopen = () => {

@@ -21,10 +21,12 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  loading: true,
+  loading: typeof window !== 'undefined',
   error: null,
 
   login: async (email: string, password: string) => {
+    if (typeof window === 'undefined') return
+    
     set({ loading: true, error: null })
     try {
       // כאן יש להוסיף קריאה לשרת
@@ -44,7 +46,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: data.user, loading: false })
       
       // שמירת הטוקן
-      localStorage.setItem('token', data.token)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', data.token)
+      }
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'שגיאה לא ידועה', 
@@ -54,11 +58,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('token')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+    }
     set({ user: null, loading: false })
   },
 
   checkAuth: async () => {
+    if (typeof window === 'undefined') return
+    
     set({ loading: true })
     try {
       const token = localStorage.getItem('token')
@@ -80,7 +88,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: data.user, loading: false })
     } catch (error) {
       set({ user: null, loading: false })
-      localStorage.removeItem('token')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
     }
   },
 })) 

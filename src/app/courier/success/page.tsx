@@ -1,5 +1,8 @@
 'use client'
 
+// השבתת prerendering עבור עמוד זה
+export const dynamic = 'force-dynamic'
+
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState, Suspense } from 'react'

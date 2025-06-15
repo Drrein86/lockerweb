@@ -3,6 +3,9 @@
 import { useAuthStore } from '@/lib/services/auth.service'
 import Link from 'next/link'
 
+// השבתת prerendering עבור עמוד זה
+export const dynamic = 'force-dynamic'
+
 const menuItems = {
   admin: [
     { href: '/admin/websocket', label: 'ניהול חיבורי WebSocket' },

@@ -1,12 +1,19 @@
 'use client'
 
+// השבתת prerendering עבור עמוד זה
+export const dynamic = 'force-dynamic'
+
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { useWebSocketStore } from '@/lib/services/websocket.service'
 import { useLockerStore, Locker } from '@/lib/services/locker.service'
 import { useToastStore } from '@/lib/services/toast.service'
 import { BackIcon, ConnectedIcon, DisconnectedIcon, UnlockIcon, RefreshIcon } from '@/components/Icons'
-import AuthGuard from '@/components/Auth/AuthGuard'
+import dynamicImport from 'next/dynamic'
+
+const AuthGuard = dynamicImport(() => import('@/components/Auth/AuthGuard'), {
+  ssr: false
+})
 
 const WebSocketPage = () => {
   const { connect, connected } = useWebSocketStore()

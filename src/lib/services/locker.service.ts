@@ -88,20 +88,22 @@ export const useLockerStore = create<LockerState>((set, get) => ({
 }))
 
 // האזנה להודעות WebSocket ועדכון המצב
-useWebSocketStore.subscribe((state) => {
-  if (state.socket) {
-    state.socket.addEventListener('message', (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'status') {
-          useLockerStore.setState({
-            lockers: data.lockers,
-            loading: false
-          })
+if (typeof window !== 'undefined') {
+  useWebSocketStore.subscribe((state) => {
+    if (state.socket) {
+      state.socket.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'status') {
+            useLockerStore.setState({
+              lockers: data.lockers,
+              loading: false
+            })
+          }
+        } catch (error) {
+          console.error('שגיאה בפענוח הודעת סטטוס:', error)
         }
-      } catch (error) {
-        console.error('שגיאה בפענוח הודעת סטטוס:', error)
-      }
-    })
-  }
-}) 
+      })
+    }
+  })
+} 
