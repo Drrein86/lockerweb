@@ -449,7 +449,6 @@ class ESP32Controller {
           data: {
             isLocked: locked,
             status: locked ? 'LOCKED' : 'UNLOCKED',
-            packageId: packageId || null,
             updatedAt: new Date()
           }
         });
@@ -460,7 +459,6 @@ class ESP32Controller {
             lockerId: parseInt(lockerId),
             isLocked: locked,
             status: locked ? 'LOCKED' : 'UNLOCKED',
-            packageId: packageId || null,
             size: 'SMALL', // אפשר לעדכן לפי הצורך
             createdAt: new Date(),
             updatedAt: new Date()
