@@ -176,16 +176,16 @@ class WebSocketManager {
           update: {
             status: LockerStatus.ONLINE,
             lastSeen: new Date(),
-            ip: ws._socket.remoteAddress,
-            port: ws._socket.remotePort
+            ip: (ws as any)._socket?.remoteAddress,
+            port: (ws as any)._socket?.remotePort
           },
           create: {
             id: parseInt(data.id),
             location: 'מיקום לא ידוע',
             status: LockerStatus.ONLINE,
             lastSeen: new Date(),
-            ip: ws._socket.remoteAddress,
-            port: ws._socket.remotePort
+            ip: (ws as any)._socket?.remoteAddress,
+            port: (ws as any)._socket?.remotePort
           }
         });
 
