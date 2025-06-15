@@ -15,25 +15,27 @@ const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
 
   // מצב פיתוח - דילוג על אימות
   const isDevelopment = process.env.NODE_ENV === 'development'
+  const isAuthDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true'
+  const skipAuth = isDevelopment || isAuthDisabled
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isDevelopment) {
+    if (typeof window !== 'undefined' && !skipAuth) {
       checkAuth()
     }
-  }, [isDevelopment])
+  }, [skipAuth])
 
   useEffect(() => {
-    if (!isDevelopment && !loading) {
+    if (!skipAuth && !loading) {
       if (!user) {
         router.push('/login')
       } else if (allowedRoles && !allowedRoles.includes(user.role)) {
         router.push('/')
       }
     }
-  }, [user, loading, allowedRoles, router, isDevelopment])
+  }, [user, loading, allowedRoles, router, skipAuth])
 
-  // במצב פיתוח - אפשר גישה ישירה
-  if (isDevelopment) {
+  // במצב פיתוח או אימות מושבת - אפשר גישה ישירה
+  if (skipAuth) {
     return <>{children}</>
   }
 
