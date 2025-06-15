@@ -13,21 +13,29 @@ const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
   const router = useRouter()
   const { user, loading, checkAuth } = useAuthStore()
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      checkAuth()
-    }
-  }, [])
+  // מצב פיתוח - דילוג על אימות
+  const isDevelopment = process.env.NODE_ENV === 'development'
 
   useEffect(() => {
-    if (!loading) {
+    if (typeof window !== 'undefined' && !isDevelopment) {
+      checkAuth()
+    }
+  }, [isDevelopment])
+
+  useEffect(() => {
+    if (!isDevelopment && !loading) {
       if (!user) {
         router.push('/login')
       } else if (allowedRoles && !allowedRoles.includes(user.role)) {
         router.push('/')
       }
     }
-  }, [user, loading, allowedRoles, router])
+  }, [user, loading, allowedRoles, router, isDevelopment])
+
+  // במצב פיתוח - אפשר גישה ישירה
+  if (isDevelopment) {
+    return <>{children}</>
+  }
 
   if (loading) {
     return (
