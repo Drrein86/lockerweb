@@ -1,4 +1,7 @@
+'use client'
+
 import { useToastStore, ToastType } from '@/lib/services/toast.service'
+import ClientOnly from '@/components/ClientOnly'
 
 const toastClasses: Record<ToastType, string> = {
   success: 'bg-green-500/90 text-white',
@@ -30,4 +33,10 @@ const ToastContainer = () => {
   )
 }
 
-export default ToastContainer 
+export default function Toast() {
+  return (
+    <ClientOnly>
+      <ToastContainer />
+    </ClientOnly>
+  )
+} 

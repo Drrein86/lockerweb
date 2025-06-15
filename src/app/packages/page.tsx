@@ -7,6 +7,7 @@ import { useAuthStore } from '@/lib/services/auth.service'
 import { useToastStore } from '@/lib/services/toast.service'
 import { BackIcon, PackageIcon, TruckIcon, LockerIcon, CheckIcon } from '@/components/Icons'
 import AuthGuard from '@/components/Auth/AuthGuard'
+import ClientOnly from '@/components/ClientOnly'
 
 const PackagesPage = () => {
   const { packages, loading, fetchPackages } = usePackageStore()
@@ -192,7 +193,16 @@ const PackagesPage = () => {
 export default function ProtectedPackagesPage() {
   return (
     <AuthGuard>
-      <PackagesPage />
+      <ClientOnly fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white/80">טוען...</p>
+          </div>
+        </div>
+      }>
+        <PackagesPage />
+      </ClientOnly>
     </AuthGuard>
   )
 } 
