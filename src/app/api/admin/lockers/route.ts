@@ -4,15 +4,8 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     const lockers = await prisma.locker.findMany({
-      include: {
-        cells: {
-          orderBy: {
-            code: 'asc'
-          }
-        }
-      },
       orderBy: {
-        id: 'asc'
+        lockerId: 'asc'
       }
     })
 

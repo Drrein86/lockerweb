@@ -4,18 +4,6 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     const packages = await prisma.package.findMany({
-      include: {
-        locker: {
-          select: {
-            location: true
-          }
-        },
-        cell: {
-          select: {
-            code: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       }

@@ -436,32 +436,14 @@ class ESP32Controller {
     if (!this.prisma) return;
 
     try {
-      // ננסה לעדכן תא קיים לפי lockerId ו-code (cellId)
-      const cell = await this.prisma.cell.findFirst({
-        where: {
-          code: cellId,
-          lockerId: parseInt(lockerId)
-        }
-      });
-      if (cell) {
-        await this.prisma.cell.update({
-          where: { id: cell.id },
+      // עדכון הלוקר במסד הנתונים עם מידע התאים
+      const connection = this.lockerConnections.get(lockerId);
+      if (connection) {
+        await this.prisma.locker.update({
+          where: { lockerId },
           data: {
-            isLocked: locked,
-            status: locked ? 'LOCKED' : 'UNLOCKED',
-            updatedAt: new Date()
-          }
-        });
-      } else {
-        await this.prisma.cell.create({
-          data: {
-            code: cellId,
-            lockerId: parseInt(lockerId),
-            isLocked: locked,
-            status: locked ? 'LOCKED' : 'UNLOCKED',
-            size: 'SMALL', // אפשר לעדכן לפי הצורך
-            createdAt: new Date(),
-            updatedAt: new Date()
+            cells: connection.cells as any,
+            lastSeen: new Date()
           }
         });
       }

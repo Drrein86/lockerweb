@@ -18,11 +18,7 @@ export async function GET(
     // חיפוש החבילה לפי קוד מעקב
     const packageData = await prisma.package.findUnique({
       where: {
-        trackingCode: trackingCode.toUpperCase()
-      },
-      include: {
-        locker: true,
-        cell: true
+        packageId: trackingCode.toUpperCase()
       }
     })
 
@@ -34,14 +30,14 @@ export async function GET(
     }
 
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'COLLECTED') {
+    if (packageData.status === 'collected') {
       return NextResponse.json(
         { 
           error: 'החבילה כבר נאספה',
           package: {
-            trackingCode: packageData.trackingCode,
+            packageId: packageData.packageId,
             status: packageData.status,
-            collectedAt: packageData.updatedAt
+            collectedAt: packageData.collectedAt
           }
         },
         { status: 410 } // Gone
@@ -58,7 +54,7 @@ export async function GET(
         { 
           error: 'החבילה פגת תוקף (יותר מ-7 ימים)',
           package: {
-            trackingCode: packageData.trackingCode,
+            packageId: packageData.packageId,
             status: 'EXPIRED',
             createdAt: packageData.createdAt
           }
@@ -67,39 +63,24 @@ export async function GET(
       )
     }
 
-    // המרת גודל מאנגלית לעברית
-    const sizeMap: { [key: string]: string } = {
-      'SMALL': 'קטן',
-      'MEDIUM': 'בינוני',
-      'LARGE': 'גדול',
-      'WIDE': 'רחב'
-    }
-
     const statusMap: { [key: string]: string } = {
-      'WAITING': 'ממתין לאיסוף',
-      'COLLECTED': 'נאסף'
+      'pending': 'ממתין לאיסוף',
+      'delivered': 'נמסר',
+      'collected': 'נאסף'
     }
 
     return NextResponse.json({
       success: true,
       package: {
         id: packageData.id,
-        trackingCode: packageData.trackingCode,
-        userName: packageData.userName,
-        userEmail: packageData.userEmail,
-        userPhone: packageData.userPhone,
-        size: sizeMap[packageData.size] || packageData.size,
+        packageId: packageData.packageId,
         status: statusMap[packageData.status] || packageData.status,
-        locker: {
-          id: packageData.locker.id,
-          location: packageData.locker.location,
-          description: packageData.locker.description
-        },
-        cell: {
-          id: packageData.cell.id,
-          code: packageData.cell.code
-        },
+        lockerId: packageData.lockerId,
+        cellId: packageData.cellId,
+        userId: packageData.userId,
         createdAt: packageData.createdAt,
+        deliveredAt: packageData.deliveredAt,
+        collectedAt: packageData.collectedAt,
         daysLeft: Math.max(0, 7 - daysDiff),
         canCollect: daysDiff <= 7
       }

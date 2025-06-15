@@ -15,26 +15,12 @@ export async function POST(request: Request) {
     // עדכון סטטוס החבילה
     const updatedPackage = await prisma.package.update({
       where: { id: packageId },
-      data: { status },
-      include: {
-        cell: true
+      data: { 
+        status,
+        collectedAt: status === 'collected' ? new Date() : null,
+        deliveredAt: status === 'delivered' ? new Date() : null
       }
     })
-
-    // עדכון סטטוס התא
-    if (status === 'COLLECTED') {
-      // אם החבילה נאספה, התא נהיה זמין
-      await prisma.cell.update({
-        where: { id: updatedPackage.cellId },
-        data: { isOccupied: false }
-      })
-    } else if (status === 'WAITING') {
-      // אם החבילה חזרה למתין, התא תפוס
-      await prisma.cell.update({
-        where: { id: updatedPackage.cellId },
-        data: { isOccupied: true }
-      })
-    }
 
     return NextResponse.json({
       success: true,

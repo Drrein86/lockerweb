@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { openLockerCell } from '@/lib/websocket'
 
 export async function POST(request: Request) {
   try {
@@ -17,11 +16,7 @@ export async function POST(request: Request) {
     // חיפוש החבילה
     const packageData = await prisma.package.findUnique({
       where: {
-        trackingCode: trackingCode.toUpperCase()
-      },
-      include: {
-        locker: true,
-        cell: true
+        packageId: trackingCode.toUpperCase()
       }
     })
 
@@ -33,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'COLLECTED') {
+    if (packageData.status === 'collected') {
       return NextResponse.json(
         { error: 'החבילה כבר נאספה' },
         { status: 410 }
@@ -52,48 +47,32 @@ export async function POST(request: Request) {
       )
     }
 
-    // פתיחת התא דרך WebSocket
-    const unlockSuccess = await openLockerCell(packageData.lockerId, packageData.cell.code)
-    
-    if (!unlockSuccess) {
-      return NextResponse.json(
-        { error: 'הלוקר לא מחובר או שגיאה בפתיחה' },
-        { status: 503 }
-      )
-    }
-
     // עדכון סטטוס החבילה לנאספה
     const updatedPackage = await prisma.package.update({
       where: { id: packageData.id },
       data: { 
-        status: 'COLLECTED',
-        updatedAt: new Date()
+        status: 'collected',
+        collectedAt: new Date()
       }
     })
 
-    // עדכון התא לפנוי
-    await prisma.cell.update({
-      where: { id: packageData.cellId },
-      data: { isOccupied: false }
-    })
-
     // רישום פעולת איסוף (לוג)
-    console.log(`חבילה נאספה: ${trackingCode} מתא ${packageData.cell.code} בלוקר ${packageData.locker.location}`)
+    console.log(`חבילה נאספה: ${trackingCode} מתא ${packageData.cellId} בלוקר ${packageData.lockerId}`)
 
     return NextResponse.json({
       success: true,
-      message: 'הלוקר נפתח בהצלחה',
+      message: 'החבילה סומנה כנאספה',
       package: {
-        trackingCode: updatedPackage.trackingCode,
+        packageId: updatedPackage.packageId,
         status: 'נאסף',
-        collectedAt: updatedPackage.updatedAt,
-        locker: packageData.locker.location,
-        cell: packageData.cell.code
+        collectedAt: updatedPackage.collectedAt,
+        lockerId: packageData.lockerId,
+        cellId: packageData.cellId
       }
     })
 
   } catch (error) {
-    console.error('שגיאה בפתיחת לוקר:', error)
+    console.error('שגיאה בעדכון חבילה:', error)
     return NextResponse.json(
       { error: 'שגיאה בשרת' },
       { status: 500 }

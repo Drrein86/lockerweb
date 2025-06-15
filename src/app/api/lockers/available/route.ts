@@ -16,72 +16,41 @@ export async function GET(request: Request, { params }: { params?: any } = {}) {
       )
     }
 
-    // המרת גודל מעברית לאנגלית עבור הדאטבייס
-    const sizeMap: { [key: string]: string } = {
-      'קטן': 'SMALL',
-      'בינוני': 'MEDIUM',
-      'גדול': 'LARGE',
-      'רחב': 'WIDE'
-    }
-
-    const dbSize = sizeMap[size]
-    if (!dbSize) {
-      return NextResponse.json(
-        { error: 'גודל חבילה לא תקין' },
-        { status: 400 }
-      )
-    }
-
-    // חיפוש תאים זמינים
-    const availableCells = await prisma.cell.findMany({
+    // חיפוש לוקרים זמינים
+    const availableLockers = await prisma.locker.findMany({
       where: {
-        size: dbSize as any,
-        isOccupied: false
-      },
-      include: {
-        locker: {
-          select: {
-            id: true,
-            location: true,
-            description: true
-          }
-        }
-      },
-      take: 10 // מגבלה של 10 תאים
+        status: 'online'
+      }
     })
 
-    if (availableCells.length === 0) {
+    if (availableLockers.length === 0) {
       return NextResponse.json({
         available: false,
-        message: 'אין תאים זמינים בגודל המבוקש'
+        message: 'אין לוקרים זמינים כרגע'
       })
     }
 
-    // קיבוץ לפי לוקרים
-    const lockerGroups = availableCells.reduce((acc, cell) => {
-      const lockerId = cell.locker.id
-      if (!acc[lockerId]) {
-        acc[lockerId] = {
-          locker: cell.locker,
-          cells: []
-        }
-      }
-      acc[lockerId].cells.push({
-        id: cell.id,
-        code: cell.code,
-        size: cell.size
-      })
-      return acc
-    }, {} as any)
+    // סינון לוקרים עם תאים זמינים
+    const lockersWithAvailableCells = availableLockers.filter(locker => {
+      const cells = typeof locker.cells === 'object' ? locker.cells as any : {}
+      return Object.keys(cells).length > 0
+    })
 
     return NextResponse.json({
-      available: true,
-      lockers: Object.values(lockerGroups),
-      total: availableCells.length
+      available: lockersWithAvailableCells.length > 0,
+      lockers: lockersWithAvailableCells.map(locker => ({
+        id: locker.id,
+        lockerId: locker.lockerId,
+        ip: locker.ip,
+        port: locker.port,
+        status: locker.status,
+        cells: locker.cells
+      })),
+      total: lockersWithAvailableCells.length
     })
 
   } catch (error) {
-    console.error('שגיאה בחיפוש תאים זמינים:', error)
+    console.error('שגיאה בחיפוש לוקרים זמינים:', error)
     return NextResponse.json(
       { error: 'שגיאה בשרת' },
       { status: 500 }

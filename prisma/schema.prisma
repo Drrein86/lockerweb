@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,18 +8,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-enum UserRole {
-  ADMIN
-  COURIER
-  CUSTOMER_SERVICE
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
 }
 
 model User {
@@ -33,32 +18,6 @@ model User {
   role      String   @default("customer") // "admin" | "courier" | "customer"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model Customer {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique
-  firstName     String
-  lastName      String
-  phone         String
-  address       String?
-  packages      Package[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
-enum LockerStatus {
-  ONLINE
-  OFFLINE
-  MAINTENANCE
-}
-
-enum CellStatus {
-  AVAILABLE
-  OCCUPIED
-  MAINTENANCE
-  LOCKED
-  UNLOCKED
 }
 
 model Locker {
@@ -73,20 +32,6 @@ model Locker {
   updatedAt DateTime @updatedAt
 }
 
-model Cell {
-  id            Int         @id @default(autoincrement())
-  code          String      @unique
-  size          String      // SMALL, MEDIUM, LARGE
-  status        CellStatus  @default(AVAILABLE)
-  isLocked      Boolean     @default(true)
-  lockerId      Int
-  locker        Locker      @relation(fields: [lockerId], references: [id])
-  packages      Package[]
-  lastOpenedAt  DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
 model Package {
   id          String   @id @default(cuid())
   packageId   String   @unique
@@ -99,16 +44,4 @@ model Package {
   updatedAt   DateTime @updatedAt
   deliveredAt DateTime?
   collectedAt DateTime?
-}
-
-model Delivery {
-  id            Int         @id @default(autoincrement())
-  courierId     Int
-  courier       User        @relation(fields: [courierId], references: [id])
-  packageId     Int         @unique
-  package       Package     @relation(fields: [packageId], references: [id])
-  status        String      // PENDING, IN_PROGRESS, COMPLETED, FAILED
-  notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
+} 
