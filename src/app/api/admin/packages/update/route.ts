@@ -22,17 +22,17 @@ export async function POST(request: Request) {
     })
 
     // עדכון סטטוס התא
-    if (status === 'DELIVERED' && updatedPackage.cellId) {
-      // אם החבילה נאספה, התא נהיה פתוח
+    if (status === 'COLLECTED') {
+      // אם החבילה נאספה, התא נהיה זמין
       await prisma.cell.update({
         where: { id: updatedPackage.cellId },
-        data: { isLocked: false }
+        data: { isOccupied: false }
       })
-    } else if (status === 'IN_LOCKER' && updatedPackage.cellId) {
-      // אם החבילה בתוך הלוקר, התא נעול
+    } else if (status === 'WAITING') {
+      // אם החבילה חזרה למתין, התא תפוס
       await prisma.cell.update({
         where: { id: updatedPackage.cellId },
-        data: { isLocked: true }
+        data: { isOccupied: true }
       })
     }
 

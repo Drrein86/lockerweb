@@ -7,7 +7,6 @@ interface WebSocketState {
   connect: () => void
   disconnect: () => void
   send: (message: any) => void
-  unlockCell: (lockerId: string, cellId: string) => Promise<void>
 }
 
 const WS_URL = 'wss://lockerweb-production.up.railway.app'
@@ -61,27 +60,5 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     } else {
       console.error('לא ניתן לשלוח הודעה - WebSocket לא מחובר')
     }
-  },
-
-  unlockCell: async (lockerId: string, cellId: string) => {
-    const { socket } = get()
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket לא מחובר')
-    }
-
-    return new Promise((resolve, reject) => {
-      try {
-        socket.send(JSON.stringify({
-          type: 'UNLOCK_CELL',
-          data: {
-            lockerId,
-            cellId
-          }
-        }))
-        resolve()
-      } catch (error) {
-        reject(error)
-      }
-    })
   }
 })) 

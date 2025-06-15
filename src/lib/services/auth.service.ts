@@ -17,7 +17,6 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   checkAuth: () => Promise<void>
-  setUser: (user: User) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -83,9 +82,5 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: null, loading: false })
       localStorage.removeItem('token')
     }
-  },
-
-  setUser: (user: User) => {
-    set({ user, loading: false })
   },
 })) 

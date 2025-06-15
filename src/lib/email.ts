@@ -14,15 +14,15 @@ const transporter = nodemailer.createTransport({
 interface EmailNotificationData {
   to: string
   name: string
-  packageId: string
+  trackingCode: string
   lockerLocation: string
-  cellNumber: number
+  cellCode: string
 }
 
 export async function sendNotificationEmail(data: EmailNotificationData) {
-  const { to, name, packageId, lockerLocation, cellNumber } = data
+  const { to, name, trackingCode, lockerLocation, cellCode } = data
 
-  const unlockUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/customer/unlock/${packageId}`
+  const unlockUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/customer/unlock/${trackingCode}`
 
   const mailOptions = {
     from: process.env.SMTP_USER,
@@ -120,11 +120,11 @@ export async function sendNotificationEmail(data: EmailNotificationData) {
                           </div>
                           <div class="info-item">
                               <strong>🔢 מספר התא:</strong><br>
-                              <span style="font-size: 24px; color: #4caf50; font-weight: bold;">${cellNumber}</span>
+                              <span style="font-size: 24px; color: #4caf50; font-weight: bold;">${cellCode}</span>
                           </div>
                           <div class="info-item">
-                              <strong>🔍 מזהה חבילה:</strong><br>
-                              <span style="font-family: monospace; background: #e8f5e8; padding: 5px; border-radius: 4px;">${packageId}</span>
+                              <strong>🔍 קוד מעקב:</strong><br>
+                              <span style="font-family: monospace; background: #e8f5e8; padding: 5px; border-radius: 4px;">${trackingCode}</span>
                           </div>
                           <div class="info-item">
                               <strong>⏰ זמן אספקה:</strong><br>
@@ -170,8 +170,8 @@ export async function sendNotificationEmail(data: EmailNotificationData) {
 
 פרטי האיסוף:
 📍 מיקום: ${lockerLocation}
-🔢 תא: ${cellNumber}
-🔍 מזהה חבילה: ${packageId}
+🔢 תא: ${cellCode}
+🔍 קוד מעקב: ${trackingCode}
 
 לפתיחת התא: ${unlockUrl}
 

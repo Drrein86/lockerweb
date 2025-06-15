@@ -3,7 +3,7 @@ import { createServer, Server } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { readFileSync } from 'fs';
 import { config } from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, LockerStatus, CellStatus } from '@prisma/client';
 import esp32Controller from './esp32-controller';
 
 // טעינת משתני סביבה
@@ -172,20 +172,20 @@ class WebSocketManager {
       try {
         // עדכון או יצירת לוקר ב-DB
         const locker = await prisma.locker.upsert({
-          where: { id: data.id },
+          where: { id: parseInt(data.id) },
           update: {
-            isOnline: true,
-            updatedAt: new Date(),
-            ip: (ws as any)._socket?.remoteAddress || '',
-            port: (ws as any)._socket?.remotePort || 0
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date(),
+            ip: (ws as any)._socket?.remoteAddress,
+            port: (ws as any)._socket?.remotePort
           },
           create: {
-            id: data.id,
-            name: `לוקר ${data.id}`,
+            id: parseInt(data.id),
             location: 'מיקום לא ידוע',
-            isOnline: true,
-            ip: (ws as any)._socket?.remoteAddress || '',
-            port: (ws as any)._socket?.remotePort || 0
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date(),
+            ip: (ws as any)._socket?.remoteAddress,
+            port: (ws as any)._socket?.remotePort
           }
         });
 
@@ -238,32 +238,23 @@ class WebSocketManager {
       try {
         // עדכון סטטוס הלוקר
         await prisma.locker.update({
-          where: { id: ws.lockerId },
+          where: { id: parseInt(ws.lockerId) },
           data: {
-            isOnline: true,
-            updatedAt: new Date()
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date()
           }
         });
 
         // עדכון סטטוס התאים
         for (const [cellId, cellData] of Object.entries(data.cells)) {
-          const cell = await prisma.cell.findFirst({
-            where: { 
-              number: parseInt(cellId),
-              lockerId: ws.lockerId
+          await prisma.cell.update({
+            where: { code: cellId },
+            data: {
+              status: cellData.locked ? CellStatus.LOCKED : CellStatus.UNLOCKED,
+              isLocked: cellData.locked,
+              lastOpenedAt: cellData.opened ? new Date() : undefined
             }
           });
-          
-          if (cell) {
-            await prisma.cell.update({
-              where: { id: cell.id },
-              data: {
-                isLocked: cellData.locked,
-                isOpen: cellData.opened,
-                updatedAt: new Date()
-              }
-            });
-          }
         }
 
         ws.cells = data.cells;
@@ -284,8 +275,8 @@ class WebSocketManager {
         // בדיקת סטטוס התא
         const cell = await prisma.cell.findFirst({
           where: {
-            number: parseInt(data.cellId),
-            lockerId: data.lockerId
+            code: data.cellId,
+            lockerId: parseInt(data.lockerId)
           }
         });
 
@@ -293,13 +284,17 @@ class WebSocketManager {
           throw new Error('תא לא נמצא');
         }
 
+        if (cell.status === CellStatus.MAINTENANCE) {
+          throw new Error('התא במצב תחזוקה');
+        }
+
         // עדכון סטטוס התא
         await prisma.cell.update({
           where: { id: cell.id },
           data: {
+            status: CellStatus.UNLOCKED,
             isLocked: false,
-            isOpen: true,
-            updatedAt: new Date()
+            lastOpenedAt: new Date()
           }
         });
 
@@ -325,8 +320,8 @@ class WebSocketManager {
         // בדיקת סטטוס התא
         const cell = await prisma.cell.findFirst({
           where: {
-            number: parseInt(data.cellId),
-            lockerId: data.lockerId
+            code: data.cellId,
+            lockerId: parseInt(data.lockerId)
           }
         });
 
@@ -334,13 +329,16 @@ class WebSocketManager {
           throw new Error('תא לא נמצא');
         }
 
+        if (cell.status === CellStatus.MAINTENANCE) {
+          throw new Error('התא במצב תחזוקה');
+        }
+
         // עדכון סטטוס התא
         await prisma.cell.update({
           where: { id: cell.id },
           data: {
-            isLocked: true,
-            isOpen: false,
-            updatedAt: new Date()
+            status: CellStatus.LOCKED,
+            isLocked: true
           }
         });
 
@@ -369,10 +367,10 @@ class WebSocketManager {
       try {
         // עדכון סטטוס הלוקר
         await prisma.locker.update({
-          where: { id: ws.lockerId },
+          where: { id: parseInt(ws.lockerId) },
           data: {
-            isOnline: false,
-            updatedAt: new Date()
+            status: LockerStatus.OFFLINE,
+            lastSeen: new Date()
           }
         });
 

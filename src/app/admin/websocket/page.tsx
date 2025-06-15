@@ -7,7 +7,6 @@ import { useLockerStore, Locker } from '@/lib/services/locker.service'
 import { useToastStore } from '@/lib/services/toast.service'
 import { BackIcon, ConnectedIcon, DisconnectedIcon, UnlockIcon, RefreshIcon } from '@/components/Icons'
 import AuthGuard from '@/components/Auth/AuthGuard'
-import ClientOnly from '@/components/ClientOnly'
 
 const WebSocketPage = () => {
   const { connect, connected } = useWebSocketStore()
@@ -195,16 +194,7 @@ const WebSocketPage = () => {
 export default function ProtectedWebSocketPage() {
   return (
     <AuthGuard allowedRoles={['admin']}>
-      <ClientOnly fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-            <p className="text-white/80">טוען...</p>
-          </div>
-        </div>
-      }>
-        <WebSocketPage />
-      </ClientOnly>
+      <WebSocketPage />
     </AuthGuard>
   )
 } 

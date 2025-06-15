@@ -1,6 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,106 +13,102 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
+enum UserRole {
   ADMIN
   COURIER
-  CUSTOMER
+  CUSTOMER_SERVICE
 }
 
-enum PackageStatus {
-  PENDING     // ממתין לשליח
-  IN_TRANSIT  // בדרך עם שליח
-  IN_LOCKER   // בלוקר, ממתין לאיסוף
-  DELIVERED   // נאסף על ידי הלקוח
-  CANCELLED   // בוטל
-}
-
-enum DeliveryStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  FAILED
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          Role      @default(CUSTOMER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // Relations
-  receivedPackages Package[] @relation("RecipientPackages")
-  deliveredPackages Package[] @relation("CourierDeliveries")
-  deliveries      Delivery[] @relation("CourierDeliveries")
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("customer") // "admin" | "courier" | "customer"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id            Int         @id @default(autoincrement())
+  email         String      @unique
+  firstName     String
+  lastName      String
+  phone         String
+  address       String?
+  packages      Package[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+enum LockerStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum CellStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  LOCKED
+  UNLOCKED
 }
 
 model Locker {
   id        String   @id @default(cuid())
-  name      String
-  location  String
-  isOnline  Boolean  @default(false)
+  lockerId  String   @unique
   ip        String
   port      Int
+  status    String   @default("offline")
+  lastSeen  DateTime @default(now())
+  cells     Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relations
-  cells     Cell[]   @relation("LockerCells")
-  packages  Package[] @relation("LockerPackages")
 }
 
 model Cell {
-  id        String   @id @default(cuid())
-  number    Int
-  isLocked  Boolean  @default(true)
-  isOpen    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  lockerId  String
-  locker    Locker   @relation("LockerCells", fields: [lockerId], references: [id])
-  packages  Package[] @relation("CellPackages")
+  id            Int         @id @default(autoincrement())
+  code          String      @unique
+  size          String      // SMALL, MEDIUM, LARGE
+  status        CellStatus  @default(AVAILABLE)
+  isLocked      Boolean     @default(true)
+  lockerId      Int
+  locker        Locker      @relation(fields: [lockerId], references: [id])
+  packages      Package[]
+  lastOpenedAt  DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model Package {
-  id          String    @id @default(cuid())
-  status      PackageStatus @default(PENDING)
-  description String
-  code        String?   // קוד לפתיחת התא
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  recipientId String    // מי אמור לקבל את החבילה
-  recipient   User      @relation("RecipientPackages", fields: [recipientId], references: [id])
-  
-  courierId   String?   // מי השליח שמעביר את החבילה
-  courier     User?     @relation("CourierDeliveries", fields: [courierId], references: [id])
-  
-  lockerId    String?   // באיזה לוקר נמצאת החבילה
-  locker      Locker?   @relation("LockerPackages", fields: [lockerId], references: [id])
-  
-  cellId      String?   // באיזה תא בלוקר
-  cell        Cell?     @relation("CellPackages", fields: [cellId], references: [id])
-
-  delivery    Delivery? @relation("PackageDelivery")
+  id          String   @id @default(cuid())
+  packageId   String   @unique
+  status      String   @default("pending") // "pending" | "delivered" | "collected"
+  lockerId    String?
+  cellId      String?
+  userId      String
+  courierId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deliveredAt DateTime?
+  collectedAt DateTime?
 }
 
 model Delivery {
-  id            String         @id @default(cuid())
-  status        DeliveryStatus @default(PENDING)
+  id            Int         @id @default(autoincrement())
+  courierId     Int
+  courier       User        @relation(fields: [courierId], references: [id])
+  packageId     Int         @unique
+  package       Package     @relation(fields: [packageId], references: [id])
+  status        String      // PENDING, IN_PROGRESS, COMPLETED, FAILED
   notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  // Relations
-  courierId     String
-  courier       User          @relation("CourierDeliveries", fields: [courierId], references: [id])
-  
-  packageId     String        @unique
-  package       Package       @relation("PackageDelivery", fields: [packageId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }

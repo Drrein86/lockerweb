@@ -7,7 +7,7 @@ export async function GET() {
       include: {
         cells: {
           orderBy: {
-            number: 'asc'
+            code: 'asc'
           }
         }
       },
