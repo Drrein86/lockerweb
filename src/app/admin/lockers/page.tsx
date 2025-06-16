@@ -362,7 +362,11 @@ export default function AdminLockersPage() {
           <h2 className="text-2xl font-bold text-white mb-2">אין לוקרים זמינים</h2>
           <p className="text-white/80">מחכה לחיבור לוקרים למערכת...</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }}
             className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
           >
             רענן דף

@@ -201,6 +201,8 @@ export default function SuccessPage() {
 // מעבר אוטומטי לעמוד הראשי לאחר 5 שניות
 if (typeof window !== 'undefined') {
   setTimeout(() => {
-    window.location.href = '/courier'
+          if (typeof window !== 'undefined') {
+        window.location.href = '/courier'
+      }
   }, 5000)
 } 
