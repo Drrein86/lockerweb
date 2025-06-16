@@ -87,9 +87,11 @@ export default function HomePage() {
                     console.log('🔗 לוחץ על ניהול לוקרים')
                     console.log('🎯 מפנה ל:', '/admin/lockers')
                     console.log('🌐 URL נוכחי:', window.location.href)
+                    console.log('🔍 Event target:', e.target)
+                    console.log('🔍 Event currentTarget:', e.currentTarget)
                   }}
                 >
-                  • ניהול לוקרים
+                  • ניהול לוקרים 🔧
                 </Link>
                 <Link href="/admin/packages" className="block text-white hover:text-purple-400 transition-colors">
                   • ניהול חבילות
