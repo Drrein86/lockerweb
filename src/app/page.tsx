@@ -86,7 +86,7 @@ export default function HomePage() {
                   onClick={(e) => {
                     console.log('🔗 לוחץ על ניהול לוקרים')
                     console.log('🎯 מפנה ל:', '/admin/lockers')
-                    console.log('🌐 URL נוכחי:', window.location.href)
+                    console.log('🌐 URL נוכחי:', typeof window !== 'undefined' ? window.location.href : 'SSR')
                     console.log('🔍 Event target:', e.target)
                     console.log('🔍 Event currentTarget:', e.currentTarget)
                   }}
