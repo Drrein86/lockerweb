@@ -80,7 +80,7 @@ export default function HomePage() {
                 <Link href="/admin/websocket" className="block text-white hover:text-purple-400 transition-colors">
                   • ניהול WebSocket
                 </Link>
-                <Link 
+                <a 
                   href="/admin/lockers" 
                   className="block text-white hover:text-purple-400 transition-colors"
                   onClick={(e) => {
@@ -90,7 +90,7 @@ export default function HomePage() {
                   }}
                 >
                   • ניהול לוקרים
-                </Link>
+                </a>
                 <Link href="/admin/packages" className="block text-white hover:text-purple-400 transition-colors">
                   • ניהול חבילות
                 </Link>

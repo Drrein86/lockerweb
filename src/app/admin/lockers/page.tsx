@@ -375,6 +375,11 @@ export default function AdminLockersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white" dir="rtl">
       <div className="container mx-auto px-4 py-8">
+        {/* כותרת ברורה */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">🔧 ניהול לוקרים - דף אדמין</h1>
+          <p className="text-white/70">ממשק ניהול לוקרים ותאים</p>
+        </div>
         {/* חלון סטטוס WebSocket מוצג תמיד */}
         <div className="mb-4 p-3 rounded-lg border border-gray-300 bg-white flex items-center gap-4 shadow-sm">
           <div className={`w-3 h-3 rounded-full ${wsStatusColor}`}></div>
