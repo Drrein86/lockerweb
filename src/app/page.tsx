@@ -80,7 +80,11 @@ export default function HomePage() {
                 <Link href="/admin/websocket" className="block text-white hover:text-purple-400 transition-colors">
                   • ניהול WebSocket
                 </Link>
-                <Link href="/admin/lockers" className="block text-white hover:text-purple-400 transition-colors">
+                <Link 
+                  href="/admin/lockers" 
+                  className="block text-white hover:text-purple-400 transition-colors"
+                  onClick={() => console.log('לוחץ על ניהול לוקרים - מפנה ל: /admin/lockers')}
+                >
                   • ניהול לוקרים
                 </Link>
                 <Link href="/admin/packages" className="block text-white hover:text-purple-400 transition-colors">

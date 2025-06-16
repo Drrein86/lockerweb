@@ -75,6 +75,7 @@ const StatusIcon = ({ isOnline }: { isOnline: boolean }) => (
 )
 
 export default function AdminLockersPage() {
+  console.log('🔧 נטען דף ניהול לוקרים (ADMIN)')
   const [lockers, setLockers] = useState<{ [key: string]: Locker }>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)

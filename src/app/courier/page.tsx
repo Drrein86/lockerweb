@@ -10,6 +10,7 @@ import Link from 'next/link'
 type PackageSize = 'קטן' | 'בינוני' | 'גדול' | 'רחב';
 
 export default function CourierPage() {
+  console.log('🚚 נטען דף שליח (COURIER)')
   const [selectedSize, setSelectedSize] = useState<PackageSize | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
