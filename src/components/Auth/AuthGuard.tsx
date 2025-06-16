@@ -13,10 +13,8 @@ const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
   const router = useRouter()
   const { user, loading, checkAuth } = useAuthStore()
 
-  // מצב פיתוח - דילוג על אימות
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  const isAuthDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true'
-  const skipAuth = isDevelopment || isAuthDisabled
+  // מצב פיתוח - דילוג על אימות (תמיד מושבת)
+  const skipAuth = true
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !skipAuth) {

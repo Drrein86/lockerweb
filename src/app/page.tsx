@@ -24,9 +24,7 @@ const menuItems = {
 
 export default function HomePage() {
   const { user, logout } = useAuthStore()
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  const isAuthDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true'
-  const skipAuth = isDevelopment || isAuthDisabled
+  const skipAuth = true
 
   if (!user && !skipAuth) {
     return (
@@ -52,12 +50,10 @@ export default function HomePage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
         <div className="max-w-4xl mx-auto">
           {/* הודעת מצב פיתוח */}
-                      <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4 mb-8">
+          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4 mb-8">
             <div className="flex items-center gap-2">
               <span className="text-yellow-400 text-xl">⚠️</span>
-              <span className="text-yellow-400 font-bold">
-                {isDevelopment ? 'מצב פיתוח' : 'אימות מושבת'}
-              </span>
+              <span className="text-yellow-400 font-bold">מצב פיתוח פעיל</span>
             </div>
             <p className="text-yellow-300/80 text-sm mt-1">
               האימות מושבת. תוכל לגשת לכל הדפים ללא התחברות.
@@ -67,7 +63,7 @@ export default function HomePage() {
           {/* כותרת */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-2">
-              מערכת הלוקרים - {isDevelopment ? 'מצב פיתוח' : 'גישה מלאה'}
+              מערכת הלוקרים - מצב פיתוח
             </h1>
             <p className="text-white/70">בחר את הדף שברצונך לבדוק</p>
           </div>
