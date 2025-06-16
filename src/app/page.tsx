@@ -83,7 +83,11 @@ export default function HomePage() {
                 <Link 
                   href="/admin/lockers" 
                   className="block text-white hover:text-purple-400 transition-colors"
-                  onClick={() => console.log('לוחץ על ניהול לוקרים - מפנה ל: /admin/lockers')}
+                  onClick={(e) => {
+                    console.log('🔗 לוחץ על ניהול לוקרים')
+                    console.log('🎯 מפנה ל:', '/admin/lockers')
+                    console.log('🌐 URL נוכחי:', window.location.href)
+                  }}
                 >
                   • ניהול לוקרים
                 </Link>
