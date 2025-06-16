@@ -117,7 +117,11 @@ class WebSocketManager {
    * טיפול בחיבור חדש
    */
   private handleNewConnection(ws: LockerConnection): void {
-    this.logEvent('connection', '📡 חיבור WebSocket חדש התקבל');
+    const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+    const clientPort = (ws as any)._socket?.remotePort || 0;
+    
+    console.log(`🔗 New WebSocket connection from ${clientIP}:${clientPort}`);
+    this.logEvent('connection', '📡 חיבור WebSocket חדש התקבל', { ip: clientIP, port: clientPort });
     
     // הגדרת מצב התחלתי
     ws.isAlive = true;
@@ -127,6 +131,13 @@ class WebSocketManager {
     ws.on('close', () => this.handleClose(ws));
     ws.on('error', (error) => this.handleError(ws, error));
     ws.on('pong', () => { ws.isAlive = true; });
+    
+    // שליחת הודעת ברוכים הבאים
+    ws.send(JSON.stringify({
+      type: 'welcome',
+      message: 'מחובר לשרת הלוקרים',
+      timestamp: new Date().toISOString()
+    }));
   }
 
   /**
@@ -143,11 +154,20 @@ class WebSocketManager {
           break;
           
         case 'identify':
-          this.handleAdminIdentification(ws, data);
+          // בדיקה אם זה לוקר או אדמין
+          if (data.client === 'locker') {
+            this.handleLockerIdentification(ws, data);
+          } else {
+            this.handleAdminIdentification(ws, data);
+          }
           break;
           
         case 'statusUpdate':
           this.handleStatusUpdate(ws, data);
+          break;
+          
+        case 'cellUpdate':
+          this.handleCellUpdate(ws, data);
           break;
           
         case 'unlock':
@@ -203,6 +223,82 @@ class WebSocketManager {
   }
 
   /**
+   * טיפול בזיהוי לוקר
+   */
+  private async handleLockerIdentification(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    try {
+      // בדיקה שיש ID
+      if (!data.id) {
+        this.logEvent('error', '❌ לוקר ניסה להתחבר ללא ID');
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'חסר מזהה לוקר (ID)'
+        }));
+        return; // לא מנתקים, רק שולחים שגיאה
+      }
+
+      // בדיקה שה-ID מורשה
+      if (!CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
+        this.logEvent('warning', `⚠️ לוקר ${data.id} לא מורשה`);
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: `לוקר ${data.id} לא מורשה במערכת`
+        }));
+        ws.close();
+        return;
+      }
+
+      // עדכון או יצירת לוקר ב-DB
+      const locker = await prisma.locker.upsert({
+        where: { lockerId: data.id },
+        update: {
+          status: 'online',
+          lastSeen: new Date(),
+          ip: (ws as any)._socket?.remoteAddress || 'unknown',
+          port: (ws as any)._socket?.remotePort || 0
+        },
+        create: {
+          lockerId: data.id,
+          status: 'online',
+          lastSeen: new Date(),
+          ip: (ws as any)._socket?.remoteAddress || 'unknown',
+          port: (ws as any)._socket?.remotePort || 0,
+          cells: {}
+        }
+      });
+
+      // הגדרת מאפייני החיבור
+      ws.lockerId = data.id;
+      ws.lastSeen = new Date();
+      ws.cells = {};
+      
+      // שמירת החיבור במפה
+      this.lockerConnections.set(data.id, ws);
+      
+      // לוג הצלחה
+      console.log(`✅ Locker identified: ${data.id}`);
+      this.logEvent('locker_identified', `🔧 לוקר ${data.id} זוהה בהצלחה`);
+      
+      // שליחת אישור ללוקר
+      ws.send(JSON.stringify({
+        type: 'identified',
+        message: `לוקר ${data.id} זוהה בהצלחה`,
+        lockerId: data.id
+      }));
+      
+      // שידור עדכון סטטוס לאדמינים
+      this.broadcastStatus();
+      
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בזיהוי לוקר ${data.id}`, { error });
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'שגיאה בזיהוי לוקר'
+      }));
+    }
+  }
+
+  /**
    * טיפול בזיהוי ממשק ניהול
    */
   private handleAdminIdentification(ws: LockerConnection, data: WebSocketMessage): void {
@@ -252,6 +348,43 @@ class WebSocketManager {
       } catch (error) {
         this.logEvent('error', `❌ שגיאה בעדכון סטטוס לוקר ${ws.lockerId}`, { error });
       }
+    }
+  }
+
+  /**
+   * טיפול בעדכון תאים
+   */
+  private async handleCellUpdate(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    if (!ws.lockerId) {
+      this.logEvent('warning', '⚠️ ניסיון עדכון תאים מלוקר לא מזוהה');
+      return;
+    }
+
+    try {
+      // עדכון תאי הלוקר
+      if (data.cells) {
+        await prisma.locker.update({
+          where: { lockerId: ws.lockerId },
+          data: {
+            status: 'online',
+            lastSeen: new Date(),
+            cells: data.cells as any
+          }
+        });
+
+        ws.cells = data.cells;
+        ws.lastSeen = new Date();
+        
+        this.logEvent('cell_update', `🔄 עודכנו תאים בלוקר ${ws.lockerId}`, { 
+          lockerId: ws.lockerId, 
+          cellCount: Object.keys(data.cells).length 
+        });
+        
+        // שידור עדכון לאדמינים
+        this.broadcastStatus();
+      }
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעדכון תאים בלוקר ${ws.lockerId}`, { error });
     }
   }
 
@@ -383,15 +516,41 @@ class WebSocketManager {
   private getLockerStates(): Record<string, any> {
     const states: Record<string, any> = {};
     
+    // וידוא שה-Map מאותחל
+    if (!this.lockerConnections) {
+      console.log('⚠️ lockerConnections Map is not initialized');
+      return states;
+    }
+    
+    console.log(`📊 Getting status for ${this.lockerConnections.size} connected lockers`);
+    
     for (const [id, ws] of this.lockerConnections) {
       states[id] = {
+        lockerId: id,
         isOnline: ws.readyState === WebSocket.OPEN,
         lastSeen: ws.lastSeen || new Date(),
-        cells: ws.cells || {}
+        cells: ws.cells || {},
+        ip: (ws as any)._socket?.remoteAddress || 'unknown',
+        port: (ws as any)._socket?.remotePort || 0
       };
     }
     
     return states;
+  }
+
+  /**
+   * קבלת מידע על לוקרים מחוברים
+   */
+  public getConnectedLockers(): string[] {
+    return Array.from(this.lockerConnections.keys());
+  }
+
+  /**
+   * בדיקה אם לוקר מחובר
+   */
+  public isLockerConnected(lockerId: string): boolean {
+    const connection = this.lockerConnections.get(lockerId);
+    return connection ? connection.readyState === WebSocket.OPEN : false;
   }
 
   /**
