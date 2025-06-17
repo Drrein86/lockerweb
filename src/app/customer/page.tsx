@@ -1,5 +1,8 @@
 'use client'
 
+// השבתת prerendering עבור עמוד זה
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import Link from 'next/link'
 
@@ -23,7 +26,9 @@ export default function CustomerPage() {
       
       if (response.ok && data.package) {
         // מעבר לדף פתיחת הלוקר
-        window.location.href = `/customer/unlock/${trackingCode}`
+        if (typeof window !== 'undefined') {
+          window.location.href = `/customer/unlock/${trackingCode}`
+        }
       } else {
         alert('קוד מעקב לא נמצא או שהחבילה כבר נאספה')
       }

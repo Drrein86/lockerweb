@@ -1,38 +1,32 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getConnectedLockers } from '@/lib/websocket'
 
 export async function GET() {
   try {
     // ספירת לוקרים
     const totalLockers = await prisma.locker.count()
     
-    // ספירת תאים
-    const totalCells = await prisma.cell.count()
-    const occupiedCells = await prisma.cell.count({
-      where: { isOccupied: true }
-    })
-    
     // ספירת חבילות
     const totalPackages = await prisma.package.count()
-    const waitingPackages = await prisma.package.count({
-      where: { status: 'WAITING' }
+    const pendingPackages = await prisma.package.count({
+      where: { status: 'pending' }
+    })
+    const deliveredPackages = await prisma.package.count({
+      where: { status: 'delivered' }
     })
     const collectedPackages = await prisma.package.count({
-      where: { status: 'COLLECTED' }
+      where: { status: 'collected' }
     })
     
-    // לוקרים מחוברים (מ-WebSocket)
-    const connectedLockers = getConnectedLockers().length
+    // לוקרים מחוברים
+    const onlineLockers = await prisma.locker.count({
+      where: { status: 'online' }
+    })
 
-    // סטטיסטיקות נוספות
+    // חבילות אחרונות
     const recentPackages = await prisma.package.findMany({
       take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        locker: { select: { location: true } },
-        cell: { select: { code: true } }
-      }
+      orderBy: { createdAt: 'desc' }
     })
 
     // חבילות שפגו תוקף (יותר מ-7 ימים)
@@ -41,22 +35,9 @@ export async function GET() {
     
     const expiredPackages = await prisma.package.count({
       where: {
-        status: 'WAITING',
+        status: 'pending',
         createdAt: { lt: sevenDaysAgo }
       }
-    })
-
-    // תפוסה לפי גודל תא
-    const cellsBySize = await prisma.cell.groupBy({
-      by: ['size'],
-      _count: { _all: true }
-    })
-    
-    // ספירת תאים תפוסים לפי גודל
-    const cellsOccupiedBySize = await prisma.cell.groupBy({
-      by: ['size'],
-      where: { isOccupied: true },
-      _count: { _all: true }
     })
 
     // סטטיסטיקות יומיות (היום)
@@ -76,7 +57,7 @@ export async function GET() {
 
     const todayCollected = await prisma.package.count({
       where: {
-        status: 'COLLECTED',
+        status: 'collected',
         updatedAt: {
           gte: today,
           lt: tomorrow
@@ -88,36 +69,25 @@ export async function GET() {
       success: true,
       stats: {
         totalLockers,
-        totalCells,
-        occupiedCells,
+        onlineLockers,
         totalPackages,
-        waitingPackages,
+        pendingPackages,
+        deliveredPackages,
         collectedPackages,
-        connectedLockers,
         expiredPackages,
         todayPackages,
         todayCollected,
-        occupancyRate: totalCells > 0 ? Math.round((occupiedCells / totalCells) * 100) : 0,
+        deliveryRate: totalPackages > 0 ? Math.round((deliveredPackages / totalPackages) * 100) : 0,
         collectionRate: totalPackages > 0 ? Math.round((collectedPackages / totalPackages) * 100) : 0
       },
       recentPackages: recentPackages.map(pkg => ({
-        trackingCode: pkg.trackingCode,
-        userName: pkg.userName,
-        status: pkg.status === 'WAITING' ? 'ממתין' : 'נאסף',
-        locker: pkg.locker.location,
-        cell: pkg.cell.code,
+        packageId: pkg.packageId,
+        status: pkg.status === 'pending' ? 'ממתין' : 
+                pkg.status === 'delivered' ? 'נמסר' : 'נאסף',
+        lockerId: pkg.lockerId,
+        cellId: pkg.cellId,
         createdAt: pkg.createdAt
-      })),
-      cellsBySize: cellsBySize.map(item => {
-        const occupiedCount = cellsOccupiedBySize.find(occ => occ.size === item.size)?._count._all || 0
-        return {
-          size: item.size === 'SMALL' ? 'קטן' : 
-                item.size === 'MEDIUM' ? 'בינוני' :
-                item.size === 'LARGE' ? 'גדול' : 'רחב',
-          total: item._count._all,
-          occupied: occupiedCount
-        }
-      })
+      }))
     })
 
   } catch (error) {

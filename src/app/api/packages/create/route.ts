@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendNotificationEmail } from '@/lib/email'
-import { openLockerCell } from '@/lib/websocket'
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +12,7 @@ export async function POST(request: Request) {
       tracking_code, 
       size, 
       lockerId, 
-      cellId, 
-      cellCode 
+      cellId
     } = body
 
     // בדיקת שדות חובה
@@ -25,35 +23,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // המרת גודל מעברית לאנגלית
-    const sizeMap: { [key: string]: string } = {
-      'קטן': 'SMALL',
-      'בינוני': 'MEDIUM',
-      'גדול': 'LARGE',
-      'רחב': 'WIDE'
-    }
-
-    const dbSize = sizeMap[size]
-    if (!dbSize) {
-      return NextResponse.json(
-        { error: 'גודל חבילה לא תקין' },
-        { status: 400 }
-      )
-    }
-
     // יצירת קוד מעקב אם לא סופק
     const finalTrackingCode = tracking_code || 
       'XYZ' + Math.random().toString(36).substr(2, 9).toUpperCase()
 
-    // בדיקה שהתא עדיין זמין
-    const cell = await prisma.cell.findUnique({
-      where: { id: cellId },
-      include: { locker: true }
+    // בדיקה שהלוקר קיים
+    const locker = await prisma.locker.findUnique({
+      where: { id: lockerId }
     })
 
-    if (!cell || cell.isOccupied) {
+    if (!locker) {
       return NextResponse.json(
-        { error: 'התא כבר תפוס או לא קיים' },
+        { error: 'הלוקר לא קיים' },
         { status: 400 }
       )
     }
@@ -61,25 +42,12 @@ export async function POST(request: Request) {
     // שמירת החבילה בבסיס הנתונים
     const newPackage = await prisma.package.create({
       data: {
-        trackingCode: finalTrackingCode,
-        userName: name,
-        userEmail: email,
-        userPhone: phone,
-        size: dbSize as any,
+        packageId: finalTrackingCode,
+        userId: email, // משתמש באימייל כזיהוי משתמש
         lockerId,
         cellId,
-        status: 'WAITING'
-      },
-      include: {
-        locker: true,
-        cell: true
+        status: 'pending'
       }
-    })
-
-    // עדכון סטטוס התא לתפוס
-    await prisma.cell.update({
-      where: { id: cellId },
-      data: { isOccupied: true }
     })
 
     // שליחת הודעת אימייל ללקוח
@@ -88,20 +56,12 @@ export async function POST(request: Request) {
         to: email,
         name,
         trackingCode: finalTrackingCode,
-        lockerLocation: cell.locker.location,
-        cellCode: cell.code
+        lockerLocation: `לוקר ${locker.lockerId}`,
+        cellCode: cellId
       })
     } catch (emailError) {
       console.error('שגיאה בשליחת אימייל:', emailError)
       // לא נעצור את התהליך בגלל שגיאת אימייל
-    }
-
-    // פתיחת התא דרך WebSocket
-    try {
-      await openLockerCell(lockerId, cellCode || cell.code)
-    } catch (wsError) {
-      console.error('שגיאה בפתיחת התא:', wsError)
-      // לא נעצור את התהליך בגלל שגיאת WebSocket
     }
 
     return NextResponse.json({
@@ -109,8 +69,8 @@ export async function POST(request: Request) {
       package: {
         id: newPackage.id,
         trackingCode: finalTrackingCode,
-        locker: newPackage.locker.location,
-        cell: newPackage.cell.code,
+        lockerId: newPackage.lockerId,
+        cellId: newPackage.cellId,
         status: newPackage.status
       }
     })

@@ -1,5 +1,8 @@
 'use client'
 
+// השבתת prerendering עבור עמוד זה
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
@@ -72,6 +75,8 @@ const StatusIcon = ({ isOnline }: { isOnline: boolean }) => (
 )
 
 export default function AdminLockersPage() {
+  console.log('🔧 נטען דף ניהול לוקרים (ADMIN)')
+  console.log('🌐 URL נוכחי בדף אדמין לוקרים:', typeof window !== 'undefined' ? window.location.href : 'SSR')
   const [lockers, setLockers] = useState<{ [key: string]: Locker }>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -357,7 +362,11 @@ export default function AdminLockersPage() {
           <h2 className="text-2xl font-bold text-white mb-2">אין לוקרים זמינים</h2>
           <p className="text-white/80">מחכה לחיבור לוקרים למערכת...</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }}
             className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
           >
             רענן דף
@@ -370,6 +379,11 @@ export default function AdminLockersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white" dir="rtl">
       <div className="container mx-auto px-4 py-8">
+        {/* כותרת ברורה */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">🔧 ניהול לוקרים - דף אדמין</h1>
+          <p className="text-white/70">ממשק ניהול לוקרים ותאים</p>
+        </div>
         {/* חלון סטטוס WebSocket מוצג תמיד */}
         <div className="mb-4 p-3 rounded-lg border border-gray-300 bg-white flex items-center gap-4 shadow-sm">
           <div className={`w-3 h-3 rounded-full ${wsStatusColor}`}></div>

@@ -257,6 +257,47 @@ wss.on('connection', (ws, req) => {
             }));
             ws.close();
           }
+        } else if (data.client === 'locker') {
+          // טיפול בזיהוי לוקר
+          if (!data.id) {
+            console.log('❌ לוקר ניסה להתחבר ללא ID');
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'חסר מזהה לוקר (ID)'
+            }));
+            return; // לא מנתקים, רק שולחים שגיאה
+          }
+
+          // בדיקה שה-ID מורשה (מתחיל ב-LOC)
+          if (!data.id.startsWith('LOC')) {
+            console.log(`❌ לוקר ${data.id} לא מורשה`);
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: `לוקר ${data.id} לא מורשה במערכת`
+            }));
+            ws.close();
+            return;
+          }
+
+          // רישום הלוקר
+          lockerId = data.id;
+          lockerConnections.set(lockerId, ws);
+          ws.lastSeen = new Date();
+          ws.cells = data.cells || {};
+          
+          // לוג הצלחה
+          console.log(`✅ Locker identified: ${data.id}`);
+          console.log(`📡 נרשם לוקר ${lockerId}`);
+          
+          // שליחת אישור ללוקר
+          ws.send(JSON.stringify({
+            type: 'identified',
+            message: `לוקר ${lockerId} זוהה בהצלחה`,
+            lockerId: lockerId
+          }));
+          
+          // עדכון כל הממשקים
+          broadcastStatus();
         }
         return;
       }
@@ -325,6 +366,18 @@ wss.on('connection', (ws, req) => {
           if (lockerId) {
             ws.cells = data.cells || {};
             ws.lastSeen = new Date();
+            console.log(`🔄 עודכן סטטוס לוקר ${lockerId}`);
+            broadcastStatus();
+          }
+          break;
+
+        case 'cellUpdate':
+          if (lockerId) {
+            ws.cells = data.cells || {};
+            ws.lastSeen = new Date();
+            console.log(`🔄 עודכנו תאים בלוקר ${lockerId}`, { 
+              cellCount: Object.keys(data.cells || {}).length 
+            });
             broadcastStatus();
           }
           break;

@@ -436,25 +436,17 @@ class ESP32Controller {
     if (!this.prisma) return;
 
     try {
-      await this.prisma.cellStatus.upsert({
-        where: {
-          lockerId_cellId: {
-            lockerId,
-            cellId
+      // עדכון הלוקר במסד הנתונים עם מידע התאים
+      const connection = this.lockerConnections.get(lockerId);
+      if (connection) {
+        await this.prisma.locker.update({
+          where: { lockerId },
+          data: {
+            cells: connection.cells as any,
+            lastSeen: new Date()
           }
-        },
-        update: {
-          locked,
-          packageId,
-          updatedAt: new Date()
-        },
-        create: {
-          lockerId,
-          cellId,
-          locked,
-          packageId
-        }
-      });
+        });
+      }
     } catch (error) {
       this.log(`❌ שגיאה בעדכון מסד הנתונים: ${error}`, 'error');
     }
