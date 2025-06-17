@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Fallback data במקרה שאין דאטאבייס
-const mockLockers = [
+const mockLockers: any[] = [
   {
     id: 1,
     name: 'לוקר ראשי',
@@ -26,7 +26,9 @@ const mockLockers = [
         lockerId: 1,
         openCount: 0,
         lastOpenedAt: new Date().toISOString(),
-        lastClosedAt: new Date().toISOString()
+        lastClosedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         id: 2,
@@ -40,7 +42,9 @@ const mockLockers = [
         lockerId: 1,
         openCount: 0,
         lastOpenedAt: new Date().toISOString(),
-        lastClosedAt: new Date().toISOString()
+        lastClosedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
     ],
     createdAt: new Date().toISOString(),
@@ -131,15 +135,16 @@ export async function POST(request: NextRequest) {
         })
       } else {
         // Fallback - הוספה למערך המדומה
-        const newLocker = {
+        const newLocker: any = {
           id: mockLockers.length + 1,
-          name,
-          location,
-          description,
-          ip,
+          name: name || 'לוקר חדש',
+          location: location || 'לא מוגדר',
+          description: description || '',
+          ip: ip || '192.168.1.1',
           port: port || 80,
-          deviceId,
+          deviceId: deviceId || `ESP32_${mockLockers.length + 1}`,
           status: status || 'OFFLINE',
+          lastSeen: new Date().toISOString(),
           isActive: isActive ?? true,
           cells: [],
           createdAt: new Date().toISOString(),
@@ -199,20 +204,22 @@ export async function POST(request: NextRequest) {
           }, { status: 404 })
         }
 
-        const newCell = {
-          id: Date.now(), // ID זמני
-          cellNumber,
-          name,
-          size: size || 'MEDIUM',
-          code,
-          isActive: isActive ?? true,
-          status: 'AVAILABLE',
-          isLocked: true,
-          lockerId,
-          openCount: 0,
-          lastOpenedAt: new Date().toISOString(),
-          lastClosedAt: new Date().toISOString()
-        }
+                 const newCell: any = {
+           id: Date.now(), // ID זמני
+           cellNumber: cellNumber || 1,
+           name: name || `תא ${cellNumber || 1}`,
+           size: size || 'MEDIUM',
+           code: code || `LOC${String(lockerId).padStart(3, '0')}_CELL${String(cellNumber || 1).padStart(2, '0')}`,
+           isActive: isActive ?? true,
+           status: 'AVAILABLE',
+           isLocked: true,
+           lockerId,
+           openCount: 0,
+           lastOpenedAt: new Date().toISOString(),
+           lastClosedAt: new Date().toISOString(),
+           createdAt: new Date().toISOString(),
+           updatedAt: new Date().toISOString()
+         }
 
         locker.cells.push(newCell)
 
@@ -276,18 +283,18 @@ export async function PUT(request: NextRequest) {
           }, { status: 404 })
         }
 
-        mockLockers[lockerIndex] = {
-          ...mockLockers[lockerIndex],
-          name,
-          location,
-          description,
-          ip,
-          port,
-          deviceId,
-          status,
-          isActive,
-          updatedAt: new Date().toISOString()
-        }
+                 mockLockers[lockerIndex] = {
+           ...mockLockers[lockerIndex],
+           name: name || mockLockers[lockerIndex].name,
+           location: location || mockLockers[lockerIndex].location,
+           description: description || mockLockers[lockerIndex].description,
+           ip: ip || mockLockers[lockerIndex].ip,
+           port: port || mockLockers[lockerIndex].port,
+           deviceId: deviceId || mockLockers[lockerIndex].deviceId,
+           status: status || mockLockers[lockerIndex].status,
+           isActive: isActive ?? mockLockers[lockerIndex].isActive,
+           updatedAt: new Date().toISOString()
+         }
 
         return NextResponse.json({
           success: true,
@@ -320,14 +327,15 @@ export async function PUT(request: NextRequest) {
         for (const locker of mockLockers) {
           const cellIndex = locker.cells.findIndex(c => c.id === id)
           if (cellIndex !== -1) {
-            locker.cells[cellIndex] = {
-              ...locker.cells[cellIndex],
-              cellNumber,
-              name,
-              size,
-              code,
-              isActive
-            }
+                         locker.cells[cellIndex] = {
+               ...locker.cells[cellIndex],
+               cellNumber: cellNumber || locker.cells[cellIndex].cellNumber,
+               name: name || locker.cells[cellIndex].name,
+               size: size || locker.cells[cellIndex].size,
+               code: code || locker.cells[cellIndex].code,
+               isActive: isActive ?? locker.cells[cellIndex].isActive,
+               updatedAt: new Date().toISOString()
+             }
 
             return NextResponse.json({
               success: true,
