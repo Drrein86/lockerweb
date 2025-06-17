@@ -40,6 +40,9 @@ export default function LockersManagementPage() {
   const [controlLoading, setControlLoading] = useState<{ [key: string]: boolean }>({})
   const [connectedLockers, setConnectedLockers] = useState<any[]>([])
 
+  // לוג התחלתי
+  console.log('🚀 LockersManagementPage נטען')
+
   // טעינת נתונים
   useEffect(() => {
     loadLockers()
@@ -47,17 +50,24 @@ export default function LockersManagementPage() {
   }, [])
 
   const loadLockers = async () => {
+    console.log('📊 מתחיל לטעון לוקרים...')
     try {
       setLoading(true)
+      console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
       const response = await fetch('/api/admin/lockers-management')
+      console.log('📡 תגובה מהשרת:', response.status, response.statusText)
       
       if (!response.ok) {
+        console.error('❌ HTTP Error:', response.status, response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
+      console.log('📋 מפענח JSON...')
       const data = await response.json()
+      console.log('✅ נתונים התקבלו:', data)
       
       if (data.success) {
+        console.log('🏢 מעדכן רשימת לוקרים:', data.lockers?.length || 0, 'לוקרים')
         setLockers(data.lockers || [])
       } else {
         console.error('שגיאה בטעינת לוקרים:', data.error)
@@ -65,11 +75,17 @@ export default function LockersManagementPage() {
         setLockers([])
       }
     } catch (error) {
-      console.error('שגיאה בטעינת לוקרים:', error)
+      console.error('❌ שגיאה בטעינת לוקרים:', error)
+      console.error('🔍 פרטי השגיאה:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack'
+      })
       // במקרה של שגיאה נציג נתונים ריקים
       setLockers([])
     } finally {
       setLoading(false)
+      console.log('✅ טעינת לוקרים הושלמה')
     }
   }
 
@@ -98,32 +114,44 @@ export default function LockersManagementPage() {
 
   // פונקציות CRUD
   const saveLocker = async (lockerData: Partial<Locker>) => {
+    console.log('💾 מתחיל לשמור לוקר:', lockerData)
     try {
       const url = '/api/admin/lockers-management'
       const method = lockerData.id ? 'PUT' : 'POST'
+      console.log('🌐 שולח בקשה:', method, url)
       
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...lockerData, type: 'locker' })
       })
+      console.log('📡 תגובה מהשרת:', response.status, response.statusText)
 
       if (!response.ok) {
+        console.error('❌ HTTP Error בשמירת לוקר:', response.status, response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('✅ נתונים התקבלו:', data)
       
       if (data.success) {
+        console.log('🔄 מרענן רשימת לוקרים...')
         await loadLockers()
         setShowLockerForm(false)
         setSelectedLocker(null)
         alert('לוקר נשמר בהצלחה!')
       } else {
+        console.error('❌ שגיאה ב-API:', data.error)
         alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
     } catch (error) {
-      console.error('שגיאה בשמירת לוקר:', error)
+      console.error('❌ שגיאה בשמירת לוקר:', error)
+      console.error('🔍 פרטי השגיאה:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack'
+      })
       alert('שגיאה בשמירת לוקר: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     }
   }
@@ -267,7 +295,15 @@ export default function LockersManagementPage() {
               רענן חיבורים
             </button>
             <button
-              onClick={() => setShowLockerForm(true)}
+              onClick={() => {
+                console.log('🖱️ נלחץ כפתור: הוסף לוקר חדש')
+                try {
+                  setShowLockerForm(true)
+                  console.log('✅ טופס לוקר נפתח')
+                } catch (error) {
+                  console.error('❌ שגיאה בפתיחת טופס לוקר:', error)
+                }
+              }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl"
             >
               <span>➕</span>

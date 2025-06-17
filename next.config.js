@@ -2,7 +2,7 @@
 const nextConfig = {
   swcMinify: true,
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production"
+    removeConsole: false
   },
   images: {
     domains: ['localhost']
