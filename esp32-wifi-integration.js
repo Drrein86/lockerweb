@@ -1,13 +1,6 @@
 const WebSocket = require('ws');
-const { PrismaClient } = require('@prisma/client');
 
-let prisma;
-try {
-  prisma = new PrismaClient();
-} catch (error) {
-  console.warn('⚠️ לא ניתן להתחבר לדאטהבייס, המערכת תעבוד במצב מוגבל');
-  prisma = null;
-}
+console.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
 
 /**
  * מחלקה לניהול חיבור ל-ESP32 דרך WebSocket
