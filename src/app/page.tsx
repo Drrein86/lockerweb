@@ -6,7 +6,7 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default function HomePage() {
-  // מצב פיתוח - אין אימות
+  // מצב פיתוח - אין אימות - גרסה מעודכנת 2025
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
         <div className="max-w-4xl mx-auto">
