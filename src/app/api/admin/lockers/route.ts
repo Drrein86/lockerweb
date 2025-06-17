@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const lockers = await prisma.locker.findMany({
       orderBy: {
-        lockerId: 'asc'
+        id: 'asc'
       }
     })
 
