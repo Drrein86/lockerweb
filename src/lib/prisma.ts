@@ -150,7 +150,7 @@ export const prismaMock = {
       return {
         id: Math.floor(Math.random() * 1000),
         trackingCode: trackingCode,
-        userName: options.data.name,
+        userName: options.data.userName || options.data.name,
         userEmail: options.data.email,
         userPhone: options.data.phone,
         size: options.data.size,

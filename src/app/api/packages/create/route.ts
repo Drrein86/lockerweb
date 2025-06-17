@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prismaMock } from '@/lib/prisma'
 import { sendNotificationEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { 
-      name, 
+      name,
+      userName, 
       email, 
       phone, 
       tracking_code, 
@@ -14,9 +15,12 @@ export async function POST(request: Request) {
       lockerId, 
       cellId
     } = body
+    
+    // תמיכה בשני פורמטים - name או userName
+    const customerName = userName || name
 
     // בדיקת שדות חובה
-    if (!name || !email || !phone || !size || !lockerId || !cellId) {
+    if (!customerName || !email || !phone || !size || !lockerId || !cellId) {
       return NextResponse.json(
         { error: 'חסרים שדות חובה' },
         { status: 400 }
@@ -27,40 +31,28 @@ export async function POST(request: Request) {
     const finalTrackingCode = tracking_code || 
       'XYZ' + Math.random().toString(36).substr(2, 9).toUpperCase()
 
-    // בדיקה שהלוקר קיים
-    const locker = await prisma.locker.findUnique({
-      where: { id: lockerId }
+    // במצב Mock - נדמה יצירת חבילה
+    console.log('יוצר חבילה חדשה:', {
+      customerName,
+      email,
+      phone,
+      finalTrackingCode,
+      size,
+      lockerId,
+      cellId
     })
 
-    if (!locker) {
-      return NextResponse.json(
-        { error: 'הלוקר לא קיים' },
-        { status: 400 }
-      )
-    }
-
-    // יצירת לקוח או מציאת לקוח קיים
-    const customer = await prisma.customer.upsert({
-      where: { email },
-      update: { firstName: name.split(' ')[0], lastName: name.split(' ')[1] || '', phone },
-      create: { 
-        email, 
-        firstName: name.split(' ')[0], 
-        lastName: name.split(' ')[1] || '', 
-        phone 
-      }
-    })
-
-    // שמירת החבילה בבסיס הנתונים
-    const newPackage = await prisma.package.create({
+    // שמירת החבילה במערכת Mock
+    const newPackage = await prismaMock.package.create({
       data: {
-        trackingCode: finalTrackingCode,
-        customerId: customer.id,
-        courierId: 1, // זמני - יש צורך במערכת שליחים
+        name: customerName,
+        userName: customerName,
+        email,
+        phone,
+        tracking_code: finalTrackingCode,
         size,
         lockerId,
-        cellId,
-        status: 'WAITING'
+        cellId
       }
     })
 
@@ -68,10 +60,10 @@ export async function POST(request: Request) {
     try {
       await sendNotificationEmail({
         to: email,
-        name,
+        name: customerName,
         trackingCode: finalTrackingCode,
-        lockerLocation: `לוקר ${locker.lockerId}`,
-        cellCode: cellId
+        lockerLocation: `לוקר ${lockerId}`,
+        cellCode: cellId.toString()
       })
     } catch (emailError) {
       console.error('שגיאה בשליחת אימייל:', emailError)
@@ -83,9 +75,13 @@ export async function POST(request: Request) {
       package: {
         id: newPackage.id,
         trackingCode: finalTrackingCode,
-        lockerId: newPackage.lockerId,
-        cellId: newPackage.cellId,
-        status: newPackage.status
+        userName: customerName,
+        userEmail: email,
+        userPhone: phone,
+        size: size,
+        lockerId: lockerId,
+        cellId: cellId,
+        status: 'WAITING'
       }
     })
 

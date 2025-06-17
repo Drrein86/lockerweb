@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prismaMock } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // חיפוש החבילה
-    const packageData = await prisma.package.findUnique({
+    // חיפוש החבילה במערכת Mock
+    const packageData = await prismaMock.package.findUnique({
       where: {
         trackingCode: trackingCode.toUpperCase()
       }
@@ -47,8 +47,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // עדכון סטטוס החבילה לנאספה
-    const updatedPackage = await prisma.package.update({
+    // עדכון סטטוס החבילה לנאספה במערכת Mock
+    const updatedPackage = await prismaMock.package.update({
       where: { id: packageData.id },
       data: { 
         status: 'COLLECTED'

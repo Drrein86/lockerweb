@@ -1,5 +1,4 @@
 import { WebSocket } from 'ws';
-import { PrismaClient } from '@prisma/client';
 
 // קונפיגורציה
 const CONFIG = {
@@ -33,7 +32,6 @@ interface LockerConnection {
 class ESP32Controller {
   private lockerConnections: Map<string, LockerConnection>;
   private statusUpdateInterval: NodeJS.Timeout | null;
-  private prisma: PrismaClient | null;
   private adminConnections: Set<WebSocket>;
 
   constructor() {
@@ -41,13 +39,7 @@ class ESP32Controller {
     this.statusUpdateInterval = null;
     this.adminConnections = new Set();
     
-    try {
-      this.prisma = new PrismaClient();
-      this.log('✅ התחברות למסד הנתונים הצליחה');
-    } catch (error) {
-      this.log('⚠️ לא ניתן להתחבר לדאטהבייס, המערכת תעבוד במצב מוגבל', 'warn');
-      this.prisma = null;
-    }
+    this.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
 
     // התחלת בדיקה תקופתית
     this.startPeriodicHealthCheck();
@@ -82,7 +74,7 @@ class ESP32Controller {
       type: 'register',
       id: lockerId,
       ip,
-      status: 'online'
+      status: 'ONLINE'
     });
 
     return true;
@@ -433,22 +425,25 @@ class ESP32Controller {
     locked: boolean,
     packageId?: string
   ): Promise<void> {
-    if (!this.prisma) return;
-
+    // במצב Mock - רק לוג העדכון
     try {
-      // עדכון הלוקר במסד הנתונים עם מידע התאים
+      this.log(`📝 עדכון תא ${cellId} בלוקר ${lockerId}: נעול=${locked}, חבילה=${packageId || 'ללא'}`);
+      
       const connection = this.lockerConnections.get(lockerId);
       if (connection) {
-        await this.prisma.locker.update({
-          where: { lockerId },
-          data: {
-            cells: connection.cells as any,
-            lastSeen: new Date()
-          }
-        });
+        // עדכון המטמון המקומי
+        connection.cells[cellId] = {
+          locked,
+          opened: !locked,
+          packageId,
+          timestamp: new Date()
+        };
+        connection.lastSeen = new Date();
+        
+        this.log(`✅ תא ${cellId} בלוקר ${lockerId} עודכן בהצלחה`);
       }
     } catch (error) {
-      this.log(`❌ שגיאה בעדכון מסד הנתונים: ${error}`, 'error');
+      this.log(`❌ שגיאה בעדכון תא: ${error}`, 'error');
     }
   }
 

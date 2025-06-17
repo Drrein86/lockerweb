@@ -10,7 +10,7 @@ require('dotenv').config();
 const ESP32Controller = require('./esp32-wifi-integration');
 
 // הגדרות סביבה
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 const USE_SSL = process.env.USE_SSL === 'true';
 const SSL_KEY = process.env.SSL_KEY_PATH;
 const SSL_CERT = process.env.SSL_CERT_PATH;

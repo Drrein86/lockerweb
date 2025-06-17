@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prismaMock } from '@/lib/prisma'
 
 export async function GET(
   request: Request,
@@ -15,8 +15,8 @@ export async function GET(
       )
     }
 
-    // חיפוש החבילה לפי קוד מעקב
-    const packageData = await prisma.package.findUnique({
+    // חיפוש החבילה לפי קוד מעקב במערכת Mock
+    const packageData = await prismaMock.package.findUnique({
       where: {
         trackingCode: trackingCode.toUpperCase()
       }
@@ -73,10 +73,16 @@ export async function GET(
       package: {
         id: packageData.id,
         packageId: packageData.trackingCode,
+        trackingCode: packageData.trackingCode,
+        userName: packageData.userName,
+        userEmail: packageData.userEmail,
+        userPhone: packageData.userPhone,
+        size: packageData.size,
         status: statusMap[packageData.status] || packageData.status,
         lockerId: packageData.lockerId,
         cellId: packageData.cellId,
-        customerId: packageData.customerId,
+        locker: packageData.locker,
+        cell: packageData.cell,
         createdAt: packageData.createdAt,
         daysLeft: Math.max(0, 7 - daysDiff),
         canCollect: daysDiff <= 7

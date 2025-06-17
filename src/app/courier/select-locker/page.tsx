@@ -86,16 +86,30 @@ function SelectLockerContent() {
       const response = await fetch(`/api/lockers/available?size=${size}`)
       const data = await response.json()
       
-      if (data.available) {
-        setLockers(data.lockers)
+      if (data.available && data.lockers) {
+        // עיבוד נתוני הלוקרים לפורמט הנכון
+        const processedLockers = data.lockers.map((locker: any) => ({
+          locker: {
+            id: locker.id,
+            location: locker.location,
+            description: locker.description
+          },
+          cells: locker.availableCells || []
+        }))
+        
+        setLockers(processedLockers)
+        
         // בחירה אוטומטית של הלוקר הראשון והתא הראשון
-        if (data.lockers.length > 0) {
-          const firstLocker = data.lockers[0]
+        if (processedLockers.length > 0) {
+          const firstLocker = processedLockers[0]
           setSelectedLocker(firstLocker)
           if (firstLocker.cells.length > 0) {
             setSelectedCell(firstLocker.cells[0])
           }
         }
+      } else {
+        // אם אין לוקרים זמינים, הצג הודעה
+        console.log('אין לוקרים זמינים:', data.message)
       }
     } catch (error) {
       console.error('שגיאה בטעינת לוקרים:', error)

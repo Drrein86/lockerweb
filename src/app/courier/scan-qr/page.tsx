@@ -238,6 +238,7 @@ function ScanQRContent() {
         },
         body: JSON.stringify({
           ...customerData,
+          userName: customerData.name,
           size,
           lockerId: parseInt(lockerId || ''),
           cellId: parseInt(cellId || ''),
