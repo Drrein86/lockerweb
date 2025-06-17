@@ -76,6 +76,16 @@ const SettingsIcon = () => (
   </svg>
 )
 
+const LockersManagementIcon = () => (
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="white" strokeWidth="2"/>
+    <path d="M8 7V5A3 3 0 0 1 14 5V7" stroke="white" strokeWidth="2"/>
+    <circle cx="12" cy="13" r="2" stroke="white" strokeWidth="2"/>
+    <path d="M7 11H17" stroke="white" strokeWidth="2"/>
+    <path d="M7 15H17" stroke="white" strokeWidth="2"/>
+  </svg>
+)
+
 const LogsIcon = () => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8L14 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -209,8 +219,25 @@ export default function AdminPage() {
                 <div className="mb-4 flex justify-center">
                   <BuildingIcon />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">ניהול לוקרים</h3>
-                <p className="text-white/70">צפייה ועריכת לוקרים ותאים</p>
+                <h3 className="text-xl font-bold text-white mb-2">מעקב לוקרים</h3>
+                <p className="text-white/70">צפייה בסטטוס לוקרים וחיבורים</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/admin/lockers-management" className="group">
+            <div className="glass-card hover:bg-white/15 transition-all duration-300 transform group-hover:scale-105 border-2 border-blue-400/50">
+              <div className="text-center">
+                <div className="mb-4 flex justify-center">
+                  <LockersManagementIcon />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">🏢 ניהול לוקרים ותאים</h3>
+                <p className="text-white/70">הוספה, עריכה ובקרת תאים מרחוק</p>
+                <div className="mt-2">
+                  <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">
+                    ✨ חדש
+                  </span>
+                </div>
               </div>
             </div>
           </Link>
