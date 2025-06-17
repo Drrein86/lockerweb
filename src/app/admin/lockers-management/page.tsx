@@ -39,6 +39,10 @@ export default function LockersManagementPage() {
   const [showLockerForm, setShowLockerForm] = useState(false)
   const [showCellForm, setShowCellForm] = useState(false)
   const [controlLoading, setControlLoading] = useState<{ [key: string]: boolean }>({})
+  const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [selectedLiveLocker, setSelectedLiveLocker] = useState<any>(null)
+  const [predefinedLockers, setPredefinedLockers] = useState<Locker[]>([])
+  const [showCreateNewOption, setShowCreateNewOption] = useState(false)
   
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
@@ -392,7 +396,70 @@ export default function LockersManagementPage() {
     }
   }
 
-  // שיוך לוקר חי למערכת
+  // טעינת לוקרים מוגדרים מראש (ללא חיבור לשרת חומרה)
+  const loadPredefinedLockers = async () => {
+    try {
+      const response = await fetch('/api/admin/lockers-management')
+      const data = await response.json()
+      
+      if (data.success) {
+        // מסנן רק לוקרים שאין להם deviceId או שלא מחוברים
+        const unassignedLockers = data.lockers.filter((locker: Locker) => 
+          !locker.deviceId || locker.status !== 'ONLINE'
+        )
+        setPredefinedLockers(unassignedLockers)
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת לוקרים מוגדרים:', error)
+    }
+  }
+
+  // פתיחת דיאלוג שיוך לוקר חי
+  const openAssignDialog = (liveLocker: any) => {
+    setSelectedLiveLocker(liveLocker)
+    setShowAssignDialog(true)
+    loadPredefinedLockers()
+  }
+
+  // שיוך לוקר חי ללוקר קיים
+  const assignToExistingLocker = async (predefinedLockerId: number) => {
+    try {
+      const response = await fetch('/api/admin/lockers-management', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'locker',
+          id: predefinedLockerId,
+          deviceId: selectedLiveLocker.id,
+          ip: selectedLiveLocker.ip,
+          status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
+          lastSeen: new Date().toISOString()
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('לוקר חי שויך בהצלחה ללוקר קיים!')
+        await loadLockers()
+        
+        // יצירת תאים אוטומטית אם יש
+        if (selectedLiveLocker.cells && Object.keys(selectedLiveLocker.cells).length > 0) {
+          await createCellsFromLive(predefinedLockerId, selectedLiveLocker.cells)
+        }
+        
+        setShowAssignDialog(false)
+        setSelectedLiveLocker(null)
+      } else {
+        alert('שגיאה בשיוך הלוקר: ' + data.error)
+      }
+    } catch (error) {
+      console.error('שגיאה בשיוך לוקר:', error)
+      alert('שגיאה בחיבור לשרת')
+    }
+  }
+
+  // שיוך לוקר חי למערכת (יצירת לוקר חדש)
   const assignLiveLocker = async (liveLocker: any) => {
     try {
       const newLocker = {
@@ -638,10 +705,10 @@ export default function LockersManagementPage() {
                     
                     <div className="flex flex-col gap-2 w-full sm:w-auto">
                       <button
-                        onClick={() => assignLiveLocker(liveLocker)}
+                        onClick={() => openAssignDialog(liveLocker)}
                         className="w-full sm:w-auto px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-sm transition-all"
                       >
-                        ➕ שייך למערכת
+                        🔗 שייך למערכת
                       </button>
                       {liveLocker.isOnline && (
                         <button
@@ -881,6 +948,23 @@ export default function LockersManagementPage() {
             onCancel={() => {
               setShowCellForm(false)
               setSelectedCell(null)
+            }}
+          />
+        )}
+
+        {showAssignDialog && selectedLiveLocker && (
+          <AssignDialog
+            liveLocker={selectedLiveLocker}
+            predefinedLockers={predefinedLockers}
+            onAssignToExisting={assignToExistingLocker}
+            onCreateNew={() => {
+              assignLiveLocker(selectedLiveLocker)
+              setShowAssignDialog(false)
+              setSelectedLiveLocker(null)
+            }}
+            onCancel={() => {
+              setShowAssignDialog(false)
+              setSelectedLiveLocker(null)
             }}
           />
         )}
@@ -1166,6 +1250,107 @@ function CellForm({ cell, lockerId, maxCellNumber, onSave, onCancel }: {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function AssignDialog({ liveLocker, predefinedLockers, onAssignToExisting, onCreateNew, onCancel }: {
+  liveLocker: any
+  predefinedLockers: Locker[]
+  onAssignToExisting: (lockerId: number) => void
+  onCreateNew: () => void
+  onCancel: () => void
+}) {
+  const [selectedLockerId, setSelectedLockerId] = useState<number | null>(null)
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl max-w-2xl w-full p-6 border border-white/20 max-h-[80vh] overflow-y-auto">
+        <h3 className="text-2xl font-bold text-white mb-6 text-center">
+          🔗 שיוך לוקר חי למערכת
+        </h3>
+        
+        {/* פרטי הלוקר החי */}
+        <div className="bg-blue-500/10 rounded-lg p-4 mb-6 border border-blue-400/30">
+          <h4 className="text-lg font-semibold text-blue-400 mb-3">לוקר חי שנבחר:</h4>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><span className="text-white/60">Device ID:</span> <span className="text-white">{liveLocker.id}</span></div>
+            <div><span className="text-white/60">IP:</span> <span className="text-white">{liveLocker.ip}</span></div>
+            <div><span className="text-white/60">סטטוס:</span> <span className={liveLocker.isOnline ? 'text-green-400' : 'text-red-400'}>{liveLocker.isOnline ? 'מחובר' : 'לא מחובר'}</span></div>
+            <div><span className="text-white/60">תאים:</span> <span className="text-white">{Object.keys(liveLocker.cells || {}).length}</span></div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-white">בחר אפשרות:</h4>
+          
+          {/* אפשרות 1: שיוך ללוקר קיים */}
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <h5 className="text-md font-medium text-white mb-3">🔗 שייך ללוקר קיים במערכת</h5>
+            {predefinedLockers.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {predefinedLockers.map((locker) => (
+                  <div
+                    key={locker.id}
+                    onClick={() => setSelectedLockerId(locker.id)}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      selectedLockerId === locker.id
+                        ? 'border-blue-400 bg-blue-500/20'
+                        : 'border-white/20 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-medium text-white">{locker.name}</div>
+                        <div className="text-sm text-white/60">מיקום: {locker.location}</div>
+                        <div className="text-sm text-white/60">תאים: {locker.cells?.length || 0}</div>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 ${
+                        selectedLockerId === locker.id
+                          ? 'border-blue-400 bg-blue-400'
+                          : 'border-white/40'
+                      }`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-white/60 text-sm">אין לוקרים זמינים לשיוך</p>
+            )}
+          </div>
+
+          {/* אפשרות 2: יצירת לוקר חדש */}
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <h5 className="text-md font-medium text-white mb-2">➕ צור לוקר חדש במערכת</h5>
+            <p className="text-sm text-white/60 mb-3">
+              יצירת לוקר חדש עם הפרטים מהלוקר החי
+            </p>
+          </div>
+        </div>
+
+        {/* כפתורי פעולה */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-8">
+          <button
+            onClick={() => selectedLockerId && onAssignToExisting(selectedLockerId)}
+            disabled={!selectedLockerId}
+            className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-500 disabled:to-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all"
+          >
+            🔗 שייך ללוקר קיים
+          </button>
+          <button
+            onClick={onCreateNew}
+            className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all"
+          >
+            ➕ צור לוקר חדש
+          </button>
+          <button
+            onClick={onCancel}
+            className="bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 px-6 py-3 rounded-lg font-medium transition-all"
+          >
+            ❌ ביטול
+          </button>
+        </div>
       </div>
     </div>
   )
