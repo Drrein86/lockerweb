@@ -66,9 +66,20 @@ export default function LockersManagementPage() {
       const data = await response.json()
       console.log('✅ נתונים התקבלו:', data)
       
-      if (data.success) {
-        console.log('🏢 מעדכן רשימת לוקרים:', data.lockers?.length || 0, 'לוקרים')
-        setLockers(data.lockers || [])
+      if (data.success && Array.isArray(data.lockers)) {
+        // Validation של נתונים
+        const validatedLockers = data.lockers.map((locker: any) => ({
+          ...locker,
+          id: locker.id || Math.random(), // fallback ID
+          cells: Array.isArray(locker.cells) ? locker.cells.map((cell: any) => ({
+            ...cell,
+            id: cell.id || Math.random(), // fallback ID
+            cellNumber: cell.cellNumber || cell.id || Math.random()
+          })) : []
+        }))
+        
+        console.log('🏢 מעדכן רשימת לוקרים:', validatedLockers.length, 'לוקרים')
+        setLockers(validatedLockers)
       } else {
         console.error('שגיאה בטעינת לוקרים:', data.error)
         // במקרה של שגיאה נציג נתונים ריקים
@@ -101,8 +112,14 @@ export default function LockersManagementPage() {
       
       const data = await response.json()
       
-      if (data.success) {
-        setConnectedLockers(data.lockers || [])
+      if (data.success && Array.isArray(data.lockers)) {
+        // Validation של לוקרים מחוברים
+        const validatedConnectedLockers = data.lockers.map((locker: any, index: number) => ({
+          ...locker,
+          deviceId: locker.deviceId || locker.ip || `locker_${index}`, // fallback deviceId
+          ip: locker.ip || 'unknown'
+        }))
+        setConnectedLockers(validatedConnectedLockers)
       } else {
         setConnectedLockers([])
       }
@@ -320,7 +337,7 @@ export default function LockersManagementPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {connectedLockers.map((connectedLocker, index) => (
-                <div key={index} className="bg-green-500/10 backdrop-blur-md rounded-lg p-4 border border-green-400/30">
+                <div key={connectedLocker.deviceId || connectedLocker.ip || `connected_${index}`} className="bg-green-500/10 backdrop-blur-md rounded-lg p-4 border border-green-400/30">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
@@ -373,8 +390,8 @@ export default function LockersManagementPage() {
 
         {/* רשימת לוקרים */}
         <div className="space-y-6">
-          {lockers.map(locker => (
-            <div key={locker.id} className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
+          {lockers.map((locker, index) => (
+            <div key={locker.id || `locker_${index}`} className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
               {/* פרטי לוקר */}
               <div className="border-b border-white/10 pb-4 mb-6">
                 <div className="flex justify-between items-start">
@@ -473,8 +490,8 @@ export default function LockersManagementPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {locker.cells.map(cell => (
-                      <div key={cell.id} className="bg-white/5 rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-all">
+                    {locker.cells.map((cell, cellIndex) => (
+                      <div key={`${locker.id || index}-${cell.cellNumber || cell.id || cellIndex}`} className="bg-white/5 rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-all">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2">
                             <span className="text-2xl">{getSizeIcon(cell.size)}</span>
