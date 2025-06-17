@@ -5,7 +5,7 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === "production"
   },
   images: {
-    domains: ['lockerweb.vercel.app']
+    domains: ['localhost']
   },
   typescript: {
     ignoreBuildErrors: false

@@ -10,9 +10,7 @@
     }
   },
   "env": {
-    "NEXTAUTH_URL": "https://lockerweb-alpha.vercel.app",
-    "NODE_ENV": "production",
-    "NEXT_PUBLIC_HARDWARE_WS_URL": "wss://lockerweb-production.up.railway.app"
+    "NODE_ENV": "production"
   },
   "regions": ["fra1"],
   "headers": [

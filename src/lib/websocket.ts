@@ -1,7 +1,7 @@
 // הגדרות חיבור לשרת החומרה
 const HARDWARE_WS_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app')
-  : 'wss://lockerweb-production.up.railway.app'
+  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'ws://localhost:3003')
+  : 'ws://localhost:3003'
 
 const ADMIN_SECRET = '86428642'
 const PING_INTERVAL = 30000 // 30 שניות

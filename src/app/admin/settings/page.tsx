@@ -16,7 +16,7 @@ interface Settings {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
-    websocketUrl: process.env.NEXT_PUBLIC_HARDWARE_WS_URL || '',
+    websocketUrl: process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'ws://localhost:3003',
     adminSecret: '',
     reconnectAttempts: 3,
     reconnectInterval: 5000,
