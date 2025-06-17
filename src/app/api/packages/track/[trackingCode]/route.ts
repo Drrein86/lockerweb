@@ -30,7 +30,7 @@ export async function GET(
     }
 
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'collected') {
+    if (packageData.status === 'COLLECTED') {
       return NextResponse.json(
         { 
           error: 'החבילה כבר נאספה',
@@ -64,9 +64,9 @@ export async function GET(
     }
 
     const statusMap: { [key: string]: string } = {
-      'pending': 'ממתין לאיסוף',
-      'delivered': 'נמסר',
-      'collected': 'נאסף'
+      'WAITING': 'ממתין לאיסוף',
+      'DELIVERED': 'נמסר',
+      'COLLECTED': 'נאסף'
     }
 
     return NextResponse.json({

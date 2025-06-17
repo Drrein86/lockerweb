@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         userId: email, // משתמש באימייל כזיהוי משתמש
         lockerId,
         cellId,
-        status: 'pending'
+        status: 'WAITING'
       }
     })
 

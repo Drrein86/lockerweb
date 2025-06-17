@@ -17,8 +17,8 @@ export async function POST(request: Request) {
       where: { id: packageId },
       data: { 
         status,
-        collectedAt: status === 'collected' ? new Date() : null,
-        deliveredAt: status === 'delivered' ? new Date() : null
+        collectedAt: status === 'COLLECTED' ? new Date() : null,
+        deliveredAt: status === 'DELIVERED' ? new Date() : null
       }
     })
 

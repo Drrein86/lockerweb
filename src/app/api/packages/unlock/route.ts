@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     // בדיקה אם החבילה כבר נאספה
-    if (packageData.status === 'collected') {
+    if (packageData.status === 'COLLECTED') {
       return NextResponse.json(
         { error: 'החבילה כבר נאספה' },
         { status: 410 }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const updatedPackage = await prisma.package.update({
       where: { id: packageData.id },
       data: { 
-        status: 'collected',
+        status: 'COLLECTED',
         collectedAt: new Date()
       }
     })

@@ -9,18 +9,18 @@ export async function GET() {
     // ספירת חבילות
     const totalPackages = await prisma.package.count()
     const pendingPackages = await prisma.package.count({
-      where: { status: 'pending' }
+      where: { status: 'WAITING' }
     })
     const deliveredPackages = await prisma.package.count({
-      where: { status: 'delivered' }
+      where: { status: 'DELIVERED' }
     })
     const collectedPackages = await prisma.package.count({
-      where: { status: 'collected' }
+      where: { status: 'COLLECTED' }
     })
     
     // לוקרים מחוברים
     const onlineLockers = await prisma.locker.count({
-      where: { status: 'online' }
+      where: { status: 'ONLINE' }
     })
 
     // חבילות אחרונות
@@ -35,7 +35,7 @@ export async function GET() {
     
     const expiredPackages = await prisma.package.count({
       where: {
-        status: 'pending',
+        status: 'WAITING',
         createdAt: { lt: sevenDaysAgo }
       }
     })
@@ -57,7 +57,7 @@ export async function GET() {
 
     const todayCollected = await prisma.package.count({
       where: {
-        status: 'collected',
+        status: 'COLLECTED',
         updatedAt: {
           gte: today,
           lt: tomorrow
@@ -82,8 +82,8 @@ export async function GET() {
       },
       recentPackages: recentPackages.map(pkg => ({
         packageId: pkg.packageId,
-        status: pkg.status === 'pending' ? 'ממתין' : 
-                pkg.status === 'delivered' ? 'נמסר' : 'נאסף',
+        status: pkg.status === 'WAITING' ? 'ממתין' : 
+                pkg.status === 'DELIVERED' ? 'נמסר' : 'נאסף',
         lockerId: pkg.lockerId,
         cellId: pkg.cellId,
         createdAt: pkg.createdAt
