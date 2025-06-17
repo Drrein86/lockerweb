@@ -852,7 +852,7 @@ export default function LockersManagementPage() {
                 ➕ הוסף לוקר ראשון
               </button>
               <button
-                onClick={loadConnectedLockers}
+                onClick={loadLockers}
                 className="w-full sm:w-auto bg-green-500/20 hover:bg-green-500/30 text-green-300 px-6 py-3 rounded-lg font-medium transition-all"
               >
                 🔄 חפש לוקרים מחוברים
