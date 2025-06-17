@@ -32,18 +32,16 @@ interface Locker {
 
 export default function LockersManagementPage() {
   const [lockers, setLockers] = useState<Locker[]>([])
+  const [connectedLockers, setConnectedLockers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null)
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null)
   const [showLockerForm, setShowLockerForm] = useState(false)
   const [showCellForm, setShowCellForm] = useState(false)
   const [controlLoading, setControlLoading] = useState<{ [key: string]: boolean }>({})
-  const [connectedLockers, setConnectedLockers] = useState<any[]>([])
 
-  // לוג התחלתי
   console.log('🚀 LockersManagementPage נטען')
 
-  // טעינת נתונים
   useEffect(() => {
     loadLockers()
     loadConnectedLockers()
@@ -67,22 +65,20 @@ export default function LockersManagementPage() {
       console.log('✅ נתונים התקבלו:', data)
       
       if (data.success && Array.isArray(data.lockers)) {
-        // Validation של נתונים
         const validatedLockers = data.lockers.map((locker: any) => ({
           ...locker,
-          id: locker.id || Math.random(), // fallback ID
+          id: locker.id || Math.random(),
           cells: Array.isArray(locker.cells) ? locker.cells.map((cell: any) => ({
             ...cell,
-            id: cell.id || Math.random(), // fallback ID
+            id: cell.id || Math.random(),
             cellNumber: cell.cellNumber || cell.id || Math.random()
           })) : []
         }))
         
-        console.log('🏢 מעדכן רשימת לוקרים:', validatedLockers.length, 'לוקרים')
+        console.log('�� מעדכן רשימת לוקרים:', validatedLockers.length, 'לוקרים')
         setLockers(validatedLockers)
       } else {
         console.error('שגיאה בטעינת לוקרים:', data.error)
-        // במקרה של שגיאה נציג נתונים ריקים
         setLockers([])
       }
     } catch (error) {
@@ -92,7 +88,6 @@ export default function LockersManagementPage() {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : 'No stack'
       })
-      // במקרה של שגיאה נציג נתונים ריקים
       setLockers([])
     } finally {
       setLoading(false)
@@ -113,10 +108,9 @@ export default function LockersManagementPage() {
       const data = await response.json()
       
       if (data.success && Array.isArray(data.lockers)) {
-        // Validation של לוקרים מחוברים
         const validatedConnectedLockers = data.lockers.map((locker: any, index: number) => ({
           ...locker,
-          deviceId: locker.deviceId || locker.ip || `locker_${index}`, // fallback deviceId
+          deviceId: locker.deviceId || locker.ip || `locker_${index}`,
           ip: locker.ip || 'unknown'
         }))
         setConnectedLockers(validatedConnectedLockers)
@@ -129,7 +123,6 @@ export default function LockersManagementPage() {
     }
   }
 
-  // פונקציות CRUD
   const saveLocker = async (lockerData: Partial<Locker>) => {
     console.log('💾 מתחיל לשמור לוקר:', lockerData)
     try {
@@ -228,7 +221,6 @@ export default function LockersManagementPage() {
     }
   }
 
-  // בקרת תאים
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
     const controlKey = `${cellId}-${action}`
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
@@ -253,7 +245,7 @@ export default function LockersManagementPage() {
       
       if (data.success) {
         alert(`פקודת ${action === 'open' ? 'פתיחה' : 'סגירה'} נשלחה בהצלחה!`)
-        await loadLockers() // רענון נתונים
+        await loadLockers()
       } else {
         alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
@@ -262,27 +254,6 @@ export default function LockersManagementPage() {
       alert('שגיאה בבקרת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     } finally {
       setControlLoading(prev => ({ ...prev, [controlKey]: false }))
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ONLINE': return 'text-green-400'
-      case 'OFFLINE': return 'text-red-400'
-      case 'AVAILABLE': return 'text-green-400'
-      case 'OCCUPIED': return 'text-yellow-400'
-      case 'MAINTENANCE': return 'text-orange-400'
-      default: return 'text-gray-400'
-    }
-  }
-
-  const getSizeIcon = (size: string) => {
-    switch (size) {
-      case 'SMALL': return '📦'
-      case 'MEDIUM': return '📫'
-      case 'LARGE': return '🗃️'
-      case 'WIDE': return '📮'
-      default: return '📦'
     }
   }
 
@@ -297,7 +268,6 @@ export default function LockersManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6" style={{marginRight: '16rem'}}>
       <div className="max-w-7xl mx-auto">
-        {/* כותרת */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">🏢 ניהול לוקרים ותאים</h1>
@@ -329,7 +299,6 @@ export default function LockersManagementPage() {
           </div>
         </div>
 
-        {/* לוקרים מחוברים */}
         {connectedLockers.length > 0 && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
@@ -340,32 +309,18 @@ export default function LockersManagementPage() {
                 <div key={connectedLocker.deviceId || connectedLocker.ip || `connected_${index}`} className="bg-green-500/10 backdrop-blur-md rounded-lg p-4 border border-green-400/30">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
-                      <h3 className="font-bold text-white">{connectedLocker.name || connectedLocker.ip}</h3>
+                      <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                      <span className="font-medium text-green-400">{String(connectedLocker.deviceId || connectedLocker.ip || 'לוקר לא מזוהה')}</span>
                     </div>
-                    <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">
-                      מחובר
-                    </span>
+                    <span className="text-xs text-green-300">{connectedLocker.isOnline ? 'פעיל' : 'לא פעיל'}</span>
                   </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-white/70">IP:</span>
-                      <span className="text-white">{connectedLocker.ip}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-white/70">סטטוס:</span>
-                      <span className="text-green-400">{connectedLocker.status}</span>
-                    </div>
-                    {connectedLocker.cells && (
-                      <div className="flex justify-between">
-                        <span className="text-white/70">תאים:</span>
-                        <span className="text-white">{connectedLocker.cells} תאים</span>
-                      </div>
-                    )}
+                  
+                  <div className="space-y-1 text-xs text-white/60">
+                    <div>IP: {String(connectedLocker.ip || 'לא מוגדר')}</div>
+                    <div>עדכון אחרון: {connectedLocker.lastSeen ? new Date(connectedLocker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</div>
                   </div>
                   <button
                     onClick={() => {
-                      // מעביר נתונים מהלוקר המחובר לטופס הוספה
                       setSelectedLocker({
                         id: 0,
                         name: connectedLocker.name || `לוקר ${connectedLocker.ip}`,
@@ -388,18 +343,16 @@ export default function LockersManagementPage() {
           </div>
         )}
 
-        {/* רשימת לוקרים */}
         <div className="space-y-6">
           {lockers.map((locker, index) => (
             <div key={locker.id || `locker_${index}`} className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
-              {/* פרטי לוקר */}
               <div className="border-b border-white/10 pb-4 mb-6">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-2xl font-bold text-white">{locker.name}</h3>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(locker.status)} bg-white/10`}>
-                        {locker.status === 'ONLINE' ? '🟢 מחובר' : '🔴 לא מחובר'}
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${locker.status === 'ONLINE' ? 'text-green-400' : 'text-red-400'} bg-white/10`}>
+                        {String(locker.status || 'לא מוגדר')}
                       </span>
                       {locker.lastSeen && (
                         <span className="text-xs text-white/50 bg-white/5 px-2 py-1 rounded">
@@ -408,19 +361,12 @@ export default function LockersManagementPage() {
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="bg-white/5 p-3 rounded-lg">
-                        <span className="text-white/70 block text-xs">📍 מיקום:</span>
-                        <span className="text-white font-medium">{locker.location}</span>
-                      </div>
-                      <div className="bg-white/5 p-3 rounded-lg">
-                        <span className="text-white/70 block text-xs">🌐 IP:</span>
-                        <span className="text-white font-medium">{locker.ip || 'לא הוגדר'}</span>
-                      </div>
-                      <div className="bg-white/5 p-3 rounded-lg">
-                        <span className="text-white/70 block text-xs">📱 Device ID:</span>
-                        <span className="text-white font-medium">{locker.deviceId || 'לא הוגדר'}</span>
-                      </div>
+                    <div className="space-y-2 text-sm">
+                      <div><span className="text-white/60">מיקום:</span> <span className="text-white">{String(locker.location || 'לא מוגדר')}</span></div>
+                      <div><span className="text-white/60">IP:</span> <span className="text-white">{String(locker.ip || 'לא מוגדר')}</span></div>
+                      <div><span className="text-white/60">Device ID:</span> <span className="text-white">{String(locker.deviceId || 'לא מוגדר')}</span></div>
+                      <div><span className="text-white/60">סטטוס:</span> <span className={`${locker.status === 'ONLINE' ? 'text-green-400' : 'text-red-400'}`}>{String(locker.status || 'לא מוגדר')}</span></div>
+                      <div><span className="text-white/60">עדכון אחרון:</span> <span className="text-white">{locker.lastSeen ? new Date(locker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</span></div>
                     </div>
                   </div>
 
@@ -453,7 +399,6 @@ export default function LockersManagementPage() {
                 </div>
               </div>
 
-              {/* תאים */}
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -494,30 +439,17 @@ export default function LockersManagementPage() {
                       <div key={`${locker.id || index}-${cell.cellNumber || cell.id || cellIndex}`} className="bg-white/5 rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-all">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-2xl">{getSizeIcon(cell.size)}</span>
-                            <div>
-                              <h5 className="font-medium text-white text-sm">
-                                #{cell.cellNumber}
-                              </h5>
-                              {cell.name && <p className="text-xs text-white/70">{cell.name}</p>}
-                            </div>
+                            <span className="font-medium text-white">{String(cell.name || `תא ${cell.cellNumber || cell.id}`)}</span>
+                            <span className="text-xs text-white/60">#{String(cell.cellNumber || cell.id)}</span>
                           </div>
-                          <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(cell.status)} bg-white/10`}>
-                            {cell.status === 'AVAILABLE' ? '✅' : 
-                             cell.status === 'OCCUPIED' ? '📦' : 
-                             cell.status === 'MAINTENANCE' ? '🔧' : '❓'}
-                          </span>
+                          <div className={`w-3 h-3 rounded-full ${cell.status === 'AVAILABLE' ? 'bg-green-400' : cell.status === 'OCCUPIED' ? 'bg-red-400' : 'bg-orange-400'}`}></div>
                         </div>
-
-                        <div className="space-y-1 text-xs mb-3">
-                          <div className="flex justify-between">
-                            <span className="text-white/70">גודל:</span>
-                            <span className="text-white">{cell.size}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-white/70">פתיחות:</span>
-                            <span className="text-white">{cell.openCount}</span>
-                          </div>
+                        
+                        <div className="space-y-1 text-xs text-white/70 mb-3">
+                          <div>גודל: {String(cell.size || 'לא מוגדר')}</div>
+                          <div>סטטוס: {String(cell.status || 'לא מוגדר')}</div>
+                          <div>נעול: {cell.isLocked ? 'כן' : 'לא'}</div>
+                          <div>פעיל: {cell.isActive ? 'כן' : 'לא'}</div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-1 mb-2">
@@ -557,7 +489,6 @@ export default function LockersManagementPage() {
                       </div>
                     ))}
                     
-                    {/* כפתור הוספת תא חדש אם יש פחות מ-40 */}
                     {locker.cells.length < 40 && (
                       <div 
                         onClick={() => {
@@ -578,7 +509,6 @@ export default function LockersManagementPage() {
           ))}
         </div>
 
-        {/* אין לוקרים */}
         {lockers.length === 0 && (
           <div className="text-center py-20">
             <div className="text-8xl mb-6">🏢</div>
@@ -598,7 +528,6 @@ export default function LockersManagementPage() {
           </div>
         )}
 
-        {/* טופס לוקר */}
         {showLockerForm && (
           <LockerForm
             locker={selectedLocker}
@@ -610,7 +539,6 @@ export default function LockersManagementPage() {
           />
         )}
 
-        {/* טופס תא */}
         {showCellForm && (
           <CellForm
             cell={selectedCell}
@@ -628,7 +556,6 @@ export default function LockersManagementPage() {
   )
 }
 
-// קומפוננט טופס לוקר
 function LockerForm({ locker, onSave, onCancel }: {
   locker: Locker | null
   onSave: (data: Partial<Locker>) => void
@@ -752,7 +679,6 @@ function LockerForm({ locker, onSave, onCancel }: {
   )
 }
 
-// קומפוננט טופס תא
 function CellForm({ cell, lockerId, maxCellNumber, onSave, onCancel }: {
   cell: Cell | null
   lockerId?: number
