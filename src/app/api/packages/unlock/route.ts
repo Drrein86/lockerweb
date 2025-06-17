@@ -51,8 +51,7 @@ export async function POST(request: Request) {
     const updatedPackage = await prisma.package.update({
       where: { id: packageData.id },
       data: { 
-        status: 'COLLECTED',
-        collectedAt: new Date()
+        status: 'COLLECTED'
       }
     })
 
@@ -65,7 +64,6 @@ export async function POST(request: Request) {
       package: {
         packageId: updatedPackage.trackingCode,
         status: 'נאסף',
-        collectedAt: updatedPackage.collectedAt,
         lockerId: packageData.lockerId,
         cellId: packageData.cellId
       }

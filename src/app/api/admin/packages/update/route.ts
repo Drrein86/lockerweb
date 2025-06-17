@@ -16,9 +16,7 @@ export async function POST(request: Request) {
     const updatedPackage = await prisma.package.update({
       where: { id: packageId },
       data: { 
-        status,
-        collectedAt: status === 'COLLECTED' ? new Date() : null,
-        deliveredAt: status === 'DELIVERED' ? new Date() : null
+        status
       }
     })
 

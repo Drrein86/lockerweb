@@ -36,8 +36,7 @@ export async function GET(
           error: 'החבילה כבר נאספה',
           package: {
             packageId: packageData.trackingCode,
-            status: packageData.status,
-            collectedAt: packageData.collectedAt
+            status: packageData.status
           }
         },
         { status: 410 } // Gone
@@ -79,8 +78,6 @@ export async function GET(
         cellId: packageData.cellId,
         customerId: packageData.customerId,
         createdAt: packageData.createdAt,
-        deliveredAt: packageData.deliveredAt,
-        collectedAt: packageData.collectedAt,
         daysLeft: Math.max(0, 7 - daysDiff),
         canCollect: daysDiff <= 7
       }
