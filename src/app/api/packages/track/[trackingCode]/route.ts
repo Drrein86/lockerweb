@@ -1,5 +1,56 @@
 import { NextResponse } from 'next/server'
-import { prismaMock } from '@/lib/prisma'
+
+// נתוני Mock לחבילות
+const mockPackages = [
+  {
+    id: 1,
+    trackingCode: 'PKG001',
+    customerName: 'אחמד עלי',
+    userName: 'אחמד עלי',
+    userEmail: 'ahmad@example.com',
+    userPhone: '050-1234567',
+    size: 'MEDIUM',
+    status: 'DELIVERED',
+    lockerId: 1,
+    cellId: 'A1',
+    locker: { location: 'בניין A - קומה ראשונה' },
+    cell: { code: 'A1' },
+    createdAt: '2024-01-15T10:00:00Z',
+    deliveredAt: '2024-01-15T14:30:00Z'
+  },
+  {
+    id: 2,
+    trackingCode: 'PKG002',
+    customerName: 'פטימה אחמד',
+    userName: 'פטימה אחמד',
+    userEmail: 'fatima@example.com',
+    userPhone: '052-9876543',
+    size: 'LARGE',
+    status: 'PENDING',
+    lockerId: 2,
+    cellId: 'B3',
+    locker: { location: 'בניין B - כניסה ראשית' },
+    cell: { code: 'B3' },
+    createdAt: '2024-01-16T09:15:00Z',
+    deliveredAt: null
+  },
+  {
+    id: 3,
+    trackingCode: 'PKG003',
+    customerName: 'מוחמד חסן',
+    userName: 'מוחמד חסן',
+    userEmail: 'mohammad@example.com',
+    userPhone: '053-5555555',
+    size: 'SMALL',
+    status: 'COLLECTED',
+    lockerId: 1,
+    cellId: 'C2',
+    locker: { location: 'בניין A - קומה ראשונה' },
+    cell: { code: 'C2' },
+    createdAt: '2024-01-17T11:20:00Z',
+    deliveredAt: '2024-01-17T16:45:00Z'
+  }
+];
 
 export async function GET(
   request: Request,
@@ -16,11 +67,9 @@ export async function GET(
     }
 
     // חיפוש החבילה לפי קוד מעקב במערכת Mock
-    const packageData = await prismaMock.package.findUnique({
-      where: {
-        trackingCode: trackingCode.toUpperCase()
-      }
-    })
+    const packageData = mockPackages.find(pkg => 
+      pkg.trackingCode.toUpperCase() === trackingCode.toUpperCase()
+    )
 
     if (!packageData) {
       return NextResponse.json(

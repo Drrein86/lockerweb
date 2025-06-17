@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { prismaMock } from '@/lib/prisma'
 import { sendNotificationEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
@@ -43,18 +42,19 @@ export async function POST(request: Request) {
     })
 
     // שמירת החבילה במערכת Mock
-    const newPackage = await prismaMock.package.create({
-      data: {
-        name: customerName,
-        userName: customerName,
-        email,
-        phone,
-        tracking_code: finalTrackingCode,
-        size,
-        lockerId,
-        cellId
-      }
-    })
+    const newPackage = {
+      id: Math.floor(Math.random() * 10000),
+      name: customerName,
+      userName: customerName,
+      email,
+      phone,
+      tracking_code: finalTrackingCode,
+      size,
+      lockerId,
+      cellId,
+      status: 'WAITING',
+      createdAt: new Date().toISOString()
+    }
 
     // שליחת הודעת אימייל ללקוח
     try {

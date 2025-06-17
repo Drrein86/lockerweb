@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
 // מאלץ את הנתיב להיות דינמי
 export const dynamic = 'force-dynamic'

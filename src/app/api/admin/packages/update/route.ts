@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
     const { packageId, status } = await request.json()
-
+    
+    console.log(`📦 עדכון חבילה ${packageId} לסטטוס ${status} - מצב Mock`);
+    
+    // בדיקה בסיסית
     if (!packageId || !status) {
       return NextResponse.json(
         { error: 'חסרים פרמטרים נדרשים' },
@@ -12,17 +14,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // עדכון סטטוס החבילה
-    const updatedPackage = await prisma.package.update({
-      where: { id: packageId },
-      data: { 
-        status
-      }
-    })
+    // סימולציה של עדכון חבילה
+    const mockUpdatedPackage = {
+      id: packageId,
+      status: status,
+      updatedAt: new Date().toISOString(),
+      message: `סטטוס החבילה עודכן ל-${status}`
+    };
 
     return NextResponse.json({
       success: true,
-      package: updatedPackage
+      package: mockUpdatedPackage,
+      message: `חבילה ${packageId} עודכנה בהצלחה`
     })
 
   } catch (error) {
