@@ -81,7 +81,7 @@ export async function GET() {
         collectionRate: totalPackages > 0 ? Math.round((collectedPackages / totalPackages) * 100) : 0
       },
       recentPackages: recentPackages.map(pkg => ({
-        packageId: pkg.packageId,
+        trackingCode: pkg.trackingCode,
         status: pkg.status === 'WAITING' ? 'ממתין' : 
                 pkg.status === 'DELIVERED' ? 'נמסר' : 'נאסף',
         lockerId: pkg.lockerId,

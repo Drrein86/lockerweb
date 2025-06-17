@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // חיפוש החבילה
     const packageData = await prisma.package.findUnique({
       where: {
-        packageId: trackingCode.toUpperCase()
+        trackingCode: trackingCode.toUpperCase()
       }
     })
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       success: true,
       message: 'החבילה סומנה כנאספה',
       package: {
-        packageId: updatedPackage.packageId,
+        packageId: updatedPackage.trackingCode,
         status: 'נאסף',
         collectedAt: updatedPackage.collectedAt,
         lockerId: packageData.lockerId,

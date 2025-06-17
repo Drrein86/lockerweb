@@ -18,7 +18,7 @@ export async function GET(
     // חיפוש החבילה לפי קוד מעקב
     const packageData = await prisma.package.findUnique({
       where: {
-        packageId: trackingCode.toUpperCase()
+        trackingCode: trackingCode.toUpperCase()
       }
     })
 
@@ -35,7 +35,7 @@ export async function GET(
         { 
           error: 'החבילה כבר נאספה',
           package: {
-            packageId: packageData.packageId,
+            packageId: packageData.trackingCode,
             status: packageData.status,
             collectedAt: packageData.collectedAt
           }
@@ -54,7 +54,7 @@ export async function GET(
         { 
           error: 'החבילה פגת תוקף (יותר מ-7 ימים)',
           package: {
-            packageId: packageData.packageId,
+            packageId: packageData.trackingCode,
             status: 'EXPIRED',
             createdAt: packageData.createdAt
           }
@@ -73,11 +73,11 @@ export async function GET(
       success: true,
       package: {
         id: packageData.id,
-        packageId: packageData.packageId,
+        packageId: packageData.trackingCode,
         status: statusMap[packageData.status] || packageData.status,
         lockerId: packageData.lockerId,
         cellId: packageData.cellId,
-        userId: packageData.userId,
+        customerId: packageData.customerId,
         createdAt: packageData.createdAt,
         deliveredAt: packageData.deliveredAt,
         collectedAt: packageData.collectedAt,

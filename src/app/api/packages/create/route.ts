@@ -39,11 +39,25 @@ export async function POST(request: Request) {
       )
     }
 
+    // יצירת לקוח או מציאת לקוח קיים
+    const customer = await prisma.customer.upsert({
+      where: { email },
+      update: { firstName: name.split(' ')[0], lastName: name.split(' ')[1] || '', phone },
+      create: { 
+        email, 
+        firstName: name.split(' ')[0], 
+        lastName: name.split(' ')[1] || '', 
+        phone 
+      }
+    })
+
     // שמירת החבילה בבסיס הנתונים
     const newPackage = await prisma.package.create({
       data: {
-        packageId: finalTrackingCode,
-        userId: email, // משתמש באימייל כזיהוי משתמש
+        trackingCode: finalTrackingCode,
+        customerId: customer.id,
+        courierId: 1, // זמני - יש צורך במערכת שליחים
+        size,
         lockerId,
         cellId,
         status: 'WAITING'
