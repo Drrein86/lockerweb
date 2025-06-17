@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
         })
       } else {
         // Fallback - הוספה למערך המדומה
-        const locker = mockLockers.find(l => l.id === lockerId)
+        const locker = mockLockers.find((l: any) => l.id === lockerId)
         if (!locker) {
           return NextResponse.json({
             success: false,
@@ -275,7 +275,7 @@ export async function PUT(request: NextRequest) {
         })
       } else {
         // Fallback - עדכון במערך המדומה
-        const lockerIndex = mockLockers.findIndex(l => l.id === id)
+        const lockerIndex = mockLockers.findIndex((l: any) => l.id === id)
         if (lockerIndex === -1) {
           return NextResponse.json({
             success: false,
@@ -325,7 +325,7 @@ export async function PUT(request: NextRequest) {
       } else {
         // Fallback - עדכון במערך המדומה
         for (const locker of mockLockers) {
-          const cellIndex = locker.cells.findIndex(c => c.id === id)
+          const cellIndex = locker.cells.findIndex((c: any) => c.id === id)
           if (cellIndex !== -1) {
                          locker.cells[cellIndex] = {
                ...locker.cells[cellIndex],
@@ -393,7 +393,7 @@ export async function DELETE(request: NextRequest) {
         })
       } else {
         // Fallback - מחיקה מהמערך המדומה
-        const lockerIndex = mockLockers.findIndex(l => l.id === parseInt(id))
+        const lockerIndex = mockLockers.findIndex((l: any) => l.id === parseInt(id))
         if (lockerIndex !== -1) {
           mockLockers.splice(lockerIndex, 1)
         }
@@ -413,7 +413,7 @@ export async function DELETE(request: NextRequest) {
       } else {
         // Fallback - מחיקה מהמערך המדומה
         for (const locker of mockLockers) {
-          const cellIndex = locker.cells.findIndex(c => c.id === parseInt(id))
+          const cellIndex = locker.cells.findIndex((c: any) => c.id === parseInt(id))
           if (cellIndex !== -1) {
             locker.cells.splice(cellIndex, 1)
             break
