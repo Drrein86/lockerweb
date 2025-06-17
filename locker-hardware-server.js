@@ -21,6 +21,43 @@ const lockerConnections = new Map();
 // מפת חיבורים של ממשקי ניהול
 const adminConnections = new Set();
 
+// רשימת לוקרים שמזוהים כעת
+const registeredLockers = new Map();
+
+// הגדרות לוקרים ברירת מחדל
+const defaultLockers = [
+  {
+    id: 1,
+    name: 'לוקר ראשי',
+    location: 'כניסה ראשית',
+    ip: '192.168.0.104',
+    port: 80,
+    deviceId: 'ESP32_001',
+    cells: {
+      1: { size: 'SMALL', locked: true, hasPackage: false, packageId: null },
+      2: { size: 'MEDIUM', locked: true, hasPackage: false, packageId: null },
+      3: { size: 'LARGE', locked: true, hasPackage: false, packageId: null }
+    }
+  },
+  {
+    id: 2,
+    name: 'לוקר משני',
+    location: 'חדר דואר',
+    ip: '192.168.0.105',
+    port: 80,
+    deviceId: 'ESP32_002',
+    cells: {
+      1: { size: 'MEDIUM', locked: true, hasPackage: false, packageId: null },
+      2: { size: 'LARGE', locked: true, hasPackage: false, packageId: null }
+    }
+  }
+];
+
+// אתחול לוקרים ברירת מחדל
+defaultLockers.forEach(locker => {
+  registeredLockers.set(locker.id, locker);
+});
+
 // יצירת HTTP/HTTPS server עבור מידע על המערכת
 let server;
 if (USE_SSL && SSL_KEY && SSL_CERT) {

@@ -16,16 +16,34 @@ export default function Sidebar() {
         <h1 className="text-xl font-bold mb-8">ניהול לוקרים</h1>
         <nav className="space-y-2">
           <Link 
+            href="/admin" 
+            className={`flex items-center space-x-2 p-3 rounded hover:bg-gray-800 ${isActive('/admin')}`}
+          >
+            <span>🏠 דשבורד</span>
+          </Link>
+          <Link 
             href="/admin/lockers" 
             className={`flex items-center space-x-2 p-3 rounded hover:bg-gray-800 ${isActive('/admin/lockers')}`}
           >
-            <span>לוקרים</span>
+            <span>📊 מעקב לוקרים</span>
+          </Link>
+          <Link 
+            href="/admin/lockers-management" 
+            className={`flex items-center space-x-2 p-3 rounded hover:bg-gray-800 ${isActive('/admin/lockers-management')}`}
+          >
+            <span>🏢 ניהול לוקרים ותאים</span>
+          </Link>
+          <Link 
+            href="/admin/packages" 
+            className={`flex items-center space-x-2 p-3 rounded hover:bg-gray-800 ${isActive('/admin/packages')}`}
+          >
+            <span>📦 ניהול חבילות</span>
           </Link>
           <Link 
             href="/admin/reports" 
             className={`flex items-center space-x-2 p-3 rounded hover:bg-gray-800 ${isActive('/admin/reports')}`}
           >
-            <span>דוחות</span>
+            <span>📈 דוחות</span>
           </Link>
           <Link 
             href="/admin/logs" 

@@ -69,12 +69,15 @@ enum CellStatus {
 
 model Locker {
   id            Int         @id @default(autoincrement())
+  name          String      // שם הלוקר
   location      String
   description   String?
-  ip            String?
-  port          Int?
+  ip            String?     // כתובת IP של הלוקר
+  port          Int?        // פורט התקשורת
+  deviceId      String?     @unique // מזהה יחודי של הלוקר
   status        LockerStatus @default(OFFLINE)
-  lastSeen      DateTime?
+  lastSeen      DateTime?   // חותמת זמן של חיבור אחרון
+  isActive      Boolean     @default(true) // האם הלוקר פעיל
   cells         Cell[]
   packages      Package[]
   createdAt     DateTime    @default(now())
@@ -83,16 +86,23 @@ model Locker {
 
 model Cell {
   id            Int         @id @default(autoincrement())
-  code          String      @unique
-  size          String      // SMALL, MEDIUM, LARGE
+  cellNumber    Int         // מספר התא בלוקר (1,2,3...)
+  code          String      @unique // קוד יחודי של התא
+  name          String?     // שם התא (אופציונלי)
+  size          String      // SMALL, MEDIUM, LARGE, WIDE
   status        CellStatus  @default(AVAILABLE)
   isLocked      Boolean     @default(true)
+  isActive      Boolean     @default(true) // האם התא פעיל
   lockerId      Int
   locker        Locker      @relation(fields: [lockerId], references: [id])
   packages      Package[]
-  lastOpenedAt  DateTime?
+  lastOpenedAt  DateTime?   // מתי התא נפתח לאחרונה
+  lastClosedAt  DateTime?   // מתי התא נסגר לאחרונה
+  openCount     Int         @default(0) // מספר פתיחות
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  
+  @@unique([lockerId, cellNumber]) // תא יחודי בלוקר
 }
 
 model Package {
