@@ -50,15 +50,24 @@ export default function LockersManagementPage() {
     try {
       setLoading(true)
       const response = await fetch('/api/admin/lockers-management')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       
       if (data.success) {
-        setLockers(data.lockers)
+        setLockers(data.lockers || [])
       } else {
         console.error('שגיאה בטעינת לוקרים:', data.error)
+        // במקרה של שגיאה נציג נתונים ריקים
+        setLockers([])
       }
     } catch (error) {
       console.error('שגיאה בטעינת לוקרים:', error)
+      // במקרה של שגיאה נציג נתונים ריקים
+      setLockers([])
     } finally {
       setLoading(false)
     }
@@ -67,13 +76,23 @@ export default function LockersManagementPage() {
   const loadConnectedLockers = async () => {
     try {
       const response = await fetch('/api/admin/lockers')
+      
+      if (!response.ok) {
+        console.warn('לא ניתן לטעון לוקרים מחוברים')
+        setConnectedLockers([])
+        return
+      }
+      
       const data = await response.json()
       
       if (data.success) {
         setConnectedLockers(data.lockers || [])
+      } else {
+        setConnectedLockers([])
       }
     } catch (error) {
       console.error('שגיאה בטעינת לוקרים מחוברים:', error)
+      setConnectedLockers([])
     }
   }
 
@@ -89,6 +108,10 @@ export default function LockersManagementPage() {
         body: JSON.stringify({ ...lockerData, type: 'locker' })
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -97,11 +120,11 @@ export default function LockersManagementPage() {
         setSelectedLocker(null)
         alert('לוקר נשמר בהצלחה!')
       } else {
-        alert('שגיאה: ' + data.error)
+        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('שגיאה בשמירת לוקר:', error)
-      alert('שגיאה בשמירת לוקר')
+      alert('שגיאה בשמירת לוקר: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     }
   }
 
@@ -116,6 +139,10 @@ export default function LockersManagementPage() {
         body: JSON.stringify({ ...cellData, type: 'cell' })
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
       
       if (data.success) {
@@ -124,11 +151,11 @@ export default function LockersManagementPage() {
         setSelectedCell(null)
         alert('תא נשמר בהצלחה!')
       } else {
-        alert('שגיאה: ' + data.error)
+        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('שגיאה בשמירת תא:', error)
-      alert('שגיאה בשמירת תא')
+      alert('שגיאה בשמירת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     }
   }
 
@@ -173,17 +200,21 @@ export default function LockersManagementPage() {
         })
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
       
       if (data.success) {
         alert(`פקודת ${action === 'open' ? 'פתיחה' : 'סגירה'} נשלחה בהצלחה!`)
         await loadLockers() // רענון נתונים
       } else {
-        alert('שגיאה: ' + data.error)
+        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('שגיאה בבקרת תא:', error)
-      alert('שגיאה בבקרת תא')
+      alert('שגיאה בבקרת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     } finally {
       setControlLoading(prev => ({ ...prev, [controlKey]: false }))
     }
