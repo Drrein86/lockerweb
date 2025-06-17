@@ -33,18 +33,166 @@ interface Locker {
 export default function LockersManagementPage() {
   const [lockers, setLockers] = useState<Locker[]>([])
   const [connectedLockers, setConnectedLockers] = useState<any[]>([])
+  const [liveLockers, setLiveLockers] = useState<{ [key: string]: any }>({})
   const [loading, setLoading] = useState(true)
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null)
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null)
   const [showLockerForm, setShowLockerForm] = useState(false)
   const [showCellForm, setShowCellForm] = useState(false)
   const [controlLoading, setControlLoading] = useState<{ [key: string]: boolean }>({})
-
+  
+  // WebSocket Status
+  const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
+  const [lastMessage, setLastMessage] = useState<string>('')
+  
   console.log('🚀 LockersManagementPage נטען')
 
   useEffect(() => {
     loadLockers()
     loadConnectedLockers()
+  }, [])
+
+  // WebSocket Connection לשרת החומרה
+  useEffect(() => {
+    let ws: WebSocket | null = null
+    let reconnectTimeout: NodeJS.Timeout
+    let pingInterval: NodeJS.Timeout
+    let reconnectAttempts = 0
+    const MAX_RECONNECT_ATTEMPTS = 5
+
+    const connect = () => {
+      try {
+        setWsStatus('מתחבר')
+        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'ws://localhost:3003'
+        ws = new WebSocket(wsUrl)
+
+        ws.onopen = () => {
+          setWsStatus('מחובר')
+          setLastMessage('התחברת בהצלחה לשרת החומרה')
+          console.log('✅ התחברות לשרת החומרה הצליחה')
+          reconnectAttempts = 0
+          
+          // שליחת הודעת זיהוי
+          ws?.send(JSON.stringify({
+            type: 'identify',
+            client: 'web-admin',
+            secret: '86428642'
+          }))
+
+          // התחלת פינג תקופתי
+          pingInterval = setInterval(() => {
+            if (ws?.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }))
+            }
+          }, 30000)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            setLastMessage(event.data)
+            
+            console.log('📨 התקבלה הודעה:', data)
+
+            switch (data.type) {
+              case 'error':
+                console.error('❌ שגיאה מהשרת:', data.message)
+                break
+
+              case 'register':
+                console.log('📝 לוקר נרשם:', data.id)
+                setLiveLockers(prev => ({
+                  ...prev,
+                  [data.id]: {
+                    id: data.id,
+                    isOnline: data.status === 'online',
+                    lastSeen: new Date().toISOString(),
+                    cells: prev[data.id]?.cells || {},
+                    ip: data.ip,
+                    deviceId: data.id
+                  }
+                }))
+                break
+
+              case 'disconnect':
+                console.log('🔌 לוקר התנתק:', data.id)
+                setLiveLockers(prev => {
+                  if (!prev[data.id]) return prev
+                  return {
+                    ...prev,
+                    [data.id]: {
+                      ...prev[data.id],
+                      isOnline: false,
+                      lastSeen: new Date().toISOString()
+                    }
+                  }
+                })
+                break
+
+              case 'lockerUpdate':
+                console.log('🔄 עדכון לוקר:', data)
+                if (data.data && typeof data.data === 'object') {
+                  const lockersData = data.data.lockers || data.data
+                  
+                  setLiveLockers(prev => {
+                    const updated = { ...prev }
+                    Object.entries(lockersData).forEach(([id, lockerData]: [string, any]) => {
+                      updated[id] = {
+                        id,
+                        isOnline: lockerData.isOnline ?? true,
+                        lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
+                        cells: {
+                          ...(prev[id]?.cells || {}),
+                          ...(lockerData.cells || {})
+                        },
+                        ip: lockerData.ip || prev[id]?.ip,
+                        deviceId: id
+                      }
+                    })
+                    return updated
+                  })
+                }
+                break
+
+              default:
+                console.log('⚠️ סוג הודעה לא מוכר:', data.type)
+            }
+          } catch (error) {
+            console.error('❌ שגיאה בעיבוד הודעה:', error)
+          }
+        }
+
+        ws.onclose = () => {
+          setWsStatus('מנותק')
+          console.log('🔌 החיבור לשרת החומרה נסגר')
+          
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++
+            console.log(`🔄 ניסיון התחברות מחדש ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
+            reconnectTimeout = setTimeout(connect, 3000)
+          }
+        }
+
+        ws.onerror = (error) => {
+          setWsStatus('שגיאה')
+          console.error('❌ שגיאת WebSocket:', error)
+        }
+
+      } catch (error) {
+        console.error('❌ שגיאה ביצירת חיבור WebSocket:', error)
+        setWsStatus('שגיאה')
+      }
+    }
+
+    connect()
+
+    return () => {
+      if (pingInterval) clearInterval(pingInterval)
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      if (ws) {
+        ws.close()
+      }
+    }
   }, [])
 
   const loadLockers = async () => {
@@ -223,6 +371,150 @@ export default function LockersManagementPage() {
 
   const deleteLocker = (id: number) => deleteItem(id, 'locker')
 
+  // פונקציות בקרת תאים בזמן אמת
+  const unlockCell = async (lockerId: string, cellId: string) => {
+    const actionKey = `${lockerId}-${cellId}`
+    setControlLoading(prev => ({ ...prev, [actionKey]: true }))
+    
+    try {
+      const response = await fetch('/api/websocket', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'openCell',
+          lockerId,
+          cellCode: cellId
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
+        // עדכון מקומי של הסטטוס
+        setLiveLockers(prev => ({
+          ...prev,
+          [lockerId]: {
+            ...prev[lockerId],
+            cells: {
+              ...prev[lockerId]?.cells,
+              [cellId]: {
+                ...prev[lockerId]?.cells?.[cellId],
+                locked: false,
+                lastOpened: new Date().toISOString()
+              }
+            }
+          }
+        }))
+      } else {
+        console.error(`❌ שגיאה בפתיחת תא: ${result.error}`)
+        alert('שגיאה בפתיחת התא: ' + result.error)
+      }
+    } catch (error) {
+      console.error('שגיאה בפתיחת תא:', error)
+      alert('שגיאה בחיבור לשרת')
+    } finally {
+      setControlLoading(prev => ({ ...prev, [actionKey]: false }))
+    }
+  }
+
+  // שיוך לוקר חי למערכת
+  const assignLiveLocker = async (liveLocker: any) => {
+    try {
+      const newLocker = {
+        type: 'locker',
+        name: `לוקר ${liveLocker.id}`,
+        location: 'לא הוגדר',
+        description: `לוקר חי מחובר - ${liveLocker.ip}`,
+        ip: liveLocker.ip,
+        port: 80,
+        deviceId: liveLocker.id,
+        status: liveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
+        isActive: true
+      }
+
+      const response = await fetch('/api/admin/lockers-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLocker)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('לוקר נוסף בהצלחה למערכת!')
+        await loadLockers()
+        
+        // יצירת תאים אוטומטית אם יש
+        if (liveLocker.cells && Object.keys(liveLocker.cells).length > 0) {
+          await createCellsFromLive(data.locker.id, liveLocker.cells)
+        }
+      } else {
+        alert('שגיאה בהוספת הלוקר: ' + data.error)
+      }
+    } catch (error) {
+      console.error('שגיאה בשיוך לוקר:', error)
+      alert('שגיאה בחיבור לשרת')
+    }
+  }
+
+  // יצירת תאים מלוקר חי
+  const createCellsFromLive = async (lockerId: number, liveCells: any) => {
+    try {
+      for (const [cellId, cellData] of Object.entries(liveCells) as [string, any][]) {
+        const newCell = {
+          type: 'cell',
+          lockerId: lockerId,
+          cellNumber: parseInt(cellId) || 1,
+          code: `LOC${String(lockerId).padStart(3, '0')}_CELL${cellId}`,
+          name: `תא ${cellId}`,
+          size: 'MEDIUM', // ברירת מחדל
+          isActive: true
+        }
+
+        await fetch('/api/admin/lockers-management', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newCell)
+        })
+      }
+      
+      await loadLockers()
+      console.log('✅ תאים נוצרו אוטומטית מהלוקר החי')
+    } catch (error) {
+      console.error('שגיאה ביצירת תאים:', error)
+    }
+  }
+
+  // עדכון הגדרות תא
+  const updateCellSettings = async (cellId: number, settings: { size?: string, name?: string, isActive?: boolean }) => {
+    try {
+      const response = await fetch('/api/admin/lockers-management', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'cell',
+          id: cellId,
+          ...settings
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await loadLockers()
+        alert('הגדרות התא עודכנו בהצלחה!')
+      } else {
+        alert('שגיאה בעדכון הגדרות: ' + data.error)
+      }
+    } catch (error) {
+      console.error('שגיאה בעדכון הגדרות:', error)
+      alert('שגיאה בחיבור לשרת')
+    }
+  }
+
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
     const controlKey = `${cellId}-${action}`
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
@@ -344,6 +636,113 @@ export default function LockersManagementPage() {
           </div>
         )}
 
+        {/* סטטוס WebSocket */}
+        <div className="mb-6">
+          <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${
+                  wsStatus === 'מחובר' ? 'bg-green-400 animate-pulse' : 
+                  wsStatus === 'מתחבר' ? 'bg-yellow-400 animate-pulse' : 
+                  'bg-red-400'
+                }`}></div>
+                <span className="font-medium text-white">
+                  שרת החומרה: {wsStatus}
+                </span>
+              </div>
+              <div className="text-sm text-white/60 truncate max-w-xs">
+                {lastMessage && `עדכון אחרון: ${new Date().toLocaleTimeString('he-IL')}`}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* לוקרים חיים בזמן אמת */}
+        {Object.keys(liveLockers).length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-400 mb-4 flex items-center gap-2">
+              <span className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></span>
+              לוקרים חיים בזמן אמת ({Object.keys(liveLockers).length})
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {Object.values(liveLockers).map((liveLocker: any, index: number) => (
+                <div key={liveLocker.id || `live_${index}`} className="bg-blue-500/10 backdrop-blur-md rounded-lg p-4 sm:p-6 border border-blue-400/30 hover:bg-blue-500/20 transition-all">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-4 h-4 rounded-full ${liveLocker.isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        <h3 className="text-lg font-bold text-white truncate">{String(liveLocker.id)}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          liveLocker.isOnline ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
+                        }`}>
+                          {liveLocker.isOnline ? 'מחובר' : 'מנותק'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/70">
+                        <div>IP: {String(liveLocker.ip || 'לא מוגדר')}</div>
+                        <div>עדכון אחרון: {liveLocker.lastSeen ? new Date(liveLocker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</div>
+                        <div>תאים: {Object.keys(liveLocker.cells || {}).length}</div>
+                        <div>סטטוס: {liveLocker.isOnline ? '🟢 פעיל' : '🔴 לא פעיל'}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => assignLiveLocker(liveLocker)}
+                        className="w-full sm:w-auto px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-sm transition-all"
+                      >
+                        ➕ שייך למערכת
+                      </button>
+                      {liveLocker.isOnline && (
+                        <button
+                          onClick={() => {
+                            // רענון נתוני הלוקר
+                            console.log('🔄 מרענן נתוני לוקר:', liveLocker.id)
+                          }}
+                          className="w-full sm:w-auto px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg text-sm transition-all"
+                        >
+                          🔄 רענן נתונים
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* תאים של הלוקר החי */}
+                  {liveLocker.cells && Object.keys(liveLocker.cells).length > 0 && (
+                    <div className="border-t border-white/10 pt-4">
+                      <h4 className="text-sm font-semibold text-white mb-3">תאים זמינים:</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {Object.entries(liveLocker.cells).map(([cellId, cellData]: [string, any]) => (
+                          <div key={`${liveLocker.id}-${cellId}`} className="bg-white/10 rounded-lg p-2 border border-white/20">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-white">תא {cellId}</span>
+                              <div className={`w-2 h-2 rounded-full ${
+                                cellData.locked ? 'bg-red-400' : 'bg-green-400'
+                              }`}></div>
+                            </div>
+                            <div className="text-xs text-white/60 mb-2">
+                              <div>{cellData.locked ? 'נעול' : 'פתוח'}</div>
+                              {cellData.hasPackage && <div className="text-orange-300">יש חבילה</div>}
+                            </div>
+                            <button
+                              onClick={() => unlockCell(liveLocker.id, cellId)}
+                              disabled={!liveLocker.isOnline || controlLoading[`${liveLocker.id}-${cellId}`]}
+                              className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
+                            >
+                              {controlLoading[`${liveLocker.id}-${cellId}`] ? 'פותח...' : '🔓 פתח'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6">
           {lockers.map((locker, index) => (
             <div key={locker.id || `locker_${index}`} className="bg-white/10 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-white/20 shadow-xl hover:bg-white/15 transition-all">
@@ -439,12 +838,14 @@ export default function LockersManagementPage() {
                                 setShowCellForm(true)
                               }}
                               className="flex-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-2 py-1 rounded transition-all"
+                              title="עריכת הגדרות תא"
                             >
-                              ✏️
+                              ⚙️
                             </button>
                             <button
                               onClick={() => deleteItem(cell.id, 'cell')}
                               className="flex-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 px-2 py-1 rounded transition-all"
+                              title="מחיקת תא"
                             >
                               🗑️
                             </button>
@@ -525,7 +926,7 @@ export default function LockersManagementPage() {
         {showCellForm && (
           <CellForm
             cell={selectedCell}
-            lockerId={selectedLocker?.id}
+            lockerId={selectedLocker?.id || 0}
             maxCellNumber={selectedLocker ? Math.max(...(selectedLocker.cells.map(c => c.cellNumber)), 0) + 1 : 1}
             onSave={saveCell}
             onCancel={() => {
@@ -664,94 +1065,158 @@ function LockerForm({ locker, onSave, onCancel }: {
 
 function CellForm({ cell, lockerId, maxCellNumber, onSave, onCancel }: {
   cell: Cell | null
-  lockerId?: number
+  lockerId: number
   maxCellNumber: number
-  onSave: (data: Partial<Cell>) => void
+  onSave: (cellData: Partial<Cell>) => Promise<void>
   onCancel: () => void
 }) {
   const [formData, setFormData] = useState({
     cellNumber: cell?.cellNumber || maxCellNumber,
-    name: cell?.name || '',
+    name: cell?.name || `תא ${maxCellNumber}`,
     size: cell?.size || 'MEDIUM',
-    isActive: cell?.isActive ?? true,
-    lockerId: cell?.lockerId || lockerId || 0
+    code: cell?.code || `LOC${String(lockerId).padStart(3, '0')}_CELL${String(maxCellNumber).padStart(2, '0')}`,
+    isActive: cell?.isActive ?? true
   })
 
+  const sizeOptions = [
+    { value: 'SMALL', label: 'קטן', icon: '📦', description: 'מתאים לחבילות קטנות' },
+    { value: 'MEDIUM', label: 'בינוני', icon: '📫', description: 'מתאים לרוב החבילות' },
+    { value: 'LARGE', label: 'גדול', icon: '🗃️', description: 'מתאים לחבילות גדולות' },
+    { value: 'WIDE', label: 'רחב', icon: '📮', description: 'מתאים לחבילות רחבות' }
+  ]
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (cell) {
+      // עדכון תא קיים
+      await onSave({
+        id: cell.id,
+        ...formData
+      })
+    } else {
+      // יצירת תא חדש
+      await onSave({
+        lockerId,
+        ...formData
+      })
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/10 backdrop-blur-md rounded-xl max-w-md w-full p-6 border border-white/20">
-        <h3 className="text-2xl font-bold text-white mb-6">
-          {cell ? '✏️ ערוך תא' : '➕ הוסף תא חדש'}
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-xl p-6 w-full max-w-md border border-white/20 shadow-2xl">
+        <h3 className="text-xl font-bold text-white mb-6">
+          {cell ? 'עריכת תא' : 'הוספת תא חדש'}
         </h3>
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-white/70 text-sm mb-2">מספר תא</label>
-            <input
-              type="number"
-              value={formData.cellNumber}
-              onChange={e => setFormData({...formData, cellNumber: parseInt(e.target.value)})}
-              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-              min="1"
-              max="40"
-              required
-            />
-            <p className="text-xs text-white/50 mt-1">
-              מספר תא בין 1-40 (המספר הבא המוצע: {maxCellNumber})
-            </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                מספר תא
+              </label>
+              <input
+                type="number"
+                value={formData.cellNumber}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  cellNumber: parseInt(e.target.value) || 1,
+                  code: `LOC${String(lockerId).padStart(3, '0')}_CELL${String(parseInt(e.target.value) || 1).padStart(2, '0')}`
+                }))}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                min="1"
+                max="40"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                סטטוס
+              </label>
+              <select
+                value={formData.isActive ? 'active' : 'inactive'}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  isActive: e.target.value === 'active'
+                }))}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="active">פעיל</option>
+                <option value="inactive">לא פעיל</option>
+              </select>
+            </div>
           </div>
 
           <div>
-            <label className="block text-white/70 text-sm mb-2">שם התא (אופציונלי)</label>
+            <label className="block text-sm font-medium text-white/80 mb-2">
+              שם התא
+            </label>
             <input
               type="text"
               value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
-              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-              placeholder="תא קטן ראשון"
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="תא 1"
+              required
             />
           </div>
 
           <div>
-            <label className="block text-white/70 text-sm mb-2">גודל תא</label>
-            <select
-              value={formData.size}
-              onChange={e => setFormData({...formData, size: e.target.value})}
-              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="SMALL">📦 קטן - מתאים לחבילות קטנות</option>
-              <option value="MEDIUM">📫 בינוני - מתאים לרוב החבילות</option>
-              <option value="LARGE">🗃️ גדול - מתאים לחבילות גדולות</option>
-              <option value="WIDE">📮 רחב - מתאים לחבילות שטוחות</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-3">
+            <label className="block text-sm font-medium text-white/80 mb-2">
+              קוד התא
+            </label>
             <input
-              type="checkbox"
-              id="cellActive"
-              checked={formData.isActive}
-              onChange={e => setFormData({...formData, isActive: e.target.checked})}
-              className="w-5 h-5 text-blue-500 border-white/20 rounded focus:ring-blue-500"
+              type="text"
+              value={formData.code}
+              onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="LOC001_CELL01"
+              required
             />
-            <label htmlFor="cellActive" className="text-white">תא פעיל ומוכן לשימוש</label>
           </div>
-        </div>
 
-        <div className="flex gap-3 mt-8">
-          <button
-            onClick={() => onSave(cell ? {...formData, id: cell.id} : formData)}
-            className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all flex-1"
-          >
-            💾 שמור תא
-          </button>
-          <button 
-            onClick={onCancel} 
-            className="bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 px-6 py-3 rounded-lg font-medium transition-all"
-          >
-            ❌ ביטול
-          </button>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-white/80 mb-3">
+              גודל התא
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {sizeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, size: option.value }))}
+                  className={`p-3 rounded-lg border-2 transition-all text-center ${
+                    formData.size === option.value
+                      ? 'border-purple-400 bg-purple-500/20 text-purple-300'
+                      : 'border-white/20 hover:border-white/40 hover:bg-white/5 text-white/70'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{option.icon}</div>
+                  <div className="font-medium text-sm">{option.label}</div>
+                  <div className="text-xs opacity-70">{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all"
+            >
+              {cell ? 'עדכן תא' : 'הוסף תא'}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-all"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

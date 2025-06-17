@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 // Mock data עבור הפיתוח
 const mockLockers = [
@@ -77,243 +80,203 @@ const mockCells = [
 // GET - קבלת כל הלוקרים עם התאים
 export async function GET() {
   try {
-    console.log('📊 מחזיר רשימת לוקרים עם תאים')
-    
+    const lockers = await prisma.locker.findMany({
+      include: {
+        cells: {
+          orderBy: { cellNumber: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
     return NextResponse.json({
       success: true,
-      lockers: mockLockers,
-      total: mockLockers.length
+      lockers
     })
   } catch (error) {
-    console.error('❌ שגיאה בקבלת לוקרים:', error)
-    return NextResponse.json(
-      { success: false, error: 'שגיאה בקבלת נתונים' },
-      { status: 500 }
-    )
+    console.error('שגיאה בטעינת לוקרים:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'שגיאה בטעינת הנתונים'
+    }, { status: 500 })
   }
 }
 
 // POST - יצירת לוקר חדש או תא חדש
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    console.log('📝 יוצר רשומה חדשה:', data)
+    const body = await request.json()
+    const { type } = body
 
-    if (data.type === 'locker') {
-      // יצירת לוקר חדש
-      const newLocker = {
-        id: mockLockers.length + 1,
-        name: data.name || `לוקר ${mockLockers.length + 1}`,
-        location: data.location || '',
-        description: data.description || '',
-        ip: data.ip || '',
-        port: data.port || 80,
-        deviceId: data.deviceId || `ESP32_${String(mockLockers.length + 1).padStart(3, '0')}`,
-        status: 'OFFLINE',
-        lastSeen: new Date().toISOString(),
-        isActive: data.isActive !== false,
-        cells: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
+    if (type === 'locker') {
+      const { name, location, description, ip, port, deviceId, status, isActive } = body
 
-      mockLockers.push(newLocker)
-      
-      return NextResponse.json({
-        success: true,
-        message: 'לוקר חדש נוצר בהצלחה',
-        locker: newLocker
+      const locker = await prisma.locker.create({
+        data: {
+          name,
+          location,
+          description,
+          ip,
+          port: port || 80,
+          deviceId,
+          status: status || 'OFFLINE',
+          isActive: isActive ?? true
+        }
       })
 
-    } else if (data.type === 'cell') {
-      // יצירת תא חדש
-      const locker = mockLockers.find(l => l.id === data.lockerId)
-      if (!locker) {
-        return NextResponse.json(
-          { success: false, error: 'לוקר לא נמצא' },
-          { status: 404 }
-        )
-      }
-
-      const newCell = {
-        id: mockCells.length + 1,
-        cellNumber: data.cellNumber || (locker.cells.length + 1),
-        code: data.code || `LOC${String(data.lockerId).padStart(3, '0')}_CELL${String(data.cellNumber || locker.cells.length + 1).padStart(2, '0')}`,
-        name: data.name || `תא ${data.cellNumber || locker.cells.length + 1}`,
-        size: data.size || 'MEDIUM',
-        status: 'AVAILABLE',
-        isLocked: true,
-        isActive: data.isActive !== false,
-        lockerId: data.lockerId,
-        openCount: 0,
-        lastOpenedAt: new Date().toISOString(),
-        lastClosedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-
-      locker.cells.push(newCell)
-      mockCells.push(newCell)
-
       return NextResponse.json({
         success: true,
-        message: 'תא חדש נוצר בהצלחה',
-        cell: newCell
+        locker
       })
     }
 
-    return NextResponse.json(
-      { success: false, error: 'סוג לא מוכר' },
-      { status: 400 }
-    )
+    if (type === 'cell') {
+      const { lockerId, cellNumber, name, size, code, isActive } = body
+
+      // בדיקה שהתא לא קיים כבר
+      const existingCell = await prisma.cell.findFirst({
+        where: {
+          lockerId,
+          cellNumber
+        }
+      })
+
+      if (existingCell) {
+        return NextResponse.json({
+          success: false,
+          error: 'תא עם מספר זה כבר קיים בלוקר'
+        }, { status: 400 })
+      }
+
+      const cell = await prisma.cell.create({
+        data: {
+          lockerId,
+          cellNumber,
+          name,
+          size: size || 'MEDIUM',
+          code,
+          isActive: isActive ?? true
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        cell
+      })
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: 'סוג פעולה לא מוכר'
+    }, { status: 400 })
 
   } catch (error) {
-    console.error('❌ שגיאה ביצירת רשומה:', error)
-    return NextResponse.json(
-      { success: false, error: 'שגיאה ביצירת רשומה' },
-      { status: 500 }
-    )
+    console.error('שגיאה ביצירת פריט:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'שגיאה ביצירת הפריט'
+    }, { status: 500 })
   }
 }
 
 // PUT - עדכון לוקר או תא
 export async function PUT(request: NextRequest) {
   try {
-    const data = await request.json()
-    console.log('🔄 מעדכן רשומה:', data)
+    const body = await request.json()
+    const { type, id } = body
 
-    if (data.type === 'locker') {
-      const lockerIndex = mockLockers.findIndex(l => l.id === data.id)
-      if (lockerIndex === -1) {
-        return NextResponse.json(
-          { success: false, error: 'לוקר לא נמצא' },
-          { status: 404 }
-        )
-      }
+    if (type === 'locker') {
+      const { name, location, description, ip, port, deviceId, status, isActive } = body
 
-      mockLockers[lockerIndex] = {
-        ...mockLockers[lockerIndex],
-        ...data,
-        updatedAt: new Date().toISOString()
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'לוקר עודכן בהצלחה',
-        locker: mockLockers[lockerIndex]
+      const locker = await prisma.locker.update({
+        where: { id },
+        data: {
+          name,
+          location,
+          description,
+          ip,
+          port,
+          deviceId,
+          status,
+          isActive
+        }
       })
 
-    } else if (data.type === 'cell') {
-      const cellIndex = mockCells.findIndex(c => c.id === data.id)
-      if (cellIndex === -1) {
-        return NextResponse.json(
-          { success: false, error: 'תא לא נמצא' },
-          { status: 404 }
-        )
-      }
-
-      mockCells[cellIndex] = {
-        ...mockCells[cellIndex],
-        ...data,
-        updatedAt: new Date().toISOString()
-      }
-
-      // עדכון גם בלוקר
-      const locker = mockLockers.find(l => l.id === mockCells[cellIndex].lockerId)
-      if (locker) {
-        const lockerCellIndex = locker.cells.findIndex(c => c.id === data.id)
-        if (lockerCellIndex !== -1) {
-          locker.cells[lockerCellIndex] = mockCells[cellIndex]
-        }
-      }
-
       return NextResponse.json({
         success: true,
-        message: 'תא עודכן בהצלחה',
-        cell: mockCells[cellIndex]
+        locker
       })
     }
 
-    return NextResponse.json(
-      { success: false, error: 'סוג לא מוכר' },
-      { status: 400 }
-    )
+    if (type === 'cell') {
+      const { cellNumber, name, size, code, isActive } = body
+
+      const cell = await prisma.cell.update({
+        where: { id },
+        data: {
+          cellNumber,
+          name,
+          size,
+          code,
+          isActive
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        cell
+      })
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: 'סוג פעולה לא מוכר'
+    }, { status: 400 })
 
   } catch (error) {
-    console.error('❌ שגיאה בעדכון רשומה:', error)
-    return NextResponse.json(
-      { success: false, error: 'שגיאה בעדכון רשומה' },
-      { status: 500 }
-    )
+    console.error('שגיאה בעדכון פריט:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'שגיאה בעדכון הפריט'
+    }, { status: 500 })
   }
 }
 
 // DELETE - מחיקת לוקר או תא
 export async function DELETE(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const id = url.searchParams.get('id')
-    const type = url.searchParams.get('type')
+    const { searchParams } = new URL(request.url)
+    const type = searchParams.get('type')
+    const id = searchParams.get('id')
 
-    if (!id || !type) {
-      return NextResponse.json(
-        { success: false, error: 'חסרים פרמטרים נדרשים' },
-        { status: 400 }
-      )
+    if (!type || !id) {
+      return NextResponse.json({
+        success: false,
+        error: 'חסרים פרמטרים נדרשים'
+      }, { status: 400 })
     }
 
-    const itemId = parseInt(id)
-
     if (type === 'locker') {
-      const lockerIndex = mockLockers.findIndex(l => l.id === itemId)
-      if (lockerIndex === -1) {
-        return NextResponse.json(
-          { success: false, error: 'לוקר לא נמצא' },
-          { status: 404 }
-        )
-      }
+      // מחיקת כל התאים של הלוקר קודם
+      await prisma.cell.deleteMany({
+        where: { lockerId: parseInt(id) }
+      })
 
-      // בדיקה אם יש תאים תפוסים
-      const occupiedCells = mockLockers[lockerIndex].cells.filter(c => c.status === 'OCCUPIED')
-      if (occupiedCells.length > 0) {
-        return NextResponse.json(
-          { success: false, error: 'לא ניתן למחוק לוקר עם תאים תפוסים' },
-          { status: 400 }
-        )
-      }
-
-      mockLockers.splice(lockerIndex, 1)
+      // מחיקת הלוקר
+      await prisma.locker.delete({
+        where: { id: parseInt(id) }
+      })
 
       return NextResponse.json({
         success: true,
         message: 'לוקר נמחק בהצלחה'
       })
+    }
 
-    } else if (type === 'cell') {
-      const cellIndex = mockCells.findIndex(c => c.id === itemId)
-      if (cellIndex === -1) {
-        return NextResponse.json(
-          { success: false, error: 'תא לא נמצא' },
-          { status: 404 }
-        )
-      }
-
-      // בדיקה אם התא תפוס
-      if (mockCells[cellIndex].status === 'OCCUPIED') {
-        return NextResponse.json(
-          { success: false, error: 'לא ניתן למחוק תא תפוס' },
-          { status: 400 }
-        )
-      }
-
-      const lockerId = mockCells[cellIndex].lockerId
-      mockCells.splice(cellIndex, 1)
-
-      // הסרה מהלוקר
-      const locker = mockLockers.find(l => l.id === lockerId)
-      if (locker) {
-        locker.cells = locker.cells.filter(c => c.id !== itemId)
-      }
+    if (type === 'cell') {
+      await prisma.cell.delete({
+        where: { id: parseInt(id) }
+      })
 
       return NextResponse.json({
         success: true,
@@ -321,16 +284,16 @@ export async function DELETE(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(
-      { success: false, error: 'סוג לא מוכר' },
-      { status: 400 }
-    )
+    return NextResponse.json({
+      success: false,
+      error: 'סוג פעולה לא מוכר'
+    }, { status: 400 })
 
   } catch (error) {
-    console.error('❌ שגיאה במחיקת רשומה:', error)
-    return NextResponse.json(
-      { success: false, error: 'שגיאה במחיקת רשומה' },
-      { status: 500 }
-    )
+    console.error('שגיאה במחיקת פריט:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'שגיאה במחיקת הפריט'
+    }, { status: 500 })
   }
 } 
