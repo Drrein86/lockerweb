@@ -1,48 +1,17 @@
 import { NextResponse } from 'next/server'
 
-// נתוני Mock ללוקרים
-const mockLockers = [
-  {
-    id: 1,
-    location: 'בניין A - קומה ראשונה',
-    status: 'ONLINE',
-    ip: '192.168.0.104',
-    port: 80,
-    lastSeen: new Date(),
-    cells: {
-      'A1': { locked: true, opened: false, hasPackage: true, packageId: 'PKG001' },
-      'A2': { locked: false, opened: true, hasPackage: false },
-      'A3': { locked: true, opened: false, hasPackage: false },
-      'B1': { locked: false, opened: false, hasPackage: false },
-      'B2': { locked: true, opened: false, hasPackage: true, packageId: 'PKG002' },
-      'B3': { locked: false, opened: false, hasPackage: false }
-    }
-  },
-  {
-    id: 2,
-    location: 'בניין B - כניסה ראשית',
-    status: 'ONLINE',
-    ip: '192.168.0.105',
-    port: 80,
-    lastSeen: new Date(Date.now() - 300000), // 5 דקות אחורה
-    cells: {
-      'C1': { locked: false, opened: false, hasPackage: false },
-      'C2': { locked: true, opened: false, hasPackage: true, packageId: 'PKG003' },
-      'C3': { locked: false, opened: false, hasPackage: false },
-      'D1': { locked: false, opened: false, hasPackage: false },
-      'D2': { locked: false, opened: false, hasPackage: false },
-      'D3': { locked: false, opened: false, hasPackage: false }
-    }
-  }
-];
+// API זה מחזיר רק לוקרים אמיתיים מחוברים לשרת החומרה
+// אין כאן נתונים מדומים - רק לוקרים חיים בזמן אמת
 
 export async function GET() {
   try {
-    console.log('🏢 טוען רשימת לוקרים - מצב Mock');
+    console.log('🏢 מחפש לוקרים אמיתיים מחוברים לשרת החומרה...');
     
+    // החזרת רשימה ריקה - רק לוקרים חיים יוצגו דרך WebSocket
     return NextResponse.json({
       success: true,
-      lockers: mockLockers
+      lockers: [],
+      message: 'רק לוקרים חיים מחוברים לשרת החומרה יוצגו'
     })
 
   } catch (error) {

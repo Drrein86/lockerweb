@@ -32,7 +32,6 @@ interface Locker {
 
 export default function LockersManagementPage() {
   const [lockers, setLockers] = useState<Locker[]>([])
-  const [connectedLockers, setConnectedLockers] = useState<any[]>([])
   const [liveLockers, setLiveLockers] = useState<{ [key: string]: any }>({})
   const [loading, setLoading] = useState(true)
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null)
@@ -49,7 +48,6 @@ export default function LockersManagementPage() {
 
   useEffect(() => {
     loadLockers()
-    loadConnectedLockers()
   }, [])
 
   // WebSocket Connection לשרת החומרה
@@ -243,33 +241,7 @@ export default function LockersManagementPage() {
     }
   }
 
-  const loadConnectedLockers = async () => {
-    try {
-      const response = await fetch('/api/admin/lockers')
-      
-      if (!response.ok) {
-        console.warn('לא ניתן לטעון לוקרים מחוברים')
-        setConnectedLockers([])
-        return
-      }
-      
-      const data = await response.json()
-      
-      if (data.success && Array.isArray(data.lockers)) {
-        const validatedConnectedLockers = data.lockers.map((locker: any, index: number) => ({
-          ...locker,
-          deviceId: locker.deviceId || locker.ip || `locker_${index}`,
-          ip: locker.ip || 'unknown'
-        }))
-        setConnectedLockers(validatedConnectedLockers)
-      } else {
-        setConnectedLockers([])
-      }
-    } catch (error) {
-      console.error('שגיאה בטעינת לוקרים מחוברים:', error)
-      setConnectedLockers([])
-    }
-  }
+
 
   const saveLocker = async (lockerData: Partial<Locker>) => {
     console.log('💾 מתחיל לשמור לוקר:', lockerData)
@@ -587,51 +559,28 @@ export default function LockersManagementPage() {
           </div>
         </div>
 
-        {/* לוקרים מחוברים */}
-        {connectedLockers.length > 0 && (
+        {/* הודעה כשאין לוקרים חיים */}
+        {Object.keys(liveLockers).length === 0 && (
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-green-400 mb-4 flex items-center gap-2">
-              <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
-              לוקרים מחוברים ({connectedLockers.length})
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {connectedLockers.map((connectedLocker, index) => (
-                <div key={connectedLocker.deviceId || connectedLocker.ip || `connected_${index}`} className="bg-green-500/10 backdrop-blur-md rounded-lg p-4 border border-green-400/30 hover:bg-green-500/20 transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                      <span className="font-medium text-green-400 text-sm sm:text-base truncate">{String(connectedLocker.deviceId || connectedLocker.ip || 'לוקר לא מזוהה')}</span>
-                    </div>
-                    <span className="text-xs text-green-300">{connectedLocker.isOnline ? 'פעיל' : 'לא פעיל'}</span>
-                  </div>
-                  
-                  <div className="space-y-1 text-xs text-white/60 mb-3">
-                    <div className="truncate">IP: {String(connectedLocker.ip || 'לא מוגדר')}</div>
-                    <div className="truncate">עדכון אחרון: {connectedLocker.lastSeen ? new Date(connectedLocker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedLocker({
-                        id: 0,
-                        name: connectedLocker.name || '',
-                        location: '',
-                        description: '',
-                        ip: connectedLocker.ip || '',
-                        port: 80,
-                        deviceId: connectedLocker.deviceId || '',
-                        status: 'OFFLINE',
-                        lastSeen: new Date().toISOString(),
-                        isActive: true,
-                        cells: []
-                      })
-                      setShowLockerForm(true)
-                    }}
-                    className="w-full text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-2 rounded transition-all"
-                  >
-                    הוסף למערכת
-                  </button>
-                </div>
-              ))}
+            <div className="bg-blue-500/10 backdrop-blur-md rounded-lg p-6 border border-blue-400/30 text-center">
+              <div className="text-4xl mb-4">🔍</div>
+              <h3 className="text-xl font-bold text-blue-400 mb-2">מחפש לוקרים חיים...</h3>
+              <p className="text-white/70 mb-4">
+                המערכת מחפשת לוקרים אמיתיים המחוברים לשרת החומרה בזמן אמת.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-sm text-white/60 mb-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  wsStatus === 'מחובר' ? 'bg-green-400 animate-pulse' : 
+                  wsStatus === 'מתחבר' ? 'bg-yellow-400 animate-pulse' : 
+                  'bg-red-400'
+                }`}></div>
+                <span>סטטוס חיבור לשרת החומרה: {wsStatus}</span>
+              </div>
+              {wsStatus !== 'מחובר' && (
+                <p className="text-orange-300 text-sm">
+                  💡 וודא שהשרת החומרה פועל על ws://localhost:3003
+                </p>
+              )}
             </div>
           </div>
         )}
