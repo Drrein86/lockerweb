@@ -3,10 +3,14 @@ import { createServer, Server } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { readFileSync } from 'fs';
 import { config } from 'dotenv';
+import { PrismaClient, LockerStatus, CellStatus } from '@prisma/client';
 import esp32Controller from './esp32-controller';
 
 // טעינת משתני סביבה
 config();
+
+// יצירת Prisma Client
+const prisma = new PrismaClient();
 
 // טיפוסים
 interface LockerCell {
@@ -163,15 +167,38 @@ class WebSocketManager {
   /**
    * טיפול ברישום לוקר חדש
    */
-  private handleLockerRegistration(ws: LockerConnection, data: WebSocketMessage): void {
+  private async handleLockerRegistration(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
     if (data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
-      ws.lockerId = data.id;
-      ws.lastSeen = new Date();
-      ws.cells = data.cells || {};
-      
-      this.lockerConnections.set(data.id, ws);
-      this.logEvent('register', `📡 נרשם לוקר ${data.id}`);
-      this.broadcastStatus();
+      try {
+        // עדכון או יצירת לוקר ב-DB
+        const locker = await prisma.locker.upsert({
+          where: { id: parseInt(data.id) },
+          update: {
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date(),
+            ip: ws._socket.remoteAddress,
+            port: ws._socket.remotePort
+          },
+          create: {
+            id: parseInt(data.id),
+            location: 'מיקום לא ידוע',
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date(),
+            ip: ws._socket.remoteAddress,
+            port: ws._socket.remotePort
+          }
+        });
+
+        ws.lockerId = data.id;
+        ws.lastSeen = new Date();
+        ws.cells = data.cells || {};
+        
+        this.lockerConnections.set(data.id, ws);
+        this.logEvent('register', `📡 נרשם לוקר ${data.id}`);
+        this.broadcastStatus();
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה ברישום לוקר ${data.id}`, { error });
+      }
     }
   }
 
@@ -206,83 +233,154 @@ class WebSocketManager {
   /**
    * טיפול בעדכון סטטוס
    */
-  private handleStatusUpdate(ws: LockerConnection, data: WebSocketMessage): void {
+  private async handleStatusUpdate(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
     if (ws.lockerId && data.cells) {
-      ws.cells = data.cells;
-      ws.lastSeen = new Date();
-      this.broadcastStatus();
+      try {
+        // עדכון סטטוס הלוקר
+        await prisma.locker.update({
+          where: { id: parseInt(ws.lockerId) },
+          data: {
+            status: LockerStatus.ONLINE,
+            lastSeen: new Date()
+          }
+        });
+
+        // עדכון סטטוס התאים
+        for (const [cellId, cellData] of Object.entries(data.cells)) {
+          await prisma.cell.update({
+            where: { code: cellId },
+            data: {
+              status: cellData.locked ? CellStatus.LOCKED : CellStatus.UNLOCKED,
+              isLocked: cellData.locked,
+              lastOpenedAt: cellData.opened ? new Date() : undefined
+            }
+          });
+        }
+
+        ws.cells = data.cells;
+        ws.lastSeen = new Date();
+        this.broadcastStatus();
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה בעדכון סטטוס לוקר ${ws.lockerId}`, { error });
+      }
     }
   }
 
   /**
    * טיפול בפקודת פתיחה
    */
-  private handleUnlockCommand(ws: LockerConnection, data: WebSocketMessage): void {
+  private async handleUnlockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
     if (ws.isAdmin && data.lockerId && data.cellId) {
-      this.sendToLocker(data.lockerId, {
-        type: 'unlock',
-        cellId: data.cellId
-      });
+      try {
+        // בדיקת סטטוס התא
+        const cell = await prisma.cell.findFirst({
+          where: {
+            code: data.cellId,
+            lockerId: parseInt(data.lockerId)
+          }
+        });
+
+        if (!cell) {
+          throw new Error('תא לא נמצא');
+        }
+
+        if (cell.status === CellStatus.MAINTENANCE) {
+          throw new Error('התא במצב תחזוקה');
+        }
+
+        // עדכון סטטוס התא
+        await prisma.cell.update({
+          where: { id: cell.id },
+          data: {
+            status: CellStatus.UNLOCKED,
+            isLocked: false,
+            lastOpenedAt: new Date()
+          }
+        });
+
+        // שליחת פקודה ללוקר
+        this.sendToLocker(data.lockerId, {
+          type: 'unlock',
+          cellId: data.cellId
+        });
+
+        this.logEvent('unlock', `🔓 נפתח תא ${data.cellId} בלוקר ${data.lockerId}`);
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה בפתיחת תא ${data.cellId}`, { error });
+      }
     }
   }
 
   /**
    * טיפול בפקודת נעילה
    */
-  private handleLockCommand(ws: LockerConnection, data: WebSocketMessage): void {
+  private async handleLockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
     if (ws.isAdmin && data.lockerId && data.cellId && data.packageId) {
-      this.sendToLocker(data.lockerId, {
-        type: 'lock',
-        cellId: data.cellId,
-        packageId: data.packageId
-      });
+      try {
+        // בדיקת סטטוס התא
+        const cell = await prisma.cell.findFirst({
+          where: {
+            code: data.cellId,
+            lockerId: parseInt(data.lockerId)
+          }
+        });
+
+        if (!cell) {
+          throw new Error('תא לא נמצא');
+        }
+
+        if (cell.status === CellStatus.MAINTENANCE) {
+          throw new Error('התא במצב תחזוקה');
+        }
+
+        // עדכון סטטוס התא
+        await prisma.cell.update({
+          where: { id: cell.id },
+          data: {
+            status: CellStatus.LOCKED,
+            isLocked: true
+          }
+        });
+
+        // שליחת פקודה ללוקר
+        this.sendToLocker(data.lockerId, {
+          type: 'lock',
+          cellId: data.cellId,
+          packageId: data.packageId
+        });
+
+        this.logEvent('lock', `🔒 ננעל תא ${data.cellId} בלוקר ${data.lockerId}`);
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה בנעילת תא ${data.cellId}`, { error });
+      }
     }
   }
 
   /**
    * טיפול בסגירת חיבור
    */
-  private handleClose(ws: LockerConnection): void {
+  private async handleClose(ws: LockerConnection): Promise<void> {
     if (ws.isAdmin) {
       this.adminConnections.delete(ws);
       this.logEvent('disconnect', '👤 ממשק ניהול התנתק');
     } else if (ws.lockerId) {
-      this.lockerConnections.delete(ws.lockerId);
-      this.logEvent('disconnect', `📡 לוקר ${ws.lockerId} התנתק`);
-      
-      // ניסיון חיבור מחדש
-      setTimeout(() => {
-        if (ws.lockerId) {
-          this.attemptReconnect(ws.lockerId, ws);
-        }
-      }, 5000);
-    }
-  }
+      try {
+        // עדכון סטטוס הלוקר
+        await prisma.locker.update({
+          where: { id: parseInt(ws.lockerId) },
+          data: {
+            status: LockerStatus.OFFLINE,
+            lastSeen: new Date()
+          }
+        });
 
-  /**
-   * ניסיון חיבור מחדש
-   */
-  private attemptReconnect(lockerId: string, ws: LockerConnection): void {
-    if (ws.reconnectAttempts && ws.reconnectAttempts >= CONFIG.RECONNECT_ATTEMPTS) {
-      this.logEvent('reconnect', `❌ נכשלו כל ניסיונות החיבור מחדש ללוקר ${lockerId}`);
-      return;
+        this.lockerConnections.delete(ws.lockerId);
+        this.logEvent('disconnect', `📡 לוקר ${ws.lockerId} התנתק`);
+        this.broadcastStatus();
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה בעדכון סטטוס לוקר ${ws.lockerId}`, { error });
+      }
     }
-
-    this.logEvent('reconnect', `🔄 מנסה להתחבר מחדש ללוקר ${lockerId}`);
-    
-    if (ws.reconnectAttempts) {
-      ws.reconnectAttempts++;
-    } else {
-      ws.reconnectAttempts = 1;
-    }
-
-    // שליחת עדכון למנהלים
-    this.broadcastToAdmins({
-      type: 'reconnect',
-      id: lockerId,
-      attempt: ws.reconnectAttempts,
-      timestamp: new Date().toISOString()
-    });
   }
 
   /**
