@@ -109,21 +109,34 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('📝 POST request received:', JSON.stringify(body, null, 2))
     const { type } = body
     const db = await getPrisma()
+    console.log('📊 Database connection:', db ? 'Connected' : 'Using fallback')
 
     if (type === 'locker') {
       const { name, location, description, ip, port, deviceId, status, isActive } = body
+
+      // בדיקת תקינות נתונים
+      if (!name) {
+        console.error('❌ Missing locker name')
+        return NextResponse.json({
+          success: false,
+          error: 'חסר שם לוקר'
+        }, { status: 400 })
+      }
+
+      console.log('📝 Creating locker with data:', { name, location, description, ip, port, deviceId, status, isActive })
 
       if (db) {
         const locker = await db.locker.create({
           data: {
             name,
-            location,
-            description,
-            ip,
+            location: location || 'לא מוגדר',
+            description: description || '',
+            ip: ip || '192.168.1.1',
             port: port || 80,
-            deviceId,
+            deviceId: deviceId || `ESP32_${Date.now()}`,
             status: status || 'OFFLINE',
             isActive: isActive ?? true
           }
