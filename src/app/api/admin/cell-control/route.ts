@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import CellController from '@/lib/websocket-cell-control'
 
 // Mock data עבור בקרת תאים
 const cellControlHistory = [
@@ -29,12 +30,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // סימולציה של שליחת פקודה לESP32
+    // שימוש בקונטרולר החדש לבקרת תאים
     const startTime = Date.now()
+    const cellController = CellController.getInstance()
     
     try {
-      // כאן נשלח פקודה אמיתית ל-ESP32
-      const commandResult = await sendCommandToESP32(lockerId, cellId, action)
+      // בדיקה שהלוקר מחובר
+      if (!cellController.isLockerOnline(lockerId.toString())) {
+        return NextResponse.json({
+          success: false,
+          error: 'לוקר לא מחובר למערכת'
+        }, { status: 503 })
+      }
+
+      // כרגע אנחנו תומכים רק בפתיחת תאים
+      if (action !== 'open') {
+        return NextResponse.json({
+          success: false,
+          error: 'המערכת תומכת רק בפתיחת תאים. סגירה מתבצעת אוטומטית.'
+        }, { status: 400 })
+      }
+
+      // שליחת פקודת פתיחה דרך WebSocket
+      const commandResult = await cellController.unlockCell(
+        lockerId.toString(), 
+        `LOC${String(lockerId).padStart(3, '0')}_CELL${String(cellId).padStart(2, '0')}`, 
+        userId
+      )
       
       const controlRecord = {
         id: cellControlHistory.length + 1,
@@ -50,20 +72,15 @@ export async function POST(request: NextRequest) {
 
       cellControlHistory.push(controlRecord)
 
-      if (commandResult.success) {
-        return NextResponse.json({
-          success: true,
-          message: `פקודת ${action === 'open' ? 'פתיחה' : 'סגירה'} נשלחה בהצלחה`,
-          controlId: controlRecord.id,
-          duration: controlRecord.duration
-        })
-      } else {
-        return NextResponse.json({
-          success: false,
-          error: `שגיאה בביצוע פקודת ${action}`,
-          details: commandResult.error
-        }, { status: 500 })
-      }
+      return NextResponse.json({
+        success: commandResult.success,
+        message: commandResult.success 
+          ? `תא ${cellId} נפתח בהצלחה`
+          : `שגיאה בפתיחת תא: ${commandResult.error}`,
+        controlId: controlRecord.id,
+        duration: controlRecord.duration,
+        error: commandResult.error
+      })
 
     } catch (error) {
       console.error('❌ שגיאה בשליחת פקודה:', error)

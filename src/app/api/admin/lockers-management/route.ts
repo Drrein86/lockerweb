@@ -52,18 +52,26 @@ const mockLockers: any[] = [
   }
 ]
 
-// Dynamic import של Prisma כדי לא לשבור את הבניה
+// חיבור למסד נתונים Railway
 let prisma: any = null
 
 async function getPrisma() {
   if (!prisma) {
     try {
       const { PrismaClient } = await import('@prisma/client')
-      prisma = new PrismaClient()
+      prisma = new PrismaClient({
+        datasources: {
+          db: {
+            url: process.env.DATABASE_URL
+          }
+        }
+      })
       await prisma.$connect()
+      console.log('✅ התחברות למסד נתונים Railway הצליחה')
       return prisma
     } catch (error) {
-      console.log('⚠️ לא ניתן להתחבר לדאטאבייס, משתמש במידע מדומה')
+      console.error('❌ שגיאה בחיבור למסד נתונים Railway:', error)
+      console.log('⚠️ עובר למצב fallback עם נתונים מדומים')
       return null
     }
   }
