@@ -256,18 +256,44 @@ export async function PUT(request: NextRequest) {
     if (type === 'locker') {
       const { name, location, description, ip, port, deviceId, status, isActive } = body
 
+      // בדיקת תקינות נתונים
+      if (!id) {
+        console.error('❌ Missing locker ID')
+        return NextResponse.json({
+          success: false,
+          error: 'חסר מזהה לוקר'
+        }, { status: 400 })
+      }
+
+      console.log('📝 Updating locker with data:', { id, name, location, description, ip, port, deviceId, status, isActive })
+
       if (db) {
+        // קודם נקבל את הנתונים הקיימים
+        const existingLocker = await db.locker.findUnique({
+          where: { id }
+        })
+
+        if (!existingLocker) {
+          console.error('❌ Locker not found:', id)
+          return NextResponse.json({
+            success: false,
+            error: 'לוקר לא נמצא'
+          }, { status: 404 })
+        }
+
+        console.log('📋 Existing locker:', existingLocker)
+
         const locker = await db.locker.update({
           where: { id },
           data: {
-            name,
-            location,
-            description,
-            ip,
-            port,
-            deviceId,
-            status,
-            isActive
+            name: name || existingLocker.name,
+            location: location || existingLocker.location,
+            description: description || existingLocker.description,
+            ip: ip || existingLocker.ip,
+            port: port || existingLocker.port,
+            deviceId: deviceId || existingLocker.deviceId,
+            status: status || existingLocker.status,
+            isActive: isActive !== undefined ? isActive : existingLocker.isActive
           }
         })
 
