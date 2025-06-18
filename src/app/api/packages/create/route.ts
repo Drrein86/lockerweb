@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { 
-      name,
+      name, 
       userName, 
       email, 
       phone, 
@@ -46,15 +46,15 @@ export async function POST(request: Request) {
       id: Math.floor(Math.random() * 10000),
       name: customerName,
       userName: customerName,
-      email,
+        email, 
       phone,
       tracking_code: finalTrackingCode,
-      size,
-      lockerId,
-      cellId,
+        size,
+        lockerId,
+        cellId,
       status: 'WAITING',
       createdAt: new Date().toISOString()
-    }
+      }
 
     // שליחת הודעת אימייל ללקוח
     try {

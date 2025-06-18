@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     const packageIndex = mockPackages.findIndex(pkg => pkg.id === packageData.id)
     if (packageIndex !== -1) {
       mockPackages[packageIndex].status = 'COLLECTED'
-    }
+      }
     const updatedPackage = mockPackages[packageIndex]
 
     // רישום פעולת איסוף (לוג)

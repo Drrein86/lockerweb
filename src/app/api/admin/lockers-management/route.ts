@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Fallback data במקרה שאין דאטאבייס
-const mockLockers: any[] = [
+// Mock data עבור הפיתוח
+const mockLockers = [
   {
     id: 1,
     name: 'לוקר ראשי',
     location: 'כניסה ראשית',
     description: 'לוקר ראשי בכניסה לבניין',
-    ip: '192.168.1.100',
+    ip: '192.168.0.104',
     port: 80,
     deviceId: 'ESP32_001',
-    status: 'OFFLINE',
+    status: 'ONLINE',
     lastSeen: new Date().toISOString(),
     isActive: true,
     cells: [
@@ -18,407 +18,301 @@ const mockLockers: any[] = [
         id: 1,
         cellNumber: 1,
         code: 'LOC001_CELL01',
-        name: 'תא 1',
+        name: 'תא קטן 1',
         size: 'SMALL',
         status: 'AVAILABLE',
         isLocked: true,
         isActive: true,
         lockerId: 1,
-        openCount: 0,
-        lastOpenedAt: new Date().toISOString(),
-        lastClosedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        openCount: 5,
+        lastOpenedAt: new Date(Date.now() - 3600000).toISOString()
       },
       {
         id: 2,
         cellNumber: 2,
         code: 'LOC001_CELL02',
-        name: 'תא 2',
+        name: 'תא בינוני 1',
         size: 'MEDIUM',
-        status: 'AVAILABLE',
+        status: 'OCCUPIED',
         isLocked: true,
         isActive: true,
         lockerId: 1,
-        openCount: 0,
-        lastOpenedAt: new Date().toISOString(),
-        lastClosedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        openCount: 12,
+        lastOpenedAt: new Date(Date.now() - 7200000).toISOString()
       }
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    ]
+  },
+  {
+    id: 2,
+    name: 'לוקר משני',
+    location: 'חדר דואר',
+    description: 'לוקר בחדר הדואר',
+    ip: '192.168.0.105',
+    port: 80,
+    deviceId: 'ESP32_002',
+    status: 'OFFLINE',
+    lastSeen: new Date(Date.now() - 86400000).toISOString(),
+    isActive: true,
+    cells: []
   }
 ]
 
-// Dynamic import של Prisma כדי לא לשבור את הבניה
-let prisma: any = null
-
-async function getPrisma() {
-  if (!prisma) {
-    try {
-      const { PrismaClient } = await import('@prisma/client')
-      prisma = new PrismaClient()
-      await prisma.$connect()
-      return prisma
-    } catch (error) {
-      console.log('⚠️ לא ניתן להתחבר לדאטאבייס, משתמש במידע מדומה')
-      return null
-    }
+const mockCells = [
+  ...mockLockers[0].cells,
+  {
+    id: 3,
+    cellNumber: 1,
+    code: 'LOC002_CELL01',
+    name: 'תא גדול 1',
+    size: 'LARGE',
+    status: 'MAINTENANCE',
+    isLocked: true,
+    isActive: false,
+    lockerId: 2,
+    openCount: 0,
+    lastOpenedAt: new Date().toISOString()
   }
-  return prisma
-}
+]
 
 // GET - קבלת כל הלוקרים עם התאים
 export async function GET() {
   try {
-    const db = await getPrisma()
+    console.log('📊 מחזיר רשימת לוקרים עם תאים')
     
-    if (db) {
-      const lockers = await db.locker.findMany({
-        include: {
-          cells: {
-            orderBy: { cellNumber: 'asc' }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-
-      return NextResponse.json({
-        success: true,
-        lockers
-      })
-    } else {
-      // Fallback למידע מדומה
-      return NextResponse.json({
-        success: true,
-        lockers: mockLockers
-      })
-    }
-  } catch (error) {
-    console.error('שגיאה בטעינת לוקרים:', error)
     return NextResponse.json({
       success: true,
-      lockers: mockLockers
+      lockers: mockLockers,
+      total: mockLockers.length
     })
+  } catch (error) {
+    console.error('❌ שגיאה בקבלת לוקרים:', error)
+    return NextResponse.json(
+      { success: false, error: 'שגיאה בקבלת נתונים' },
+      { status: 500 }
+    )
   }
 }
 
 // POST - יצירת לוקר חדש או תא חדש
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { type } = body
-    const db = await getPrisma()
+    const data = await request.json()
+    console.log('📝 יוצר רשומה חדשה:', data)
 
-    if (type === 'locker') {
-      const { name, location, description, ip, port, deviceId, status, isActive } = body
-
-      if (db) {
-        const locker = await db.locker.create({
-          data: {
-            name,
-            location,
-            description,
-            ip,
-            port: port || 80,
-            deviceId,
-            status: status || 'OFFLINE',
-            isActive: isActive ?? true
-          }
-        })
-
-        return NextResponse.json({
-          success: true,
-          locker
-        })
-      } else {
-        // Fallback - הוספה למערך המדומה
-        const newLocker: any = {
-          id: mockLockers.length + 1,
-          name: name || 'לוקר חדש',
-          location: location || 'לא מוגדר',
-          description: description || '',
-          ip: ip || '192.168.1.1',
-          port: port || 80,
-          deviceId: deviceId || `ESP32_${mockLockers.length + 1}`,
-          status: status || 'OFFLINE',
-          lastSeen: new Date().toISOString(),
-          isActive: isActive ?? true,
-          cells: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-        
-        mockLockers.push(newLocker)
-        
-        return NextResponse.json({
-          success: true,
-          locker: newLocker
-        })
+    if (data.type === 'locker') {
+      // יצירת לוקר חדש
+      const newLocker = {
+        id: mockLockers.length + 1,
+        name: data.name || `לוקר ${mockLockers.length + 1}`,
+        location: data.location || '',
+        description: data.description || '',
+        ip: data.ip || '',
+        port: data.port || 80,
+        deviceId: data.deviceId || `ESP32_${String(mockLockers.length + 1).padStart(3, '0')}`,
+        status: 'OFFLINE',
+        lastSeen: new Date().toISOString(),
+        isActive: data.isActive !== false,
+        cells: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
+
+      mockLockers.push(newLocker)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'לוקר חדש נוצר בהצלחה',
+        locker: newLocker
+      })
+
+    } else if (data.type === 'cell') {
+      // יצירת תא חדש
+      const locker = mockLockers.find(l => l.id === data.lockerId)
+      if (!locker) {
+        return NextResponse.json(
+          { success: false, error: 'לוקר לא נמצא' },
+          { status: 404 }
+        )
+      }
+
+      const newCell = {
+        id: mockCells.length + 1,
+        cellNumber: data.cellNumber || (locker.cells.length + 1),
+        code: data.code || `LOC${String(data.lockerId).padStart(3, '0')}_CELL${String(data.cellNumber || locker.cells.length + 1).padStart(2, '0')}`,
+        name: data.name || `תא ${data.cellNumber || locker.cells.length + 1}`,
+        size: data.size || 'MEDIUM',
+        status: 'AVAILABLE',
+        isLocked: true,
+        isActive: data.isActive !== false,
+        lockerId: data.lockerId,
+        openCount: 0,
+        lastOpenedAt: new Date().toISOString(),
+        lastClosedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      locker.cells.push(newCell)
+      mockCells.push(newCell)
+
+      return NextResponse.json({
+        success: true,
+        message: 'תא חדש נוצר בהצלחה',
+        cell: newCell
+      })
     }
 
-    if (type === 'cell') {
-      const { lockerId, cellNumber, name, size, code, isActive } = body
-
-      if (db) {
-        // בדיקה שהתא לא קיים כבר
-        const existingCell = await db.cell.findFirst({
-          where: {
-            lockerId,
-            cellNumber
-          }
-        })
-
-        if (existingCell) {
-          return NextResponse.json({
-            success: false,
-            error: 'תא עם מספר זה כבר קיים בלוקר'
-          }, { status: 400 })
-        }
-
-        const cell = await db.cell.create({
-          data: {
-            lockerId,
-            cellNumber,
-            name,
-            size: size || 'MEDIUM',
-            code,
-            isActive: isActive ?? true
-          }
-        })
-
-        return NextResponse.json({
-          success: true,
-          cell
-        })
-      } else {
-        // Fallback - הוספה למערך המדומה
-        const locker = mockLockers.find((l: any) => l.id === lockerId)
-        if (!locker) {
-          return NextResponse.json({
-            success: false,
-            error: 'לוקר לא נמצא'
-          }, { status: 404 })
-        }
-
-                 const newCell: any = {
-           id: Date.now(), // ID זמני
-           cellNumber: cellNumber || 1,
-           name: name || `תא ${cellNumber || 1}`,
-           size: size || 'MEDIUM',
-           code: code || `LOC${String(lockerId).padStart(3, '0')}_CELL${String(cellNumber || 1).padStart(2, '0')}`,
-           isActive: isActive ?? true,
-           status: 'AVAILABLE',
-           isLocked: true,
-           lockerId,
-           openCount: 0,
-           lastOpenedAt: new Date().toISOString(),
-           lastClosedAt: new Date().toISOString(),
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString()
-         }
-
-        locker.cells.push(newCell)
-
-        return NextResponse.json({
-          success: true,
-          cell: newCell
-        })
-      }
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: 'סוג פעולה לא מוכר'
-    }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'סוג לא מוכר' },
+      { status: 400 }
+    )
 
   } catch (error) {
-    console.error('שגיאה ביצירת פריט:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'שגיאה ביצירת הפריט'
-    }, { status: 500 })
+    console.error('❌ שגיאה ביצירת רשומה:', error)
+    return NextResponse.json(
+      { success: false, error: 'שגיאה ביצירת רשומה' },
+      { status: 500 }
+    )
   }
 }
 
 // PUT - עדכון לוקר או תא
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { type, id } = body
-    const db = await getPrisma()
+    const data = await request.json()
+    console.log('🔄 מעדכן רשומה:', data)
 
-    if (type === 'locker') {
-      const { name, location, description, ip, port, deviceId, status, isActive } = body
-
-      if (db) {
-        const locker = await db.locker.update({
-          where: { id },
-          data: {
-            name,
-            location,
-            description,
-            ip,
-            port,
-            deviceId,
-            status,
-            isActive
-          }
-        })
-
-        return NextResponse.json({
-          success: true,
-          locker
-        })
-      } else {
-        // Fallback - עדכון במערך המדומה
-        const lockerIndex = mockLockers.findIndex((l: any) => l.id === id)
-        if (lockerIndex === -1) {
-          return NextResponse.json({
-            success: false,
-            error: 'לוקר לא נמצא'
-          }, { status: 404 })
-        }
-
-                 mockLockers[lockerIndex] = {
-           ...mockLockers[lockerIndex],
-           name: name || mockLockers[lockerIndex].name,
-           location: location || mockLockers[lockerIndex].location,
-           description: description || mockLockers[lockerIndex].description,
-           ip: ip || mockLockers[lockerIndex].ip,
-           port: port || mockLockers[lockerIndex].port,
-           deviceId: deviceId || mockLockers[lockerIndex].deviceId,
-           status: status || mockLockers[lockerIndex].status,
-           isActive: isActive ?? mockLockers[lockerIndex].isActive,
-           updatedAt: new Date().toISOString()
-         }
-
-        return NextResponse.json({
-          success: true,
-          locker: mockLockers[lockerIndex]
-        })
+    if (data.type === 'locker') {
+      const lockerIndex = mockLockers.findIndex(l => l.id === data.id)
+      if (lockerIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'לוקר לא נמצא' },
+          { status: 404 }
+        )
       }
+
+      mockLockers[lockerIndex] = {
+        ...mockLockers[lockerIndex],
+        ...data,
+        updatedAt: new Date().toISOString()
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'לוקר עודכן בהצלחה',
+        locker: mockLockers[lockerIndex]
+      })
+
+    } else if (data.type === 'cell') {
+      const cellIndex = mockCells.findIndex(c => c.id === data.id)
+      if (cellIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'תא לא נמצא' },
+          { status: 404 }
+        )
+      }
+
+      mockCells[cellIndex] = {
+        ...mockCells[cellIndex],
+        ...data,
+        updatedAt: new Date().toISOString()
+      }
+
+      // עדכון גם בלוקר
+      const locker = mockLockers.find(l => l.id === mockCells[cellIndex].lockerId)
+      if (locker) {
+        const lockerCellIndex = locker.cells.findIndex(c => c.id === data.id)
+        if (lockerCellIndex !== -1) {
+          locker.cells[lockerCellIndex] = mockCells[cellIndex]
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'תא עודכן בהצלחה',
+        cell: mockCells[cellIndex]
+      })
     }
 
-    if (type === 'cell') {
-      const { cellNumber, name, size, code, isActive } = body
-
-      if (db) {
-        const cell = await db.cell.update({
-          where: { id },
-          data: {
-            cellNumber,
-            name,
-            size,
-            code,
-            isActive
-          }
-        })
-
-        return NextResponse.json({
-          success: true,
-          cell
-        })
-      } else {
-        // Fallback - עדכון במערך המדומה
-        for (const locker of mockLockers) {
-          const cellIndex = locker.cells.findIndex((c: any) => c.id === id)
-          if (cellIndex !== -1) {
-                         locker.cells[cellIndex] = {
-               ...locker.cells[cellIndex],
-               cellNumber: cellNumber || locker.cells[cellIndex].cellNumber,
-               name: name || locker.cells[cellIndex].name,
-               size: size || locker.cells[cellIndex].size,
-               code: code || locker.cells[cellIndex].code,
-               isActive: isActive ?? locker.cells[cellIndex].isActive,
-               updatedAt: new Date().toISOString()
-             }
-
-            return NextResponse.json({
-              success: true,
-              cell: locker.cells[cellIndex]
-            })
-          }
-        }
-
-        return NextResponse.json({
-          success: false,
-          error: 'תא לא נמצא'
-        }, { status: 404 })
-      }
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: 'סוג פעולה לא מוכר'
-    }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'סוג לא מוכר' },
+      { status: 400 }
+    )
 
   } catch (error) {
-    console.error('שגיאה בעדכון פריט:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'שגיאה בעדכון הפריט'
-    }, { status: 500 })
+    console.error('❌ שגיאה בעדכון רשומה:', error)
+    return NextResponse.json(
+      { success: false, error: 'שגיאה בעדכון רשומה' },
+      { status: 500 }
+    )
   }
 }
 
 // DELETE - מחיקת לוקר או תא
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type')
-    const id = searchParams.get('id')
-    const db = await getPrisma()
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id')
+    const type = url.searchParams.get('type')
 
-    if (!type || !id) {
-      return NextResponse.json({
-        success: false,
-        error: 'חסרים פרמטרים נדרשים'
-      }, { status: 400 })
+    if (!id || !type) {
+      return NextResponse.json(
+        { success: false, error: 'חסרים פרמטרים נדרשים' },
+        { status: 400 }
+      )
     }
 
-    if (type === 'locker') {
-      if (db) {
-        // מחיקת כל התאים של הלוקר קודם
-        await db.cell.deleteMany({
-          where: { lockerId: parseInt(id) }
-        })
+    const itemId = parseInt(id)
 
-        // מחיקת הלוקר
-        await db.locker.delete({
-          where: { id: parseInt(id) }
-        })
-      } else {
-        // Fallback - מחיקה מהמערך המדומה
-        const lockerIndex = mockLockers.findIndex((l: any) => l.id === parseInt(id))
-        if (lockerIndex !== -1) {
-          mockLockers.splice(lockerIndex, 1)
-        }
+    if (type === 'locker') {
+      const lockerIndex = mockLockers.findIndex(l => l.id === itemId)
+      if (lockerIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'לוקר לא נמצא' },
+          { status: 404 }
+        )
       }
+
+      // בדיקה אם יש תאים תפוסים
+      const occupiedCells = mockLockers[lockerIndex].cells.filter(c => c.status === 'OCCUPIED')
+      if (occupiedCells.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'לא ניתן למחוק לוקר עם תאים תפוסים' },
+          { status: 400 }
+        )
+      }
+
+      mockLockers.splice(lockerIndex, 1)
 
       return NextResponse.json({
         success: true,
         message: 'לוקר נמחק בהצלחה'
       })
-    }
 
-    if (type === 'cell') {
-      if (db) {
-        await db.cell.delete({
-          where: { id: parseInt(id) }
-        })
-      } else {
-        // Fallback - מחיקה מהמערך המדומה
-        for (const locker of mockLockers) {
-          const cellIndex = locker.cells.findIndex((c: any) => c.id === parseInt(id))
-          if (cellIndex !== -1) {
-            locker.cells.splice(cellIndex, 1)
-            break
-          }
-        }
+    } else if (type === 'cell') {
+      const cellIndex = mockCells.findIndex(c => c.id === itemId)
+      if (cellIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'תא לא נמצא' },
+          { status: 404 }
+        )
+      }
+
+      // בדיקה אם התא תפוס
+      if (mockCells[cellIndex].status === 'OCCUPIED') {
+        return NextResponse.json(
+          { success: false, error: 'לא ניתן למחוק תא תפוס' },
+          { status: 400 }
+        )
+      }
+
+      const lockerId = mockCells[cellIndex].lockerId
+      mockCells.splice(cellIndex, 1)
+
+      // הסרה מהלוקר
+      const locker = mockLockers.find(l => l.id === lockerId)
+      if (locker) {
+        locker.cells = locker.cells.filter(c => c.id !== itemId)
       }
 
       return NextResponse.json({
@@ -427,16 +321,16 @@ export async function DELETE(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
-      success: false,
-      error: 'סוג פעולה לא מוכר'
-    }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'סוג לא מוכר' },
+      { status: 400 }
+    )
 
   } catch (error) {
-    console.error('שגיאה במחיקת פריט:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'שגיאה במחיקת הפריט'
-    }, { status: 500 })
+    console.error('❌ שגיאה במחיקת רשומה:', error)
+    return NextResponse.json(
+      { success: false, error: 'שגיאה במחיקת רשומה' },
+      { status: 500 }
+    )
   }
 } 

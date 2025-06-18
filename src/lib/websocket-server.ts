@@ -266,7 +266,7 @@ class WebSocketManager {
         });
 
         if (success) {
-          this.logEvent('unlock', `🔓 נפתח תא ${data.cellId} בלוקר ${data.lockerId}`);
+        this.logEvent('unlock', `🔓 נפתח תא ${data.cellId} בלוקר ${data.lockerId}`);
         } else {
           this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${data.cellId} - לוקר לא מחובר`);
         }
@@ -293,7 +293,7 @@ class WebSocketManager {
         });
 
         if (success) {
-          this.logEvent('lock', `🔒 ננעל תא ${data.cellId} בלוקר ${data.lockerId}`);
+        this.logEvent('lock', `🔒 ננעל תא ${data.cellId} בלוקר ${data.lockerId}`);
         } else {
           this.logEvent('lock_failed', `❌ כישלון בנעילת תא ${data.cellId} - לוקר לא מחובר`);
         }

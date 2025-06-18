@@ -59,7 +59,7 @@ export async function GET(request: Request, { params }: { params?: any } = {}) {
       return NextResponse.json({
         available: false,
         message: `אין לוקרים זמינים עם תאים בגודל ${size}`
-      })
+    })
     }
 
     return NextResponse.json({
