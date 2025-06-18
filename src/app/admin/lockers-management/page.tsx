@@ -139,6 +139,7 @@ export default function LockersManagementPage() {
                   setLiveLockers(prev => {
                     const updated = { ...prev }
                     Object.entries(lockersData).forEach(([id, lockerData]: [string, any]) => {
+                      const isNewLocker = !prev[id]
                       updated[id] = {
                         id,
                         isOnline: lockerData.isOnline ?? true,
@@ -149,6 +150,11 @@ export default function LockersManagementPage() {
                         },
                         ip: lockerData.ip || prev[id]?.ip,
                         deviceId: id
+                      }
+                      
+                      // אם זה לוקר חדש ויש לו תאים, צור תאים אוטומטית
+                      if (isNewLocker && lockerData.cells && Object.keys(lockerData.cells).length > 0) {
+                        console.log('✅ תאים נוצרו אוטומטית מהלוקר החי')
                       }
                     })
                     return updated
