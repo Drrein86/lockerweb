@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files first
 COPY package*.json ./
 
-# Install dependencies without postinstall
-RUN npm ci --only=production --ignore-scripts
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci --ignore-scripts
 
 # Copy source code and prisma schema
 COPY . .
@@ -16,6 +16,9 @@ RUN npx prisma generate
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
 
 # Expose port
 EXPOSE 3000
