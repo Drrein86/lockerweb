@@ -2,14 +2,28 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies
 RUN npm install
 
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy source code
 COPY . .
 
-EXPOSE 8080
+# Build the application
+RUN npm run build
 
-ENV PORT=8080
+# Expose port
+EXPOSE 3000
+
+# Set environment variables
+ENV PORT=3000
 ENV NODE_ENV=production
 
-CMD ["node", "locker-hardware-server.js"] 
+# Start the application
+CMD ["npm", "run", "start"] 
