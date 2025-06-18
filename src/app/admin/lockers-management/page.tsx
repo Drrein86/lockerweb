@@ -156,6 +156,16 @@ export default function LockersManagementPage() {
                 }
                 break
 
+              case 'pong':
+                // תגובה להודעת ping - לא צריך לעשות כלום מיוחד
+                console.log('🏓 pong התקבל מהשרת')
+                break
+
+              case 'authSuccess':
+                console.log('✅ אימות הצליח:', data.message)
+                setLastMessage(data.message || 'אימות הצליח')
+                break
+
               default:
                 console.log('⚠️ סוג הודעה לא מוכר:', data.type)
             }

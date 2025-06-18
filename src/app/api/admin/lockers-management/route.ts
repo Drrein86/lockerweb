@@ -248,8 +248,10 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('🔄 PUT request received:', JSON.stringify(body, null, 2))
     const { type, id } = body
     const db = await getPrisma()
+    console.log('📊 Database connection:', db ? 'Connected' : 'Using fallback')
 
     if (type === 'locker') {
       const { name, location, description, ip, port, deviceId, status, isActive } = body
