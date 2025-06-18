@@ -359,10 +359,13 @@ export async function PUT(request: NextRequest) {
     }, { status: 400 })
 
   } catch (error) {
-    console.error('שגיאה בעדכון פריט:', error)
+    console.error('❌ שגיאה בעדכון פריט:', error)
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('❌ Error message:', error instanceof Error ? error.message : String(error))
     return NextResponse.json({
       success: false,
-      error: 'שגיאה בעדכון הפריט'
+      error: 'שגיאה בעדכון הפריט',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 })
   }
 }

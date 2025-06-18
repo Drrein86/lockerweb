@@ -434,16 +434,26 @@ export default function LockersManagementPage() {
   // שיוך לוקר חי ללוקר קיים
   const assignToExistingLocker = async (predefinedLockerId: number) => {
     try {
+      // קודם נקבל את נתוני הלוקר הקיים
+      const existingLocker = predefinedLockers.find(l => l.id === predefinedLockerId)
+      if (!existingLocker) {
+        throw new Error('לוקר לא נמצא')
+      }
+
       const response = await fetch('/api/admin/lockers-management', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'locker',
           id: predefinedLockerId,
+          name: existingLocker.name,
+          location: existingLocker.location,
+          description: existingLocker.description,
           deviceId: selectedLiveLocker.id,
           ip: selectedLiveLocker.ip,
+          port: existingLocker.port || 80,
           status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
-          lastSeen: new Date().toISOString()
+          isActive: existingLocker.isActive
         })
       })
 
