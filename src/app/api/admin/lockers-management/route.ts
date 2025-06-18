@@ -388,11 +388,17 @@ export async function PUT(request: NextRequest) {
     console.error('❌ שגיאה בעדכון פריט:', error)
     console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     console.error('❌ Error message:', error instanceof Error ? error.message : String(error))
+    
+    // מחזירים תגובה עם פרטי שגיאה מפורטים יותר
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isPrismaError = errorMessage.includes('Prisma') || errorMessage.includes('Database')
+    
     return NextResponse.json({
       success: false,
-      error: 'שגיאה בעדכון הפריט',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 })
+      error: isPrismaError ? 'שגיאה בחיבור למסד הנתונים - משתמש במצב סימולציה' : 'שגיאה בעדכון הפריט',
+      details: errorMessage,
+      fallback: !isPrismaError ? null : 'המערכת עובדת במצב מדומה בלי מסד נתונים'
+    }, { status: isPrismaError ? 503 : 500 })
   }
 }
 

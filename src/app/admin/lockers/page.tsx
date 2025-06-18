@@ -233,6 +233,11 @@ export default function AdminLockersPage() {
                 });
                 break;
 
+              case 'pong':
+                // טיפול ב-pong (מענה ל-ping)
+                console.log('🏓 pong התקבל מהשרת');
+                break;
+
               default:
                 console.warn('⚠️ התקבל סוג הודעה לא מוכר:', data.type);
             }

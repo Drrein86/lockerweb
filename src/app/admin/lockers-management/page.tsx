@@ -166,6 +166,11 @@ export default function LockersManagementPage() {
                 setLastMessage(data.message || 'אימות הצליח')
                 break
 
+              case 'pong':
+                // טיפול ב-pong (מענה ל-ping)
+                console.log('🏓 pong התקבל מהשרת')
+                break
+
               default:
                 console.log('⚠️ סוג הודעה לא מוכר:', data.type)
             }
@@ -440,22 +445,28 @@ export default function LockersManagementPage() {
         throw new Error('לוקר לא נמצא')
       }
 
+      const requestBody = {
+        type: 'locker',
+        id: predefinedLockerId,
+        name: existingLocker.name,
+        location: existingLocker.location,
+        description: existingLocker.description,
+        deviceId: selectedLiveLocker.id,
+        ip: selectedLiveLocker.ip,
+        port: existingLocker.port || 80,
+        status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
+        isActive: existingLocker.isActive
+      }
+      
+      console.log('📤 שולח בקשת PUT עם נתונים:', requestBody)
+
       const response = await fetch('/api/admin/lockers-management', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'locker',
-          id: predefinedLockerId,
-          name: existingLocker.name,
-          location: existingLocker.location,
-          description: existingLocker.description,
-          deviceId: selectedLiveLocker.id,
-          ip: selectedLiveLocker.ip,
-          port: existingLocker.port || 80,
-          status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
-          isActive: existingLocker.isActive
-        })
+        body: JSON.stringify(requestBody)
       })
+      
+      console.log('📥 קיבלתי תגובה:', response.status, response.statusText)
 
       const data = await response.json()
 
@@ -471,7 +482,11 @@ export default function LockersManagementPage() {
         setShowAssignDialog(false)
         setSelectedLiveLocker(null)
       } else {
-        alert('שגיאה בשיוך הלוקר: ' + data.error)
+        console.error('❌ שגיאה בשיוך הלוקר:', data)
+        alert('שגיאה בשיוך הלוקר: ' + (data.error || 'שגיאה לא ידועה'))
+        if (data.fallback) {
+          console.log('💡 מידע נוסף:', data.fallback)
+        }
       }
     } catch (error) {
       console.error('שגיאה בשיוך לוקר:', error)
