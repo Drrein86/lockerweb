@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     })
     
     // סיכום לוגים לפי סוג פעולה
-    const actionSummary = recentLogs.reduce((acc: any, log) => {
+    const actionSummary = recentLogs.reduce((acc: Record<string, number>, log: any) => {
       acc[log.action] = (acc[log.action] || 0) + 1
       return acc
     }, {})
