@@ -28,13 +28,13 @@ export class StateTrackerService {
       if (data.metadata !== undefined) updateData.metadata = data.metadata
       if (data.incrementRetries) {
         // נצטרך להשתמש ב-raw query או לקבל את הערך הנוכחי
-        const current = await prisma.lockerState.findUnique({
+        const current = await (prisma as any).lockerState.findUnique({
           where: { lockerId }
         })
         updateData.connectionRetries = (current?.connectionRetries || 0) + 1
       }
 
-      await prisma.lockerState.upsert({
+      await (prisma as any).lockerState.upsert({
         where: { lockerId },
         update: updateData,
         create: {
@@ -79,13 +79,13 @@ export class StateTrackerService {
       if (data.commandInProgress !== undefined) updateData.commandInProgress = data.commandInProgress
       if (data.metadata !== undefined) updateData.metadata = data.metadata
       if (data.incrementRetries) {
-        const current = await prisma.cellState.findUnique({
+        const current = await (prisma as any).cellState.findUnique({
           where: { cellId }
         })
         updateData.retryCount = (current?.retryCount || 0) + 1
       }
 
-      await prisma.cellState.upsert({
+      await (prisma as any).cellState.upsert({
         where: { cellId },
         update: updateData,
         create: {
@@ -110,7 +110,7 @@ export class StateTrackerService {
   // קבלת מצב נוכחי של לוקר
   static async getLockerState(lockerId: number) {
     try {
-      return await prisma.lockerState.findUnique({
+      return await (prisma as any).lockerState.findUnique({
         where: { lockerId },
         include: { 
           locker: {
@@ -129,7 +129,7 @@ export class StateTrackerService {
   // קבלת מצב נוכחי של תא
   static async getCellState(cellId: number) {
     try {
-      return await prisma.cellState.findUnique({
+      return await (prisma as any).cellState.findUnique({
         where: { cellId },
         include: { 
           cell: {
@@ -148,7 +148,7 @@ export class StateTrackerService {
   // קבלת מצב כל הלוקרים
   static async getAllLockerStates() {
     try {
-      return await prisma.lockerState.findMany({
+      return await (prisma as any).lockerState.findMany({
         include: {
           locker: {
             include: {
@@ -171,7 +171,7 @@ export class StateTrackerService {
   // קבלת תאים עם פקודות ממתינות
   static async getPendingCommands() {
     try {
-      return await prisma.cellState.findMany({
+      return await (prisma as any).cellState.findMany({
         where: {
           commandInProgress: {
             not: null
@@ -194,7 +194,7 @@ export class StateTrackerService {
   // איפוס ניסיונות חיבור
   static async resetConnectionRetries(lockerId: number) {
     try {
-      await prisma.lockerState.update({
+      await (prisma as any).lockerState.update({
         where: { lockerId },
         data: { connectionRetries: 0 }
       })
@@ -209,7 +209,7 @@ export class StateTrackerService {
     try {
       const cutoffTime = new Date(Date.now() - olderThanMinutes * 60 * 1000)
       
-      const result = await prisma.cellState.updateMany({
+      const result = await (prisma as any).cellState.updateMany({
         where: {
           commandInProgress: {
             not: null
@@ -236,10 +236,10 @@ export class StateTrackerService {
     try {
       const [totalLockers, onlineLockers, totalCells, lockedCells, pendingCommands] = await Promise.all([
         prisma.locker.count(),
-        prisma.lockerState.count({ where: { isResponding: true } }),
+                  (prisma as any).lockerState.count({ where: { isResponding: true } }),
         prisma.cell.count(),
-        prisma.cellState.count({ where: { lastKnownStatus: 'LOCKED' } }),
-        prisma.cellState.count({ where: { commandInProgress: { not: null } } })
+        (prisma as any).cellState.count({ where: { lastKnownStatus: 'LOCKED' } }),
+        (prisma as any).cellState.count({ where: { commandInProgress: { not: null } } })
       ])
 
       return {
