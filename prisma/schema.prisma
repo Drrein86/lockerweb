@@ -39,6 +39,7 @@ model User {
   updatedAt     DateTime    @updatedAt
   packages      Package[]
   deliveries    Delivery[]
+  auditLogs     AuditLog[]
 }
 
 model Customer {
@@ -80,6 +81,7 @@ model Locker {
   isActive      Boolean     @default(true) // האם הלוקר פעיל
   cells         Cell[]
   packages      Package[]
+  lockerState   LockerState?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }
@@ -96,6 +98,7 @@ model Cell {
   lockerId      Int
   locker        Locker      @relation(fields: [lockerId], references: [id])
   packages      Package[]
+  cellState     CellState?
   lastOpenedAt  DateTime?   // מתי התא נפתח לאחרונה
   lastClosedAt  DateTime?   // מתי התא נסגר לאחרונה
   openCount     Int         @default(0) // מספר פתיחות
@@ -133,4 +136,58 @@ model Delivery {
   notes         String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+// מודל לוגים ואודיט
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  action      String   // "OPEN_CELL", "CLOSE_CELL", "LOGIN", "CREATE_PACKAGE"
+  entityType  String   // "LOCKER", "CELL", "USER", "PACKAGE"
+  entityId    String   // המזהה של הישות
+  userId      Int?     // מי ביצע את הפעולה
+  user        User?    @relation(fields: [userId], references: [id])
+  details     Json?    // פרטים נוספים בפורמט JSON
+  timestamp   DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean  @default(true)
+  errorMessage String?
+  
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+// מודל לתיעוד מצב אחרון של לוקרים
+model LockerState {
+  id                Int      @id @default(autoincrement())
+  lockerId          Int      @unique
+  locker            Locker   @relation(fields: [lockerId], references: [id])
+  lastKnownStatus   String   // "ONLINE", "OFFLINE", "MAINTENANCE"
+  lastCommunication DateTime?
+  connectionRetries Int      @default(0)
+  isResponding      Boolean  @default(false)
+  lastCommand       String?  // פקודה אחרונה שנשלחה
+  lastCommandTime   DateTime?
+  lastCommandStatus String?  // "SUCCESS", "FAILED", "PENDING"
+  metadata          Json?    // מידע נוסף
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+}
+
+// מודל לתיעוד מצב אחרון של תאים
+model CellState {
+  id                Int      @id @default(autoincrement())
+  cellId            Int      @unique
+  cell              Cell     @relation(fields: [cellId], references: [id])
+  lastKnownStatus   String   // "LOCKED", "UNLOCKED", "OPEN", "MAINTENANCE"
+  physicallyLocked  Boolean? // האם התא נעול פיזית (לפי חיישן)
+  lastOpenCommand   DateTime?
+  lastCloseCommand  DateTime?
+  lastSensorCheck   DateTime?
+  commandInProgress String?  // "OPEN", "CLOSE", null
+  retryCount        Int      @default(0)
+  metadata          Json?
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
 }

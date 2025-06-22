@@ -1,4 +1,6 @@
 import { WebSocket } from 'ws';
+import { AuditService } from './services/audit.service';
+import { StateTrackerService } from './services/state-tracker.service';
 
 // קונפיגורציה
 const CONFIG = {
@@ -48,7 +50,7 @@ class ESP32Controller {
   /**
    * רישום מכשיר ESP32 חדש
    */
-  public registerESP32(lockerId: string, ws: WebSocket, ip?: string): boolean {
+  public async registerESP32(lockerId: string, ws: WebSocket, ip?: string): Promise<boolean> {
     // בדיקת הרשאות
     if (!this.validateLocker(lockerId, ws)) {
       return false;
@@ -68,6 +70,18 @@ class ESP32Controller {
     
     // הגדרת מאזינים
     this.setupWebSocketListeners(lockerId, ws);
+    
+    // עדכון מצב לוקר במסד הנתונים
+    const lockerIdNum = parseInt(lockerId.replace(/[^0-9]/g, ''));
+    if (!isNaN(lockerIdNum)) {
+      await StateTrackerService.updateLockerState(lockerIdNum, {
+        status: 'ONLINE',
+        isResponding: true,
+        lastCommand: 'CONNECT',
+        lastCommandStatus: 'SUCCESS',
+        metadata: { ip, timestamp: new Date() }
+      });
+    }
     
     // שליחת עדכון למנהלים
     this.broadcastToAdmins({
@@ -133,6 +147,24 @@ class ESP32Controller {
       // עדכון במסד הנתונים
       await this.updateCellInDB(lockerId, cellId, false);
       
+      // תיעוד אודיט
+      await AuditService.logCellOperation(cellId, 'OPEN', undefined, true, undefined, {
+        lockerId,
+        cellId,
+        timestamp: new Date()
+      });
+      
+      // עדכון מצב תא
+      const cellIdNum = parseInt(cellId.replace(/[^0-9]/g, ''));
+      if (!isNaN(cellIdNum)) {
+        await StateTrackerService.updateCellState(cellIdNum, {
+          status: 'UNLOCKED',
+          lastOpenCommand: true,
+          commandInProgress: null,
+          metadata: { lockerId, openedBy: 'system' }
+        });
+      }
+      
       // שליחת עדכון למנהלים
       this.broadcastToAdmins({
         type: 'cellUpdate',
@@ -184,6 +216,25 @@ class ESP32Controller {
 
       // עדכון במסד הנתונים
       await this.updateCellInDB(lockerId, cellId, true, packageId);
+      
+      // תיעוד אודיט
+      await AuditService.logCellOperation(cellId, 'CLOSE', undefined, true, undefined, {
+        lockerId,
+        cellId,
+        packageId,
+        timestamp: new Date()
+      });
+      
+      // עדכון מצב תא
+      const cellIdNum = parseInt(cellId.replace(/[^0-9]/g, ''));
+      if (!isNaN(cellIdNum)) {
+        await StateTrackerService.updateCellState(cellIdNum, {
+          status: 'LOCKED',
+          lastCloseCommand: true,
+          commandInProgress: null,
+          metadata: { lockerId, packageId, lockedBy: 'system' }
+        });
+      }
       
       // שליחת עדכון למנהלים
       this.broadcastToAdmins({
