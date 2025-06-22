@@ -17,7 +17,7 @@ interface AuditLogData {
 export class AuditService {
   static async log(data: AuditLogData) {
     try {
-      await prisma.auditLog.create({
+      await (prisma as any).auditLog.create({
         data: {
           action: data.action,
           entityType: data.entityType,
@@ -125,7 +125,7 @@ export class AuditService {
         if (filters.to) where.timestamp.lte = filters.to
       }
 
-      return await prisma.auditLog.findMany({
+      return await (prisma as any).auditLog.findMany({
         where,
         include: {
           user: {
