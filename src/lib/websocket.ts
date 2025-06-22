@@ -1,6 +1,4 @@
 // הגדרות חיבור לשרת החומרה
-import { sendLockerUpdateToRailway, LockerUpdateData } from './railway-api'
-
 const HARDWARE_WS_URL = typeof window !== 'undefined' 
   ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'ws://localhost:3003')
   : 'ws://localhost:3003'
@@ -94,7 +92,7 @@ function connectToHardwareServer() {
       lastPongTime = Date.now()
     }
     
-    hardwareWebSocket.onmessage = async (event) => {
+    hardwareWebSocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
         
@@ -108,18 +106,6 @@ function connectToHardwareServer() {
         
         if (data.type === 'lockerUpdate') {
           console.log('🔄 עדכון סטטוס לוקרים:', data.lockers)
-          
-          // שליחת הנתונים לשרת Railway
-          try {
-            const railwayResult = await sendLockerUpdateToRailway(data as LockerUpdateData)
-            if (railwayResult.success) {
-              console.log('✅ עדכון נשלח בהצלחה ל-Railway')
-            } else {
-              console.warn('⚠️ שגיאה בשליחת עדכון ל-Railway:', railwayResult.error)
-            }
-          } catch (error) {
-            console.error('❌ שגיאה בשליחת עדכון ל-Railway:', error)
-          }
         }
       } catch (error) {
         console.error('❌ שגיאה בעיבוד הודעה:', error)

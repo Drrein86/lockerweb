@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import RailwaySync from '@/components/RailwaySync'
 
 interface Cell {
   id: number
@@ -48,10 +47,6 @@ export default function LockersManagementPage() {
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
   const [lastMessage, setLastMessage] = useState<string>('')
-  
-  // Railway Sync Status
-  const [railwayMessage, setRailwayMessage] = useState<string>('')
-  const [railwayError, setRailwayError] = useState<string>('')
   
   console.log('🚀 LockersManagementPage נטען')
 
@@ -265,47 +260,7 @@ export default function LockersManagementPage() {
     }
   }
 
-  // פונקציות לטיפול בהודעות Railway
-  const handleRailwaySuccess = (message: string) => {
-    setRailwayMessage(message)
-    setRailwayError('')
-    // ניקוי ההודעה אחרי 5 שניות
-    setTimeout(() => setRailwayMessage(''), 5000)
-  }
 
-  const handleRailwayError = (error: string) => {
-    setRailwayError(error)
-    setRailwayMessage('')
-    // ניקוי השגיאה אחרי 10 שניות
-    setTimeout(() => setRailwayError(''), 10000)
-  }
-
-  // המרת לוקר לפורמט Railway
-  const convertLockerToRailwayFormat = (locker: Locker) => {
-    return {
-      id: locker.id.toString(),
-      name: locker.name,
-      location: locker.location,
-      ip: locker.ip || '192.168.1.1',
-      port: locker.port || 80,
-      deviceId: locker.deviceId || `ESP32_${locker.id}`,
-      status: locker.status as 'ONLINE' | 'OFFLINE' | 'MAINTENANCE',
-      lastSeen: locker.lastSeen || new Date().toISOString(),
-      isActive: locker.isActive,
-      cells: locker.cells.map(cell => ({
-        id: cell.id.toString(),
-        cellNumber: cell.cellNumber,
-        code: cell.code,
-        name: cell.name,
-        size: cell.size as 'SMALL' | 'MEDIUM' | 'LARGE' | 'WIDE',
-        status: cell.status as 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' | 'LOCKED' | 'UNLOCKED',
-        isLocked: cell.isLocked,
-        isActive: cell.isActive,
-        openCount: cell.openCount,
-        lastOpenedAt: cell.lastOpenedAt
-      }))
-    }
-  }
 
   const saveLocker = async (lockerData: Partial<Locker>) => {
     console.log('💾 מתחיל לשמור לוקר:', lockerData)
@@ -751,37 +706,6 @@ export default function LockersManagementPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* הודעות Railway */}
-        {(railwayMessage || railwayError) && (
-          <div className="mb-6">
-            {railwayMessage && (
-              <div className="bg-green-500/10 backdrop-blur-md rounded-lg p-4 border border-green-400/30">
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400">✅</span>
-                  <span className="text-green-300">{railwayMessage}</span>
-                </div>
-              </div>
-            )}
-            {railwayError && (
-              <div className="bg-red-500/10 backdrop-blur-md rounded-lg p-4 border border-red-400/30">
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400">❌</span>
-                  <span className="text-red-300">{railwayError}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Railway Sync Component */}
-        <div className="mb-6">
-          <RailwaySync
-            lockerData={lockers.length > 0 ? convertLockerToRailwayFormat(lockers[0]) : undefined}
-            onSuccess={handleRailwaySuccess}
-            onError={handleRailwayError}
-          />
         </div>
 
         {/* לוקרים חיים בזמן אמת */}
