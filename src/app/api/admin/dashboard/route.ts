@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         stats,
-        lockerStates: lockerStates.map(state => ({
+        lockerStates: lockerStates.map((state: any) => ({
           lockerId: state.lockerId,
           lockerName: state.locker.name,
           location: state.locker.location,
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           lastCommandTime: state.lastCommandTime,
           lastCommandStatus: state.lastCommandStatus,
           connectionRetries: state.connectionRetries,
-          cells: state.locker.cells.map(cell => ({
+          cells: state.locker.cells.map((cell: any) => ({
             id: cell.id,
             cellNumber: cell.cellNumber,
             status: cell.status,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             cellState: cell.cellState
           }))
         })),
-        pendingCommands: pendingCommands.map(state => ({
+        pendingCommands: pendingCommands.map((state: any) => ({
           cellId: state.cellId,
           cellNumber: state.cell.cellNumber,
           lockerName: state.cell.locker.name,
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
           retryCount: state.retryCount,
           updatedAt: state.updatedAt
         })),
-        recentActivity: recentLogs.slice(0, 20).map(log => ({
+        recentActivity: recentLogs.slice(0, 20).map((log: any) => ({
           id: log.id,
           action: log.action,
           entityType: log.entityType,
