@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         const lockerStates = await StateTrackerService.getAllLockerStates()
         return NextResponse.json({ 
           success: true, 
-          data: lockerStates.map(state => ({
+          data: lockerStates.map((state: any) => ({
             lockerId: state.lockerId,
             lockerName: state.locker.name,
             location: state.locker.location,
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         const pendingCommands = await StateTrackerService.getPendingCommands()
         return NextResponse.json({
           success: true,
-          data: pendingCommands.map(state => ({
+          data: pendingCommands.map((state: any) => ({
             cellId: state.cellId,
             cellNumber: state.cell.cellNumber,
             lockerName: state.cell.locker.name,
@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
           success: true,
           data: {
             stats: systemStats,
-            lockersOnline: allLockers.filter(l => l.isResponding).length,
-            lockersOffline: allLockers.filter(l => !l.isResponding).length,
+            lockersOnline: allLockers.filter((l: any) => l.isResponding).length,
+            lockersOffline: allLockers.filter((l: any) => !l.isResponding).length,
             pendingCommandsCount: pending.length,
             lastUpdate: new Date()
           }
