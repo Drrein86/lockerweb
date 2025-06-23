@@ -56,6 +56,14 @@ const mockLockers: any[] = [
 let prisma: any = null
 
 async function getPrisma() {
+  // לוג מיידי בכל קריאה
+  console.log('🔧 getPrisma called');
+  console.log('🔧 DATABASE_URL check:', {
+    exists: !!process.env.DATABASE_URL,
+    length: process.env.DATABASE_URL?.length || 0,
+    value: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 30) + '...' : 'MISSING'
+  });
+  
   if (!prisma) {
     try {
       // בדיקה אם יש DATABASE_URL

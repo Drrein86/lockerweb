@@ -37,6 +37,10 @@ class ESP32Controller {
   private adminConnections: Set<WebSocket>;
 
   constructor() {
+    // לוג מיידי לבדיקה
+    console.log('🔧 ESP32Controller constructor started');
+    console.log('🔧 process.env.DATABASE_URL:', process.env.DATABASE_URL ? 'EXISTS' : 'MISSING');
+    console.log('🔧 process.env.DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
     this.lockerConnections = new Map();
     this.statusUpdateInterval = null;
     this.adminConnections = new Set();
