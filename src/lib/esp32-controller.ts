@@ -42,7 +42,14 @@ class ESP32Controller {
     this.adminConnections = new Set();
     
     // בדיקה אם יש חיבור למסד נתונים
-    const hasDatabase = process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0;
+    const databaseUrl = process.env.DATABASE_URL;
+    console.log('🔍 DATABASE_URL check:', {
+      exists: !!databaseUrl,
+      length: databaseUrl?.length || 0,
+      starts_with: databaseUrl?.substring(0, 20) || 'N/A'
+    });
+    
+    const hasDatabase = databaseUrl && databaseUrl.length > 0;
     if (hasDatabase) {
       this.log('✅ מערכת ESP32 פועלת עם מסד נתונים PostgreSQL');
     } else {
