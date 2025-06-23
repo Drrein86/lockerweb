@@ -58,11 +58,23 @@ let prisma: any = null
 async function getPrisma() {
   if (!prisma) {
     try {
+      // בדיקה אם יש DATABASE_URL
+      const databaseUrl = process.env.DATABASE_URL
+      console.log('🔍 DATABASE_URL exists:', !!databaseUrl)
+      console.log('🔍 DATABASE_URL length:', databaseUrl?.length || 0)
+      
+      if (!databaseUrl) {
+        console.log('⚠️ DATABASE_URL לא מוגדר, משתמש במידע מדומה')
+        return null
+      }
+
       const { PrismaClient } = await import('@prisma/client')
       prisma = new PrismaClient()
       await prisma.$connect()
+      console.log('✅ התחברות למסד הנתונים הצליחה')
       return prisma
     } catch (error) {
+      console.error('❌ שגיאה בהתחברות למסד הנתונים:', error)
       console.log('⚠️ לא ניתן להתחבר לדאטאבייס, משתמש במידע מדומה')
       return null
     }
@@ -332,24 +344,66 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'cell') {
-      const { cellNumber, name, size, code, isActive } = body
+      const { cellNumber, name, size, code, isActive, lockerId } = body
 
       if (db) {
-        const cell = await db.cell.update({
-          where: { id },
-          data: {
-            cellNumber,
-            name,
-            size,
-            code,
-            isActive
-          }
-        })
+        // אם זה שיוך תא חדש ללוקר, צריך לוודא שהלוקר קיים
+        if (lockerId) {
+          console.log('🔍 בודק אם לוקר קיים:', lockerId)
+          let locker = await db.locker.findUnique({
+            where: { id: lockerId }
+          })
 
-        return NextResponse.json({
-          success: true,
-          cell
-        })
+          if (!locker) {
+            console.log('📝 יוצר לוקר חדש:', lockerId)
+            // יצירת לוקר חדש אם לא קיים
+            locker = await db.locker.create({
+              data: {
+                id: lockerId,
+                name: `לוקר ${lockerId}`,
+                location: 'לא מוגדר',
+                description: 'לוקר שנוצר אוטומטית',
+                status: 'OFFLINE',
+                isActive: true
+              }
+            })
+            console.log('✅ לוקר נוצר:', locker)
+          }
+
+          // יצירת תא חדש
+          const cell = await db.cell.create({
+            data: {
+              cellNumber,
+              name,
+              size: size || 'MEDIUM',
+              code,
+              isActive: isActive ?? true,
+              lockerId
+            }
+          })
+
+          return NextResponse.json({
+            success: true,
+            cell
+          })
+        } else {
+          // עדכון תא קיים
+          const cell = await db.cell.update({
+            where: { id },
+            data: {
+              cellNumber,
+              name,
+              size,
+              code,
+              isActive
+            }
+          })
+
+          return NextResponse.json({
+            success: true,
+            cell
+          })
+        }
       } else {
         // Fallback - עדכון במערך המדומה
         for (const locker of mockLockers) {
