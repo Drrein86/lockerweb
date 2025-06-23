@@ -41,7 +41,13 @@ class ESP32Controller {
     this.statusUpdateInterval = null;
     this.adminConnections = new Set();
     
-    this.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
+    // בדיקה אם יש חיבור למסד נתונים
+    const hasDatabase = process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0;
+    if (hasDatabase) {
+      this.log('✅ מערכת ESP32 פועלת עם מסד נתונים PostgreSQL');
+    } else {
+      this.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
+    }
 
     // התחלת בדיקה תקופתית
     this.startPeriodicHealthCheck();
