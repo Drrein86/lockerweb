@@ -7,60 +7,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-type PackageSize = 'קטן' | 'בינוני' | 'גדול' | 'רחב';
-
 export default function CourierPage() {
   console.log('🚚 נטען דף שליח (COURIER)')
   console.log('🌐 URL נוכחי בדף שליח:', typeof window !== 'undefined' ? window.location.href : 'SSR')
-  const [selectedSize, setSelectedSize] = useState<PackageSize | null>(null)
+  
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const packageSizes = [
-    {
-      size: 'קטן' as PackageSize,
-      icon: '📱',
-      description: 'עד 15x10x5 ס"מ',
-      color: 'from-green-400 to-green-500'
-    },
-    {
-      size: 'בינוני' as PackageSize,
-      icon: '📦',
-      description: 'עד 30x20x15 ס"מ',
-      color: 'from-blue-400 to-blue-500'
-    },
-    {
-      size: 'גדול' as PackageSize,
-      icon: '📦',
-      description: 'עד 45x35x25 ס"מ',
-      color: 'from-orange-400 to-orange-500'
-    },
-    {
-      size: 'רחב' as PackageSize,
-      icon: '📦',
-      description: 'עד 60x40x10 ס"מ',
-      color: 'from-purple-400 to-purple-500'
-    }
-  ]
-
-  const handleSizeSelection = async (size: PackageSize) => {
-    setSelectedSize(size)
+  const handleSelectCell = async () => {
     setLoading(true)
-    
     try {
-      // בדיקת זמינות לוקרים
-      const response = await fetch(`/api/lockers/available?size=${size}`)
-      const data = await response.json()
-      
-      if (data.available) {
-        // מעבר לדף הבא עם הגודל שנבחר
-        router.push(`/courier/select-locker?size=${size}`)
-      } else {
-        alert('אין תאים זמינים בגודל זה כרגע')
-      }
+      // מעבר לדף בחירת תא
+      router.push('/courier/select-cell')
     } catch (error) {
-      console.error('שגיאה בבדיקת זמינות:', error)
-      alert('שגיאה בבדיקת זמינות התאים')
+      console.error('שגיאה במעבר לדף בחירת תא:', error)
     } finally {
       setLoading(false)
     }
@@ -87,75 +47,68 @@ export default function CourierPage() {
           <div className="max-w-lg w-full space-y-8">
             {/* כותרת */}
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-lg rounded-2xl mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-lg rounded-3xl mb-6">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
-              <h1 className="heading-primary">🚚 ממשק שליח - דף שליח</h1>
-              <p className="text-gray-300">בחר את גודל החבילה למציאת תא מתאים</p>
+              <h1 className="text-4xl font-bold text-white mb-4">🚚 ממשק שליח</h1>
+              <p className="text-xl text-gray-300 mb-8">מערכת הכנסת מוצר ללוקר</p>
             </div>
 
-            {/* בחירת גודל */}
-            <div className="space-y-4">
-              {packageSizes.map((pkg) => (
-                <button
-                  key={pkg.size}
-                  onClick={() => handleSizeSelection(pkg.size)}
-                  disabled={loading}
-                  className={`
-                    relative w-full glass-card text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105
-                    ${selectedSize === pkg.size ? 'ring-2 ring-white/50 bg-white/20' : ''}
-                    ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                  `}
-                >
-                  <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                    <div className="flex-shrink-0">
-                      <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="flex-1 text-right">
-                      <h3 className="text-xl font-bold mb-1">{pkg.size}</h3>
-                      <p className="text-gray-300 text-sm">{pkg.description}</p>
-                    </div>
+            {/* כפתור בחר תא */}
+            <div className="space-y-6">
+              <button
+                onClick={handleSelectCell}
+                disabled={loading}
+                className={`
+                  relative w-full glass-card text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105
+                  ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  p-8 text-center
+                `}
+              >
+                <div className="space-y-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
-                  
-                  {loading && selectedSize === pkg.size && (
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-                      <div className="loading-spinner"></div>
-                    </div>
-                  )}
-                </button>
-              ))}
+                  <h2 className="text-2xl font-bold">בחר תא</h2>
+                  <p className="text-gray-300">התחל תהליך בחירת תא מתאים לחבילה</p>
+                </div>
+                
+                {loading && (
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                    <div className="loading-spinner"></div>
+                  </div>
+                )}
+              </button>
             </div>
 
             {/* מידע נוסף */}
             <div className="glass-card-sm">
-              <h3 className="heading-tertiary flex items-center gap-2">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 הוראות לשליח
               </h3>
-              <ul className="space-y-2 text-gray-300 text-sm">
-                <li className="flex items-start gap-2">
-                  <span className="text-white">•</span>
-                  בחר את גודל החבילה המתאים
+              <ul className="space-y-3 text-gray-300 text-sm">
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 font-bold">1.</span>
+                  <span>לחץ על "בחר תא" להתחלת התהליך</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-white">•</span>
-                  המערכת תמצא תא זמין באופן אוטומטי
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 font-bold">2.</span>
+                  <span>המערכת תציג תאים זמינים לפי גודל מתאים</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-white">•</span>
-                  לאחר הבחירה, תוכל לסרוק את פרטי הלקוח
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 font-bold">3.</span>
+                  <span>בחר תא ולך פיזית לפתוח אותו</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-white">•</span>
-                  התא ייפתח אוטומטית לאחר השלמת התהליך
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 font-bold">4.</span>
+                  <span>הכנס את החבילה ותסגור את התא</span>
                 </li>
               </ul>
             </div>
