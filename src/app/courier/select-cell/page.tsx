@@ -3,7 +3,7 @@
 // השבתת prerendering עבור עמוד זה
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -18,7 +18,7 @@ interface Cell {
   lockerName: string
 }
 
-export default function SelectCellPage() {
+function SelectCellContent() {
   const [cells, setCells] = useState<Cell[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null)
@@ -173,7 +173,7 @@ export default function SelectCellPage() {
                   </div>
                   
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-gray-400">Area: {cell.area} cm²</span>
+                    <span className="text-xs text-gray-400">Area: {cell.area} sq cm</span>
                     <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full">Available</span>
                   </div>
 
@@ -199,7 +199,7 @@ export default function SelectCellPage() {
               <div>
                 <p className="font-bold">Cell {selectedCell.code}</p>
                 <p className="text-sm text-gray-300">{selectedCell.lockerName}</p>
-                <p className="text-xs text-gray-400">{selectedCell.area} cm² - {selectedCell.sizeDisplay}</p>
+                <p className="text-xs text-gray-400">{selectedCell.area} sq cm - {selectedCell.sizeDisplay}</p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -220,5 +220,20 @@ export default function SelectCellPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function SelectCellPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SelectCellContent />
+    </Suspense>
   )
 } 

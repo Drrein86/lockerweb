@@ -2,11 +2,11 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function CellVerificationPage() {
+function CellVerificationContent() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutes in seconds
   const [cellOpened, setCellOpened] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -212,5 +212,20 @@ export default function CellVerificationPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CellVerificationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CellVerificationContent />
+    </Suspense>
   )
 } 

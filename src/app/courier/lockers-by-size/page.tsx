@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -23,7 +23,7 @@ interface Locker {
   cells: Cell[]
 }
 
-export default function LockersBySizePage() {
+function LockersBySizeContent() {
   const [lockers, setLockers] = useState<Locker[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCell, setSelectedCell] = useState<{ locker: Locker, cell: Cell } | null>(null)
@@ -230,5 +230,20 @@ export default function LockersBySizePage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function LockersBySizePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LockersBySizeContent />
+    </Suspense>
   )
 } 
