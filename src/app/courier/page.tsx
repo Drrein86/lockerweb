@@ -37,8 +37,8 @@ export default function CourierPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Courier System</h1>
-            <p className="text-gray-300 text-lg">Select a cell to place your package</p>
+            <h1 className="text-4xl font-bold text-white mb-2">מערכת שליח</h1>
+            <p className="text-gray-300 text-lg">בחר תא להכנסת החבילה</p>
           </div>
 
           {/* Main Action Button */}
@@ -53,8 +53,8 @@ export default function CourierPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold">Select Cell</h2>
-                <p className="text-gray-300">Choose an available cell for your package</p>
+                <h2 className="text-2xl font-bold">בחר תא</h2>
+                <p className="text-gray-300">בחר תא זמין עבור החבילה שלך</p>
               </div>
             </button>
           </div>
@@ -65,24 +65,24 @@ export default function CourierPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              How it works
+              איך זה עובד
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li className="flex items-start gap-2">
                 <span className="text-blue-400 font-bold">1.</span>
-                <span>Click "Select Cell" to view available cells</span>
+                <span>לחץ על "בחר תא" כדי לראות תאים זמינים</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-400 font-bold">2.</span>
-                <span>Choose a cell that fits your package size</span>
+                <span>בחר תא שמתאים לגודל החבילה שלך</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-400 font-bold">3.</span>
-                <span>Go to the selected cell and open it</span>
+                <span>לך לתא הנבחר ופתח אותו</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-400 font-bold">4.</span>
-                <span>Place your package and close the cell</span>
+                <span>הכנס את החבילה וסגור את התא</span>
               </li>
             </ul>
           </div>
@@ -96,7 +96,7 @@ export default function CourierPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span>Back to home</span>
+              <span>חזרה לעמוד הבית</span>
             </Link>
           </div>
         </div>

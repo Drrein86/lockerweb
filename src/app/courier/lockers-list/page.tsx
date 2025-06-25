@@ -2,218 +2,258 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-interface Cell {
-  id: number
-  code: string
-  size: string
-  sizeDisplay: string
-  area: number
-  available: boolean
-}
+// Mock data for development
+const mockLockers = [
+  {
+    id: 'A',
+    name: 'לוקר A',
+    location: 'קומה 1 - כניסה ראשית',
+    cells: [
+      { id: 'A1', size: 'small', area: 150, available: true, width: 10, height: 15, depth: 10 },
+      { id: 'A2', size: 'small', area: 150, available: false, width: 10, height: 15, depth: 10 },
+      { id: 'A3', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 }
+    ]
+  },
+  {
+    id: 'B',
+    name: 'לוקר B',
+    location: 'קומה 1 - ליד המעלית',
+    cells: [
+      { id: 'B1', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 },
+      { id: 'B2', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 },
+      { id: 'B3', size: 'large', area: 1575, available: false, width: 35, height: 45, depth: 10 }
+    ]
+  },
+  {
+    id: 'C',
+    name: 'לוקר C', 
+    location: 'קומה 2 - מרכז הקומה',
+    cells: [
+      { id: 'C1', size: 'large', area: 1575, available: true, width: 35, height: 45, depth: 10 },
+      { id: 'C2', size: 'large', area: 1575, available: false, width: 35, height: 45, depth: 10 },
+      { id: 'C3', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 }
+    ]
+  },
+  {
+    id: 'D',
+    name: 'לוקר D',
+    location: 'קומה 2 - ליד החדר',
+    cells: [
+      { id: 'D1', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 },
+      { id: 'D2', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 }
+    ]
+  }
+]
 
-interface Locker {
-  id: number
-  name: string
-  location: string
-  description: string
-  cells: Cell[]
+const sizeLabels = {
+  small: 'קטן',
+  medium: 'בינוני',
+  large: 'גדול', 
+  xlarge: 'רחב'
 }
 
 export default function LockersListPage() {
-  const [lockers, setLockers] = useState<Locker[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCell, setSelectedCell] = useState<{ locker: Locker, cell: Cell } | null>(null)
   const router = useRouter()
+  const [selectedCell, setSelectedCell] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    fetchAllLockers()
-  }, [])
-
-  const fetchAllLockers = async () => {
-    try {
-      const mockLockers: Locker[] = [
-        {
-          id: 1,
-          name: 'Locker A',
-          location: 'Building A - Ground Floor',
-          description: 'Near main elevators',
-          cells: [
-            { id: 1, code: 'A01', size: 'SMALL', sizeDisplay: 'Small', area: 150, available: true },
-            { id: 2, code: 'A02', size: 'MEDIUM', sizeDisplay: 'Medium', area: 600, available: true },
-            { id: 3, code: 'A03', size: 'LARGE', sizeDisplay: 'Large', area: 1575, available: false }
-          ]
-        },
-        {
-          id: 2,
-          name: 'Locker B',
-          location: 'Building B - First Floor',
-          description: 'Near stairwell',
-          cells: [
-            { id: 4, code: 'B01', size: 'SMALL', sizeDisplay: 'Small', area: 150, available: true },
-            { id: 5, code: 'B02', size: 'WIDE', sizeDisplay: 'Wide', area: 2400, available: true },
-            { id: 6, code: 'B03', size: 'MEDIUM', sizeDisplay: 'Medium', area: 600, available: false }
-          ]
-        },
-        {
-          id: 3,
-          name: 'Locker C',
-          location: 'Building C - Second Floor',
-          description: 'Reception area',
-          cells: [
-            { id: 7, code: 'C01', size: 'LARGE', sizeDisplay: 'Large', area: 1575, available: true },
-            { id: 8, code: 'C02', size: 'SMALL', sizeDisplay: 'Small', area: 150, available: false },
-            { id: 9, code: 'C03', size: 'MEDIUM', sizeDisplay: 'Medium', area: 600, available: true }
-          ]
-        }
-      ]
-
-      setLockers(mockLockers)
-      setLoading(false)
-    } catch (error) {
-      console.error('Error loading lockers:', error)
-      setLoading(false)
-    }
+  const handleCellSelect = (cellId: string) => {
+    setSelectedCell(cellId)
   }
 
-  const handleCellSelection = (locker: Locker, cell: Cell) => {
-    if (cell.available) {
-      setSelectedCell({ locker, cell })
-    }
+  const handleGoToCell = async () => {
+    if (!selectedCell) return
+    
+    setLoading(true)
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    router.push(`/courier/cell-verification?cellId=${selectedCell}`)
   }
 
-  const handleGoToCell = () => {
-    if (selectedCell) {
-      router.push(`/courier/cell-verification?lockerId=${selectedCell.locker.id}&cellId=${selectedCell.cell.id}&cellCode=${selectedCell.cell.code}`)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white/80">Loading all lockers...</p>
-        </div>
-      </div>
-    )
-  }
+  const getTotalCells = (locker: any) => locker.cells.length
+  const getAvailableCells = (locker: any) => locker.cells.filter((cell: any) => cell.available).length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <Link href="/courier/select-cell" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span>Back to cell selection</span>
-          </Link>
-          <h1 className="text-3xl font-bold text-white mb-2">All Lockers</h1>
-          <p className="text-white/70">Browse all lockers and their cells, sorted by size</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      <div className="min-h-screen p-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">כל הלוקרים</h1>
+            <p className="text-gray-300">רשימה מלאה של לוקרים ותאים זמינים</p>
+          </div>
 
-        <div className="space-y-6">
-          {lockers.map((locker) => (
-            <div key={locker.id} className="glass-card">
-              <div className="border-b border-white/20 pb-4 mb-4">
-                <div className="flex items-center justify-between">
+          {/* Lockers Grid */}
+          <div className="space-y-6 mb-8">
+            {mockLockers.map((locker) => (
+              <div key={locker.id} className="glass-card">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
                   <div>
-                    <h2 className="text-xl font-bold">{locker.name}</h2>
+                    <h2 className="text-2xl font-bold text-white">{locker.name}</h2>
                     <p className="text-gray-300">{locker.location}</p>
-                    <p className="text-gray-400 text-sm">{locker.description}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">
-                      {locker.cells.filter(cell => cell.available).length} / {locker.cells.length} available
-                    </p>
+                  <div className="text-left">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-400">{getAvailableCells(locker)}</div>
+                        <div className="text-xs text-gray-400">זמין</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-400">{getTotalCells(locker) - getAvailableCells(locker)}</div>
+                        <div className="text-xs text-gray-400">תפוס</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{getTotalCells(locker)}</div>
+                        <div className="text-xs text-gray-400">סה"כ</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {locker.cells
-                  .sort((a, b) => a.area - b.area)
-                  .map((cell) => (
-                  <div
-                    key={cell.id}
-                    className={`border rounded-lg p-4 transition-all duration-300 ${
-                      cell.available 
-                        ? selectedCell?.cell.id === cell.id
-                          ? 'border-purple-400 bg-purple-500/20 cursor-pointer'
-                          : 'border-green-400/50 bg-green-500/10 hover:bg-green-500/20 cursor-pointer'
-                        : 'border-red-400/50 bg-red-500/10 cursor-not-allowed opacity-60'
-                    }`}
-                    onClick={() => handleCellSelection(locker, cell)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h3 className="font-bold text-lg">{cell.code}</h3>
-                        <p className="text-sm text-gray-300">{cell.sizeDisplay}</p>
+                {/* Cells Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {locker.cells.map((cell) => (
+                    <div
+                      key={cell.id}
+                      className={`border-2 rounded-xl p-4 transition-all duration-300 ${
+                        !cell.available
+                          ? 'border-red-400/50 bg-red-500/10 cursor-not-allowed opacity-60'
+                          : selectedCell === cell.id
+                          ? 'border-purple-400 bg-purple-500/20 shadow-lg shadow-purple-500/25 cursor-pointer'
+                          : 'border-green-400/50 bg-green-500/10 hover:border-green-400 hover:bg-green-500/20 cursor-pointer'
+                      }`}
+                      onClick={() => cell.available && handleCellSelect(cell.id)}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${
+                            !cell.available
+                              ? 'bg-red-400'
+                              : selectedCell === cell.id
+                              ? 'bg-purple-400'
+                              : 'bg-green-400'
+                          }`}></div>
+                          <span className="font-bold text-lg">תא {cell.id}</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          !cell.available
+                            ? 'bg-red-500/30 text-red-200'
+                            : selectedCell === cell.id
+                            ? 'bg-purple-500/30 text-purple-200'
+                            : 'bg-green-500/30 text-green-200'
+                        }`}>
+                          {sizeLabels[cell.size as keyof typeof sizeLabels]}
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">Area</p>
-                        <p className="text-sm font-bold">{cell.area} sq cm</p>
+                      
+                      <div className="space-y-2 text-sm">
+                        <p className="text-gray-300">
+                          <span className="font-medium">שטח:</span> {cell.area} ס"מ רבוע
+                        </p>
+                        <p className="text-gray-300">
+                          <span className="font-medium">מידות:</span> {cell.width}×{cell.height}×{cell.depth} ס"מ
+                        </p>
+                        <p className={`font-medium ${
+                          cell.available ? 'text-green-300' : 'text-red-300'
+                        }`}>
+                          סטטוס: {cell.available ? 'זמין' : 'תפוס'}
+                        </p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        cell.available 
-                          ? 'bg-green-500/20 text-green-300' 
-                          : 'bg-red-500/20 text-red-300'
-                      }`}>
-                        {cell.available ? 'Available' : 'Occupied'}
-                      </span>
-                    </div>
 
-                    {cell.available && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCellSelection(locker, cell)
-                        }}
-                        className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 rounded text-sm font-bold transition-colors"
-                      >
-                        Select Cell
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      {selectedCell === cell.id && (
+                        <div className="mt-4 pt-3 border-t border-white/10">
+                          <div className="flex items-center gap-2 text-purple-300">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-sm font-medium">תא נבחר</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {selectedCell && (
-          <div className="fixed bottom-4 left-4 right-4 glass-card border-purple-400 max-w-md mx-auto">
-            <h3 className="text-lg font-bold mb-3 text-purple-300">Selected Cell</h3>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="font-bold">Cell {selectedCell.cell.code}</p>
-                <p className="text-sm text-gray-300">{selectedCell.locker.location}</p>
-                <p className="text-xs text-gray-400">{selectedCell.cell.area} sq cm - {selectedCell.cell.sizeDisplay}</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedCell(null)}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-bold transition-colors text-sm"
-              >
-                Cancel
-              </button>
+          {/* Action Button */}
+          {selectedCell && (
+            <div className="text-center mb-8">
               <button
                 onClick={handleGoToCell}
-                className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg font-bold transition-colors text-sm"
+                disabled={loading}
+                className="glass-card bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 transform hover:scale-105 px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Go to Cell
+                {loading ? (
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span className="text-lg font-bold">מכין את התא...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                    <span className="text-lg font-bold">הולך לקחת את התא {selectedCell}</span>
+                  </div>
+                )}
               </button>
             </div>
+          )}
+
+          {/* Summary */}
+          <div className="glass-card-sm mb-8">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2-2z" />
+              </svg>
+              סיכום מערכת
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-green-400">
+                  {mockLockers.reduce((acc, locker) => acc + getAvailableCells(locker), 0)}
+                </div>
+                <div className="text-sm text-gray-400">תאים זמינים</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-400">
+                  {mockLockers.reduce((acc, locker) => acc + (getTotalCells(locker) - getAvailableCells(locker)), 0)}
+                </div>
+                <div className="text-sm text-gray-400">תאים תפוסים</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">
+                  {mockLockers.reduce((acc, locker) => acc + getTotalCells(locker), 0)}
+                </div>
+                <div className="text-sm text-gray-400">סה"כ תאים</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-400">{mockLockers.length}</div>
+                <div className="text-sm text-gray-400">סה"כ לוקרים</div>
+              </div>
+            </div>
           </div>
-        )}
+
+          {/* Navigation */}
+          <div className="text-center">
+            <Link 
+              href="/courier/select-cell"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>חזרה לבחירת תא</span>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   )
