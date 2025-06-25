@@ -29,7 +29,7 @@ function HelpContent() {
     }, 2000);
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof typeof contactForm, value: string) => {
     setContactForm(prev => ({
       ...prev,
       [field]: value
