@@ -2,257 +2,360 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-// Mock data for development
-const mockLockers = [
-  {
-    id: 'A',
-    name: 'לוקר A',
-    location: 'קומה 1 - כניסה ראשית',
-    cells: [
-      { id: 'A1', size: 'small', area: 150, available: true, width: 10, height: 15, depth: 10 },
-      { id: 'A2', size: 'small', area: 150, available: false, width: 10, height: 15, depth: 10 },
-      { id: 'A3', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 }
-    ]
-  },
-  {
-    id: 'B',
-    name: 'לוקר B',
-    location: 'קומה 1 - ליד המעלית',
-    cells: [
-      { id: 'B1', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 },
-      { id: 'B2', size: 'medium', area: 600, available: true, width: 20, height: 30, depth: 10 },
-      { id: 'B3', size: 'large', area: 1575, available: false, width: 35, height: 45, depth: 10 }
-    ]
-  },
-  {
-    id: 'C',
-    name: 'לוקר C', 
-    location: 'קומה 2 - מרכז הקומה',
-    cells: [
-      { id: 'C1', size: 'large', area: 1575, available: true, width: 35, height: 45, depth: 10 },
-      { id: 'C2', size: 'large', area: 1575, available: false, width: 35, height: 45, depth: 10 },
-      { id: 'C3', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 }
-    ]
-  },
-  {
-    id: 'D',
-    name: 'לוקר D',
-    location: 'קומה 2 - ליד החדר',
-    cells: [
-      { id: 'D1', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 },
-      { id: 'D2', size: 'xlarge', area: 2400, available: true, width: 40, height: 60, depth: 10 }
-    ]
-  }
-]
+interface Cell {
+  id: number
+  code: string
+  size: string
+  lockerId: number
+}
 
-const sizeLabels = {
-  small: 'קטן',
-  medium: 'בינוני',
-  large: 'גדול', 
-  xlarge: 'רחב'
+interface LockerGroup {
+  locker: {
+    id: number
+    location: string
+    description: string
+  }
+  cells: Cell[]
 }
 
 export default function LockersListPage() {
+  const [lockers, setLockers] = useState<LockerGroup[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedLocker, setSelectedLocker] = useState<LockerGroup | null>(null)
+  const [selectedCell, setSelectedCell] = useState<Cell | null>(null)
+  
   const router = useRouter()
-  const [selectedCell, setSelectedCell] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  const handleCellSelect = (cellId: string) => {
-    setSelectedCell(cellId)
+  useEffect(() => {
+    fetchAllLockers()
+  }, [])
+
+  const fetchAllLockers = async () => {
+    try {
+      const response = await fetch('/api/lockers/available')
+      const data = await response.json()
+      
+      if (data.available && data.lockers) {
+        // עיבוד נתוני הלוקרים לפורמט הנכון
+        const processedLockers = data.lockers.map((locker: any) => ({
+          locker: {
+            id: locker.id,
+            location: locker.location,
+            description: locker.description
+          },
+          cells: locker.availableCells || []
+        }))
+        
+        // מיון לוקרים לפי סדר עולה של ID
+        const sortedLockers = processedLockers.sort((a: LockerGroup, b: LockerGroup) => 
+          a.locker.id - b.locker.id
+        )
+        
+        setLockers(sortedLockers)
+      } else {
+        // נתוני Mock למקרה שה-API לא עובד
+        const mockLockers: LockerGroup[] = [
+          {
+            locker: {
+              id: 1,
+              location: 'בניין A - קומה קרקע',
+              description: 'ליד המעליות הראשיות'
+            },
+            cells: [
+              { id: 1, code: 'A01', size: 'קטן', lockerId: 1 },
+              { id: 2, code: 'A02', size: 'בינוני', lockerId: 1 },
+              { id: 3, code: 'A03', size: 'גדול', lockerId: 1 }
+            ]
+          },
+          {
+            locker: {
+              id: 2,
+              location: 'בניין B - כניסה ראשית',
+              description: 'ליד דלפק הקבלה'
+            },
+            cells: [
+              { id: 4, code: 'B01', size: 'קטן', lockerId: 2 },
+              { id: 5, code: 'B02', size: 'רחב', lockerId: 2 }
+            ]
+          },
+          {
+            locker: {
+              id: 3,
+              location: 'בניין C - קומה ראשונה',
+              description: 'ליד חדר המורים'
+            },
+            cells: [
+              { id: 6, code: 'C01', size: 'בינוני', lockerId: 3 },
+              { id: 7, code: 'C02', size: 'גדול', lockerId: 3 }
+            ]
+          }
+        ]
+        setLockers(mockLockers)
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת לוקרים:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleGoToCell = async () => {
-    if (!selectedCell) return
-    
-    setLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    router.push(`/courier/cell-verification?cellId=${selectedCell}`)
+  const handleLockerSelect = (locker: LockerGroup) => {
+    setSelectedLocker(locker)
+    setSelectedCell(null) // איפוס בחירת התא
   }
 
-  const getTotalCells = (locker: any) => locker.cells.length
-  const getAvailableCells = (locker: any) => locker.cells.filter((cell: any) => cell.available).length
+  const handleCellSelect = (cell: Cell) => {
+    setSelectedCell(cell)
+    // מציאת הלוקר המתאים
+    const parentLocker = lockers.find(l => l.locker.id === cell.lockerId)
+    if (parentLocker) {
+      setSelectedLocker(parentLocker)
+    }
+  }
+
+  const handleGoToCell = () => {
+    if (selectedCell && selectedLocker) {
+      router.push(`/courier/cell-verification?cellId=${selectedCell.id}&cellCode=${selectedCell.code}&lockerId=${selectedLocker.locker.id}`)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/80 text-lg">טוען רשימת לוקרים...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      <div className="min-h-screen p-4">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">כל הלוקרים</h1>
-            <p className="text-gray-300">רשימה מלאה של לוקרים ותאים זמינים</p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* כותרת */}
+        <div className="text-center mb-8">
+          <Link href="/courier/select-cell" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>חזרה לבחירת תא</span>
+          </Link>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            רשימת לוקרים
+          </h1>
+          <p className="text-white/70">
+            כל הלוקרים במערכת לפי סדר עולה
+          </p>
+        </div>
 
-          {/* Lockers Grid */}
-          <div className="space-y-6 mb-8">
-            {mockLockers.map((locker) => (
-              <div key={locker.id} className="glass-card">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">{locker.name}</h2>
-                    <p className="text-gray-300">{locker.location}</p>
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-400">{getAvailableCells(locker)}</div>
-                        <div className="text-xs text-gray-400">זמין</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-400">{getTotalCells(locker) - getAvailableCells(locker)}</div>
-                        <div className="text-xs text-gray-400">תפוס</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-white">{getTotalCells(locker)}</div>
-                        <div className="text-xs text-gray-400">סה"כ</div>
-                      </div>
-                    </div>
-                  </div>
+        {/* בחירה נוכחית */}
+        {(selectedLocker || selectedCell) && (
+          <div className="glass-card mb-8">
+            <h3 className="text-lg font-semibold text-white mb-4">בחירה נוכחית</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedLocker && (
+                <div className="p-4 bg-white/10 rounded-lg">
+                  <h4 className="font-bold text-purple-300 mb-2">לוקר נבחר</h4>
+                  <p className="text-white font-semibold">לוקר #{selectedLocker.locker.id}</p>
+                  <p className="text-white">{selectedLocker.locker.location}</p>
+                  <p className="text-white/70 text-sm">{selectedLocker.locker.description}</p>
+                  <p className="text-purple-300 text-sm mt-1">
+                    {selectedLocker.cells.length} תאים זמינים
+                  </p>
                 </div>
+              )}
+              {selectedCell && (
+                <div className="p-4 bg-white/10 rounded-lg">
+                  <h4 className="font-bold text-purple-300 mb-2">תא נבחר</h4>
+                  <p className="text-white text-lg font-bold">{selectedCell.code}</p>
+                  <p className="text-white/70 text-sm">גודל: {selectedCell.size}</p>
+                  <p className="text-purple-300 text-xs mt-1">ID: {selectedCell.id}</p>
+                </div>
+              )}
+            </div>
+            
+            {selectedCell && selectedLocker && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={handleGoToCell}
+                  className="btn-primary px-8 py-3"
+                >
+                  הולך לקחת את התא
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-                {/* Cells Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {locker.cells.map((cell) => (
-                    <div
-                      key={cell.id}
-                      className={`border-2 rounded-xl p-4 transition-all duration-300 ${
-                        !cell.available
-                          ? 'border-red-400/50 bg-red-500/10 cursor-not-allowed opacity-60'
-                          : selectedCell === cell.id
-                          ? 'border-purple-400 bg-purple-500/20 shadow-lg shadow-purple-500/25 cursor-pointer'
-                          : 'border-green-400/50 bg-green-500/10 hover:border-green-400 hover:bg-green-500/20 cursor-pointer'
-                      }`}
-                      onClick={() => cell.available && handleCellSelect(cell.id)}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${
-                            !cell.available
-                              ? 'bg-red-400'
-                              : selectedCell === cell.id
-                              ? 'bg-purple-400'
-                              : 'bg-green-400'
-                          }`}></div>
-                          <span className="font-bold text-lg">תא {cell.id}</span>
+        {/* רשימת לוקרים */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-white">לוקרים במערכת (לפי סדר עולה)</h2>
+          
+          {lockers.length === 0 ? (
+            <div className="glass-card text-center">
+              <p className="text-red-400 text-lg mb-4">אין לוקרים במערכת</p>
+              <Link href="/courier" className="btn-secondary">
+                חזרה לדף הראשי
+              </Link>
+            </div>
+          ) : (
+            lockers.map((lockerGroup) => (
+              <div
+                key={lockerGroup.locker.id}
+                className={`glass-card transition-all duration-300 ${
+                  selectedLocker?.locker.id === lockerGroup.locker.id
+                    ? 'ring-2 ring-purple-400 bg-purple-500/20'
+                    : 'hover:bg-white/10'
+                }`}
+              >
+                {/* פרטי הלוקר */}
+                <div className="border-b border-white/20 pb-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 bg-white/20 rounded-lg flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-white">#{lockerGroup.locker.id}</div>
+                          <div className="text-xs text-white/70">לוקר</div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          !cell.available
-                            ? 'bg-red-500/30 text-red-200'
-                            : selectedCell === cell.id
-                            ? 'bg-purple-500/30 text-purple-200'
-                            : 'bg-green-500/30 text-green-200'
-                        }`}>
-                          {sizeLabels[cell.size as keyof typeof sizeLabels]}
-                        </span>
                       </div>
-                      
-                      <div className="space-y-2 text-sm">
-                        <p className="text-gray-300">
-                          <span className="font-medium">שטח:</span> {cell.area} ס"מ רבוע
-                        </p>
-                        <p className="text-gray-300">
-                          <span className="font-medium">מידות:</span> {cell.width}×{cell.height}×{cell.depth} ס"מ
-                        </p>
-                        <p className={`font-medium ${
-                          cell.available ? 'text-green-300' : 'text-red-300'
-                        }`}>
-                          סטטוס: {cell.available ? 'זמין' : 'תפוס'}
-                        </p>
-                      </div>
-
-                      {selectedCell === cell.id && (
-                        <div className="mt-4 pt-3 border-t border-white/10">
-                          <div className="flex items-center gap-2 text-purple-300">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-sm font-medium">תא נבחר</span>
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-1">
+                          לוקר #{lockerGroup.locker.id}
+                        </h3>
+                        <p className="text-white/70 mb-1 font-semibold">{lockerGroup.locker.location}</p>
+                        <p className="text-white/60 text-sm">{lockerGroup.locker.description}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <p className="text-purple-300 text-sm">
+                            📦 {lockerGroup.cells.length} תאים זמינים
+                          </p>
+                          <div className="flex gap-1">
+                            {Array.from(new Set(lockerGroup.cells.map(c => c.size))).map(size => (
+                              <span key={size} className="text-xs bg-white/20 px-2 py-1 rounded-full text-white/80">
+                                {size}
+                              </span>
+                            ))}
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Action Button */}
-          {selectedCell && (
-            <div className="text-center mb-8">
-              <button
-                onClick={handleGoToCell}
-                disabled={loading}
-                className="glass-card bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 transform hover:scale-105 px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span className="text-lg font-bold">מכין את התא...</span>
+                    
+                    <button
+                      onClick={() => handleLockerSelect(lockerGroup)}
+                      className="btn-secondary px-6 py-2"
+                    >
+                      בחר לוקר
+                    </button>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </div>
+
+                {/* תאים זמינים בלוקר */}
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <span className="text-lg font-bold">הולך לקחת את התא {selectedCell}</span>
+                    תאים זמינים
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {lockerGroup.cells.map((cell) => (
+                      <div
+                        key={cell.id}
+                        className={`p-4 rounded-lg border cursor-pointer transition-all duration-300 ${
+                          selectedCell?.id === cell.id
+                            ? 'bg-purple-500/30 border-purple-400'
+                            : 'bg-white/10 border-white/20 hover:bg-white/20'
+                        }`}
+                        onClick={() => handleCellSelect(cell)}
+                      >
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-white mb-2">{cell.code}</div>
+                          <div className="text-white/70 text-sm mb-2">גודל: {cell.size}</div>
+                          <div className="text-purple-300 text-xs mb-3">ID: {cell.id}</div>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCellSelect(cell)
+                            }}
+                            className="btn-primary text-sm px-4 py-2 w-full"
+                          >
+                            בחר תא
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </button>
-            </div>
+                </div>
+              </div>
+            ))
           )}
+        </div>
 
-          {/* Summary */}
-          <div className="glass-card-sm mb-8">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2-2z" />
-              </svg>
-              סיכום מערכת
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-green-400">
-                  {mockLockers.reduce((acc, locker) => acc + getAvailableCells(locker), 0)}
-                </div>
-                <div className="text-sm text-gray-400">תאים זמינים</div>
+        {/* סטטיסטיקות */}
+        <div className="glass-card mt-8">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H9a2 2 0 01-2-2z" />
+            </svg>
+            סטטיסטיקות מערכת
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-white/10 rounded-lg">
+              <div className="text-2xl font-bold text-purple-300 mb-1">{lockers.length}</div>
+              <div className="text-white/70 text-sm">לוקרים במערכת</div>
+            </div>
+            <div className="text-center p-4 bg-white/10 rounded-lg">
+              <div className="text-2xl font-bold text-green-300 mb-1">
+                {lockers.reduce((sum, l) => sum + l.cells.length, 0)}
               </div>
-              <div>
-                <div className="text-2xl font-bold text-red-400">
-                  {mockLockers.reduce((acc, locker) => acc + (getTotalCells(locker) - getAvailableCells(locker)), 0)}
-                </div>
-                <div className="text-sm text-gray-400">תאים תפוסים</div>
+              <div className="text-white/70 text-sm">תאים זמינים</div>
+            </div>
+            <div className="text-center p-4 bg-white/10 rounded-lg">
+              <div className="text-2xl font-bold text-blue-300 mb-1">
+                {Array.from(new Set(lockers.flatMap(l => l.cells.map(c => c.size)))).length}
               </div>
-              <div>
-                <div className="text-2xl font-bold text-white">
-                  {mockLockers.reduce((acc, locker) => acc + getTotalCells(locker), 0)}
-                </div>
-                <div className="text-sm text-gray-400">סה"כ תאים</div>
+              <div className="text-white/70 text-sm">סוגי גדלים</div>
+            </div>
+            <div className="text-center p-4 bg-white/10 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-300 mb-1">
+                {lockers.reduce((sum, l) => sum + l.cells.length, 0) > 0 ? '100%' : '0%'}
               </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-400">{mockLockers.length}</div>
-                <div className="text-sm text-gray-400">סה"כ לוקרים</div>
-              </div>
+              <div className="text-white/70 text-sm">זמינות</div>
             </div>
           </div>
+        </div>
 
-          {/* Navigation */}
-          <div className="text-center">
-            <Link 
-              href="/courier/select-cell"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>חזרה לבחירת תא</span>
-            </Link>
-          </div>
+        {/* הערות */}
+        <div className="glass-card mt-8">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            הוראות שימוש
+          </h3>
+          <ul className="space-y-2 text-white/70">
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400">•</span>
+              <span>הלוקרים מוצגים לפי סדר מיון עולה (מ-1 ומעלה)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400">•</span>
+              <span>כל לוקר מציג את מספר התאים הזמינים וסוגי הגדלים</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400">•</span>
+              <span>בחר לוקר ואז בחר תא ספציפי מתוך הלוקר</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400">•</span>
+              <span>לחץ על "הולך לקחת את התא" כדי להמשיך לשלב הבא</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
