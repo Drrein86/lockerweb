@@ -5,8 +5,22 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+// Type definition for locker size
+type LockerSize = {
+  id: string;
+  name: string;
+  dimensions: string;
+  area: string;
+  hourlyRate: number;
+  dailyRate: number;
+  icon: string;
+  description: string;
+  examples: string[];
+  available: number;
+};
+
 // Locker sizes and rates
-const lockerSizes = [
+const lockerSizes: LockerSize[] = [
   {
     id: 'small',
     name: 'קטן',
@@ -58,13 +72,13 @@ const lockerSizes = [
 ];
 
 function LockerRentalContent() {
-  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedSize, setSelectedSize] = useState<LockerSize | null>(null);
   const [rentalDuration, setRentalDuration] = useState(1);
-  const [rentalType, setRentalType] = useState('hours'); // 'hours' or 'days'
+  const [rentalType, setRentalType] = useState<'hours' | 'days'>('hours');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
 
-  const handleSizeSelect = (size) => {
+  const handleSizeSelect = (size: LockerSize) => {
     setSelectedSize(size);
   };
 
