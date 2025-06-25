@@ -34,7 +34,7 @@ function PaymentContent() {
     name: ''
   });
 
-  const product = productData[productId];
+  const product = productId ? productData[productId as keyof typeof productData] : null;
   
   // Calculate price based on type
   let totalPrice = 0;
@@ -45,13 +45,15 @@ function PaymentContent() {
     priceBreakdown = `מחיר מוצר: ₪${product.price}`;
   } else if (type === 'rental' && product && duration) {
     const hourlyRate = Math.round(product.price * 0.1); // 10% of purchase price per hour
-    totalPrice = hourlyRate * parseInt(duration);
-    priceBreakdown = `₪${hourlyRate} × ${duration} שעות = ₪${totalPrice}`;
+    const durationNum = parseInt(duration) || 1;
+    totalPrice = hourlyRate * durationNum;
+    priceBreakdown = `₪${hourlyRate} × ${durationNum} שעות = ₪${totalPrice}`;
   } else if (type === 'locker-rental' && size && duration) {
-    const sizeRates = { small: 5, medium: 8, large: 12, wide: 15 };
+    const sizeRates: { [key: string]: number } = { small: 5, medium: 8, large: 12, wide: 15 };
     const hourlyRate = sizeRates[size] || 5;
-    totalPrice = hourlyRate * parseInt(duration);
-    priceBreakdown = `לוקר ${size} - ₪${hourlyRate} × ${duration} שעות = ₪${totalPrice}`;
+    const durationNum = parseInt(duration) || 1;
+    totalPrice = hourlyRate * durationNum;
+    priceBreakdown = `לוקר ${size} - ₪${hourlyRate} × ${durationNum} שעות = ₪${totalPrice}`;
   }
 
   const handlePayment = async () => {
@@ -97,11 +99,11 @@ function PaymentContent() {
               <h3 className="font-bold text-white mb-2">פרטי הרכישה:</h3>
               {product && (
                 <>
-                  <p className="text-slate-300">מוצר: {product.name} {product.image}</p>
-                  <p className="text-slate-300">לוקר: {product.locker}</p>
+                  <p className="text-blue-200">מוצר: {product.name} {product.image}</p>
+                  <p className="text-blue-200">לוקר: {product.locker}</p>
                 </>
               )}
-              <p className="text-slate-300">{priceBreakdown}</p>
+              <p className="text-blue-200">{priceBreakdown}</p>
               <p className="text-green-400 font-bold">סה"כ: ₪{totalPrice}</p>
             </div>
 
@@ -204,7 +206,7 @@ function PaymentContent() {
                 <span className="text-2xl">💳</span>
                 <div>
                   <h3 className="text-white font-medium">כרטיס אשראי</h3>
-                  <p className="text-slate-400 text-sm">ויזה, מאסטרקארד, אמריקן אקספרס</p>
+                  <p className="text-blue-300 text-sm">ויזה, מאסטרקארד, אמריקן אקספרס</p>
                 </div>
               </div>
             </div>
@@ -222,7 +224,7 @@ function PaymentContent() {
                 <span className="text-2xl">📱</span>
                 <div>
                   <h3 className="text-white font-medium">ארנק דיגיטלי</h3>
-                  <p className="text-slate-400 text-sm">Apple Pay, Google Pay, PayPal</p>
+                  <p className="text-blue-300 text-sm">Apple Pay, Google Pay, PayPal</p>
                 </div>
               </div>
             </div>

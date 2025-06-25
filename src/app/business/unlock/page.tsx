@@ -14,7 +14,7 @@ function UnlockContent() {
   // Valid codes for demo (in real app, this would be validated on server)
   const validCodes = ['1234', '5678', '9012', '3456', '7890'];
 
-  const handleCodeChange = (index, value) => {
+  const handleCodeChange = (index: number, value: string) => {
     if (value.length <= 1 && /^\d*$/.test(value)) {
       const newCode = [...code];
       newCode[index] = value;
@@ -28,7 +28,7 @@ function UnlockContent() {
     }
   };
 
-  const handleKeyDown = (index, e) => {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       const prevInput = document.getElementById(`code-${index - 1}`);
       prevInput?.focus();

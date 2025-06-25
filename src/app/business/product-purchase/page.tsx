@@ -107,12 +107,12 @@ const categoryNames = {
 function ProductPurchaseContent() {
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'food';
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  const products = productsByCategory[category] || [];
-  const categoryName = categoryNames[category] || 'מוצרים';
+  const products = productsByCategory[category as keyof typeof productsByCategory] || [];
+  const categoryName = categoryNames[category as keyof typeof categoryNames] || 'מוצרים';
 
-  const handleProductSelect = (product) => {
+  const handleProductSelect = (product: any) => {
     if (product.available) {
       setSelectedProduct(product);
     }

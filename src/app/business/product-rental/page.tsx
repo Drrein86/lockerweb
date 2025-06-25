@@ -98,16 +98,16 @@ const categoryNames = {
 function ProductRentalContent() {
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'sports';
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [rentalDuration, setRentalDuration] = useState(1);
   const [rentalType, setRentalType] = useState('hours'); // 'hours' or 'timeRange'
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
 
-  const products = rentalProductsByCategory[category] || [];
-  const categoryName = categoryNames[category] || 'מוצרים';
+  const products = rentalProductsByCategory[category as keyof typeof rentalProductsByCategory] || [];
+  const categoryName = categoryNames[category as keyof typeof categoryNames] || 'מוצרים';
 
-  const handleProductSelect = (product) => {
+  const handleProductSelect = (product: any) => {
     if (product.available) {
       setSelectedProduct(product);
     }
@@ -120,7 +120,7 @@ function ProductRentalContent() {
     if (rentalType === 'timeRange' && startTime && endTime) {
       const start = new Date(`2024-01-01T${startTime}`);
       const end = new Date(`2024-01-01T${endTime}`);
-      hours = Math.ceil((end - start) / (1000 * 60 * 60));
+      hours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
     }
     
     return selectedProduct.hourlyRate * hours;
@@ -132,7 +132,7 @@ function ProductRentalContent() {
     if (rentalType === 'timeRange' && startTime && endTime) {
       const start = new Date(`2024-01-01T${startTime}`);
       const end = new Date(`2024-01-01T${endTime}`);
-      return Math.ceil((end - start) / (1000 * 60 * 60));
+      return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
     }
     
     return 0;
