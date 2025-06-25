@@ -16,7 +16,7 @@ export default function CourierPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 relative overflow-hidden">
       {/* רקע מיוחד */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxLjUiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
       
@@ -42,7 +42,7 @@ export default function CourierPage() {
                 </svg>
               </div>
               <h1 className="heading-primary">🚚 ממשק שליח</h1>
-              <p className="text-gray-300 text-lg">ברוכים הבאים למערכת הכנסת מוצרים ללוקר</p>
+              <p className="text-blue-200 text-lg">ברוכים הבאים למערכת הכנסת מוצרים ללוקר</p>
             </div>
 
             {/* כפתור בחירת תא */}
@@ -68,21 +68,21 @@ export default function CourierPage() {
                 </svg>
                 איך זה עובד?
               </h3>
-              <ul className="space-y-3 text-gray-300">
+              <ul className="space-y-3 text-blue-200">
                 <li className="flex items-start gap-3">
-                  <span className="text-purple-400 font-bold">1.</span>
+                  <span className="text-blue-300 font-bold">1.</span>
                   <span>לחץ על "בחר תא" כדי להתחיל</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-purple-400 font-bold">2.</span>
+                  <span className="text-blue-300 font-bold">2.</span>
                   <span>המערכת תציג לך תאים פנויים לפי גודל</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-purple-400 font-bold">3.</span>
+                  <span className="text-blue-300 font-bold">3.</span>
                   <span>בחר תא מתאים והמשך לתהליך ההכנסה</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-purple-400 font-bold">4.</span>
+                  <span className="text-blue-300 font-bold">4.</span>
                   <span>התא ייפתח אוטומטיות לאחר השלמת התהליך</span>
                 </li>
               </ul>

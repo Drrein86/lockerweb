@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic';
 
 function BusinessHomeContent() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
             🏪 מערכת עסק
           </h1>
-          <p className="text-slate-300 text-lg">
+          <p className="text-blue-200 text-lg">
             בחר את השירות הרצוי
           </p>
         </div>
@@ -27,13 +27,13 @@ function BusinessHomeContent() {
               <div className="flex items-center space-x-4">
                 <div className="text-6xl">🛍️</div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-purple-200">
+                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-200">
                     קניית מוצר
                   </h2>
-                  <p className="text-slate-300">
+                  <p className="text-blue-200">
                     רכישת מוצרים זמינים בלוקרים
                   </p>
-                  <div className="text-sm text-purple-300 mt-2">
+                  <div className="text-sm text-blue-300 mt-2">
                     • בחירה מקטגוריות מוצרים
                     <br />
                     • תשלום מיידי וקבלת קוד
@@ -51,13 +51,13 @@ function BusinessHomeContent() {
               <div className="flex items-center space-x-4">
                 <div className="text-6xl">⏳</div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-purple-200">
+                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-200">
                     השכרת מוצר לפי שעה
                   </h2>
-                  <p className="text-slate-300">
+                  <p className="text-blue-200">
                     השכרת ציוד ומוצרים לפי שעות
                   </p>
-                  <div className="text-sm text-purple-300 mt-2">
+                  <div className="text-sm text-blue-300 mt-2">
                     • ציוד ספורט, צילום, טכנולוגיה
                     <br />
                     • תשלום לפי זמן השימוש
@@ -75,13 +75,13 @@ function BusinessHomeContent() {
               <div className="flex items-center space-x-4">
                 <div className="text-6xl">🔐</div>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-purple-200">
+                  <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-200">
                     השכרת לוקר לשמירת חפצים
                   </h2>
-                  <p className="text-slate-300">
+                  <p className="text-blue-200">
                     שמירה בטוחה של חפצים אישיים
                   </p>
-                  <div className="text-sm text-purple-300 mt-2">
+                  <div className="text-sm text-blue-300 mt-2">
                     • בחירת גודל לוקר מתאים
                     <br />
                     • השכרה לפי שעות או ימים
@@ -126,7 +126,7 @@ function BusinessHomeContent() {
 export default function BusinessHomePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center">
         <div className="text-white text-xl">טוען...</div>
       </div>
     }>

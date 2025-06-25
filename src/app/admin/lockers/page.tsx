@@ -349,7 +349,7 @@ export default function AdminLockersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
           <p className="mt-4 text-white/80">טוען לוקרים...</p>
@@ -361,7 +361,7 @@ export default function AdminLockersPage() {
   // בדיקה אם אין לוקרים
   if (Object.keys(lockers).length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">📦</div>
           <h2 className="text-2xl font-bold text-white mb-2">אין לוקרים זמינים</h2>
@@ -382,7 +382,7 @@ export default function AdminLockersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 text-white" dir="rtl">
       <div className="container mx-auto px-4 py-8">
         {/* כותרת ברורה */}
         <div className="text-center mb-8">

@@ -73,7 +73,7 @@ function PaymentContent() {
 
   if (paymentComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-4">
         <div className="max-w-2xl mx-auto">
           <div className="bg-green-500/20 backdrop-blur-md rounded-2xl p-8 border border-green-500/30 text-center">
             <div className="text-6xl mb-6">✅</div>
@@ -147,14 +147,14 @@ function PaymentContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
             💳 תשלום
           </h1>
-          <p className="text-slate-300 text-lg">
+          <p className="text-blue-200 text-lg">
             השלם את התשלום לקבלת הקוד
           </p>
         </div>
@@ -169,14 +169,14 @@ function PaymentContent() {
                 <div className="text-3xl">{product.image}</div>
                 <div>
                   <h3 className="text-white font-medium">{product.name}</h3>
-                  <p className="text-slate-400 text-sm">לוקר: {product.locker}</p>
+                  <p className="text-blue-300 text-sm">לוקר: {product.locker}</p>
                 </div>
               </div>
             </div>
           )}
           
           <div className="border-t border-white/20 pt-4">
-            <div className="flex justify-between text-slate-300 mb-2">
+            <div className="flex justify-between text-blue-200 mb-2">
               <span>{priceBreakdown}</span>
             </div>
             <div className="flex justify-between text-xl font-bold text-white">
