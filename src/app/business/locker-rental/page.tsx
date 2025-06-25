@@ -93,12 +93,6 @@ function LockerRentalContent() {
   };
 
   const getCalculatedTime = () => {
-    if (rentalType === 'timeRange' && startTime && endTime) {
-      const start = new Date(`2024-01-01T${startTime}`);
-      const end = new Date(`2024-01-01T${endTime}`);
-      return Math.ceil((end - start) / (1000 * 60 * 60));
-    }
-    
     return rentalDuration;
   };
 
