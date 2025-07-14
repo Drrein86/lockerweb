@@ -29,6 +29,17 @@ export default function HomePage() {
             <p className="text-white/70">בחר את הדף שברצונך לבדוק</p>
           </div>
 
+          {/* כפתור דף הדגמה ללקוחות */}
+          <div className="text-center mb-12">
+            <button
+              onClick={() => window.open('/demo', '_blank')}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-8 py-4 rounded-lg font-bold text-xl shadow-lg transform hover:scale-105 transition-all duration-300"
+            >
+              🎯 דף הדגמה ללקוחות
+            </button>
+            <p className="text-white/50 text-sm mt-2">דף הדגמה מקצועי לשיווק ומכירות</p>
+          </div>
+
           {/* תפריט פיתוח */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* דפי אדמין */}

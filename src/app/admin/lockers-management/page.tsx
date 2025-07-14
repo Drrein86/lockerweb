@@ -589,51 +589,6 @@ export default function LockersManagementPage() {
     }
   }
 
-  // הכנסת חבילה לתא
-  const updateCellPackage = async (cellId: number, packageName: string) => {
-    try {
-      const response = await fetch('/api/admin/lockers-management', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'cell',
-          id: cellId,
-          status: 'OCCUPIED',
-          packageName: packageName
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        await loadLockers()
-        alert(`חבילה "${packageName}" הוכנסה בהצלחה לתא!`)
-      } else {
-        alert('שגיאה בהכנסת חבילה: ' + data.error)
-      }
-    } catch (error) {
-      console.error('שגיאה בהכנסת חבילה:', error)
-      alert('שגיאה בחיבור לשרת')
-    }
-  }
-
-  // שליחת הודעה ללקוח
-  const sendNotificationToCustomer = async (cellId: number, packageName: string) => {
-    try {
-      // הדמיה של שליחת הודעה
-      const phoneNumber = '050-1234567' // מספר דמה
-      const message = `שלום! החבילה שלך "${packageName}" מחכה לאיסוף בתא ${cellId}. קוד האיסוף: ${Math.random().toString(36).substr(2, 8).toUpperCase()}`
-      
-      // הדמיה של שליחת SMS
-      console.log('📱 שליחת הודעה:', { phoneNumber, message })
-      
-      alert(`הודעה נשלחה בהצלחה ללקוח!\n\nמספר: ${phoneNumber}\nהודעה: ${message}`)
-    } catch (error) {
-      console.error('שגיאה בשליחת הודעה:', error)
-      alert('שגיאה בשליחת הודעה')
-    }
-  }
-
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
     const controlKey = `${cellId}-${action}`
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
@@ -691,12 +646,6 @@ export default function LockersManagementPage() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => window.open('/demo', '_blank')}
-              className="w-full sm:w-auto btn bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base font-bold shadow-lg"
-            >
-              🎯 דף הדגמה ללקוחות
-            </button>
             <button
               onClick={() => setShowLockerForm(true)}
               className="w-full sm:w-auto btn bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base"
@@ -909,25 +858,20 @@ export default function LockersManagementPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {locker.cells.map((cell, cellIndex) => (
                       <div key={`${locker.id || index}-${cell.cellNumber || cell.id || cellIndex}`} className="bg-white/5 rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-all">
-                                              <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-white text-sm truncate block">{String(cell.name || `תא ${cell.cellNumber || cell.id}`)}</span>
-                          <span className="text-xs text-white/60">#{String(cell.cellNumber || cell.id)}</span>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-white text-sm truncate block">{String(cell.name || `תא ${cell.cellNumber || cell.id}`)}</span>
+                            <span className="text-xs text-white/60">#{String(cell.cellNumber || cell.id)}</span>
+                          </div>
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${cell.status === 'AVAILABLE' ? 'bg-green-400' : cell.status === 'OCCUPIED' ? 'bg-red-400' : 'bg-orange-400'}`}></div>
                         </div>
-                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${cell.status === 'AVAILABLE' ? 'bg-green-400' : cell.status === 'OCCUPIED' ? 'bg-red-400' : 'bg-orange-400'}`}></div>
-                      </div>
-                      
-                      <div className="space-y-1 text-xs text-white/70 mb-3">
-                        <div>גודל: {String(cell.size || 'לא מוגדר')}</div>
-                        <div className={`${cell.status === 'AVAILABLE' ? 'text-green-400' : cell.status === 'OCCUPIED' ? 'text-red-400' : 'text-orange-400'}`}>
-                          סטטוס: {cell.status === 'AVAILABLE' ? 'ריק' : cell.status === 'OCCUPIED' ? 'תפוס' : 'תחזוקה'}
+                        
+                        <div className="space-y-1 text-xs text-white/70 mb-3">
+                          <div>גודל: {String(cell.size || 'לא מוגדר')}</div>
+                          <div>סטטוס: {String(cell.status || 'לא מוגדר')}</div>
+                          <div>נעול: {cell.isLocked ? 'כן' : 'לא'}</div>
+                          <div>פעיל: {cell.isActive ? 'כן' : 'לא'}</div>
                         </div>
-                        <div>נעול: {cell.isLocked ? '🔒 כן' : '🔓 לא'}</div>
-                        <div>פעיל: {cell.isActive ? '✅ כן' : '❌ לא'}</div>
-                        {(cell as any).packageName && (
-                          <div className="text-yellow-400 font-medium">📦 {(cell as any).packageName}</div>
-                        )}
-                      </div>
 
                         <div className="flex flex-col gap-2">
                           <button
@@ -935,36 +879,8 @@ export default function LockersManagementPage() {
                             disabled={controlLoading[`${cell.id}-open`] || locker.status !== 'ONLINE'}
                             className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
                           >
-                            {controlLoading[`${cell.id}-open`] ? 'פותח...' : '🔓 פתח תא'}
+                            {controlLoading[`${cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
                           </button>
-                          
-                          {cell.status === 'AVAILABLE' && (
-                            <button
-                              onClick={() => {
-                                const packageName = prompt('הכנס שם חבילה:')
-                                if (packageName) {
-                                  updateCellPackage(cell.id, packageName)
-                                }
-                              }}
-                              className="w-full text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 px-2 py-1 rounded transition-all"
-                            >
-                              📦 הכנס חבילה
-                            </button>
-                          )}
-                          
-                          {cell.status === 'OCCUPIED' && (
-                            <button
-                              onClick={() => {
-                                if (confirm('האם לשלוח הודעה ללקוח?')) {
-                                  sendNotificationToCustomer(cell.id, (cell as any).packageName)
-                                }
-                              }}
-                              className="w-full text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-2 py-1 rounded transition-all"
-                            >
-                              📱 שלח הודעה
-                            </button>
-                          )}
-                          
                           <div className="flex gap-1">
                             <button
                               onClick={() => {

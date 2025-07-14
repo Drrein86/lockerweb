@@ -1,97 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// פונקציה ליצירת תאים עבור לוקר
-function createCellsForLocker(lockerId: number, lockerNum: number): any[] {
-  const cells = []
-  const sizes = ['SMALL', 'MEDIUM', 'LARGE', 'WIDE']
-  const statuses = ['AVAILABLE', 'OCCUPIED', 'MAINTENANCE']
-  const packages = [
-    'משקפי שמש Ray-Ban',
-    'ספר הזמן גב לזמן',
-    'אוזניות בלוטות',
-    'שעון יד',
-    'תיק יד עור',
-    'בקבוק מים',
-    'טלפון נייד',
-    'מטען אלחוטי',
-    'מחשבון',
-    'מפתחות רכב',
-    'כרטיס זיכרון',
-    'עט יוקרה'
-  ]
-  
-  for (let i = 1; i <= 16; i++) {
-    const cellId = (lockerId - 1) * 16 + i
-    const status = Math.random() > 0.7 ? 'OCCUPIED' : 'AVAILABLE'
-    const isLocked = Math.random() > 0.1 // 90% מהתאים נעולים
-    const packageName = status === 'OCCUPIED' ? packages[Math.floor(Math.random() * packages.length)] : null
-    
-    cells.push({
-      id: cellId,
-      cellNumber: i,
-      code: `LOC${String(lockerNum).padStart(3, '0')}_CELL${String(i).padStart(2, '0')}`,
-      name: `תא ${i}`,
-      size: sizes[Math.floor(Math.random() * sizes.length)],
-      status: status,
-      isLocked: isLocked,
-      isActive: true,
-      lockerId: lockerId,
-      openCount: Math.floor(Math.random() * 20),
-      packageName: packageName,
-      lastOpenedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      lastClosedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    })
-  }
-  
-  return cells
-}
-
-// Fallback data במקרה שאין דאטאבייס - 3 לוקרים עם 16 תאים כל אחד
+// Fallback data במקרה שאין דאטאבייס
 const mockLockers: any[] = [
   {
     id: 1,
-    name: 'לוקר מרכזי A',
-    location: 'כניסה ראשית - קומה 1',
-    description: 'לוקר מרכזי בכניסה לבניין',
+    name: 'לוקר ראשי',
+    location: 'כניסה ראשית',
+    description: 'לוקר ראשי בכניסה לבניין',
     ip: '192.168.1.100',
     port: 80,
     deviceId: 'ESP32_001',
-    status: 'ONLINE',
-    lastSeen: new Date().toISOString(),
-    isActive: true,
-    cells: createCellsForLocker(1, 1),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 2,
-    name: 'לוקר מרכזי B',
-    location: 'חדר המתנה - קומה 2',
-    description: 'לוקר משני בחדר המתנה',
-    ip: '192.168.1.101',
-    port: 80,
-    deviceId: 'ESP32_002',
-    status: 'ONLINE',
-    lastSeen: new Date().toISOString(),
-    isActive: true,
-    cells: createCellsForLocker(2, 2),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 3,
-    name: 'לוקר מרכזי C',
-    location: 'יציאה אחורית - קומה 1',
-    description: 'לוקר שלישי ביציאה האחורית',
-    ip: '192.168.1.102',
-    port: 80,
-    deviceId: 'ESP32_003',
     status: 'OFFLINE',
-    lastSeen: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 דקות אחורה
+    lastSeen: new Date().toISOString(),
     isActive: true,
-    cells: createCellsForLocker(3, 3),
+    cells: [
+      {
+        id: 1,
+        cellNumber: 1,
+        code: 'LOC001_CELL01',
+        name: 'תא 1',
+        size: 'SMALL',
+        status: 'AVAILABLE',
+        isLocked: true,
+        isActive: true,
+        lockerId: 1,
+        openCount: 0,
+        lastOpenedAt: new Date().toISOString(),
+        lastClosedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 2,
+        cellNumber: 2,
+        code: 'LOC001_CELL02',
+        name: 'תא 2',
+        size: 'MEDIUM',
+        status: 'AVAILABLE',
+        isLocked: true,
+        isActive: true,
+        lockerId: 1,
+        openCount: 0,
+        lastOpenedAt: new Date().toISOString(),
+        lastClosedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -397,7 +352,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'cell') {
-      const { cellNumber, name, size, code, isActive, lockerId, status, packageName } = body
+      const { cellNumber, name, size, code, isActive, lockerId } = body
 
       if (db) {
         // אם זה שיוך תא חדש ללוקר, צריך לוודא שהלוקר קיים
@@ -448,9 +403,7 @@ export async function PUT(request: NextRequest) {
             name,
             size,
             code,
-            isActive,
-            status,
-            packageName
+            isActive
           }
         })
 
@@ -471,8 +424,6 @@ export async function PUT(request: NextRequest) {
               size: size || locker.cells[cellIndex].size,
               code: code || locker.cells[cellIndex].code,
               isActive: isActive ?? locker.cells[cellIndex].isActive,
-              status: status || locker.cells[cellIndex].status,
-              packageName: packageName !== undefined ? packageName : locker.cells[cellIndex].packageName,
               updatedAt: new Date().toISOString()
             }
 
