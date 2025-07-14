@@ -357,52 +357,51 @@ export default function AdminDemoPage() {
         ))}
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
+      <div className="relative z-10 container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-4 sm:mb-8"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2">
             <button
               onClick={() => router.push('/demo')}
-              className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm sm:text-base"
             >
               <span>←</span>
               <span>חזרה לדף הבחירה</span>
             </button>
-            <div className="text-2xl">👨‍💼</div>
+            <div className="text-xl sm:text-2xl">👨‍💼</div>
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-black text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text mb-4">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text mb-2 sm:mb-4">
             אדמין דמה
           </h1>
-          <p className="text-white/80 text-lg mb-8">
+          <p className="text-white/80 text-base sm:text-lg mb-4 sm:mb-8">
             נהלו את המערכת - הוספת חבילות, שיוך לתאים ובקרה מלאה
           </p>
 
           {/* Progress Bar */}
-          <div className="max-w-4xl mx-auto mb-8">
-            <div className="flex justify-between items-center relative">
+          <div className="max-w-full sm:max-w-4xl mx-auto mb-4 sm:mb-8 px-1">
+            <div className="flex justify-between items-center relative overflow-x-auto scrollbar-thin scrollbar-thumb-purple-400/30 scrollbar-track-transparent">
               <div className="absolute top-1/2 left-0 right-0 h-1 bg-white/20 rounded-full"></div>
               <div 
                 className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-1000"
                 style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
               ></div>
-              
               {steps.map((step, index) => (
-                <div key={index} className="relative z-10">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-500 ${
+                <div key={index} className="relative z-10 min-w-[60px] sm:min-w-[80px]">
+                  <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-xl transition-all duration-500 ${
                     index <= currentStep 
                       ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
                       : 'bg-white/20 text-white/40'
                   }`}>
                     {step.icon}
                   </div>
-                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 text-center">
-                    <div className="text-white/90 font-medium text-sm">{step.title}</div>
-                    <div className="text-white/60 text-xs mt-1 max-w-32">{step.description}</div>
+                  <div className="absolute top-10 sm:top-16 left-1/2 transform -translate-x-1/2 text-center w-24 sm:w-32">
+                    <div className="text-white/90 font-medium text-xs sm:text-sm">{step.title}</div>
+                    <div className="text-white/60 text-[10px] sm:text-xs mt-1 max-w-32">{step.description}</div>
                   </div>
                 </div>
               ))}
@@ -426,11 +425,11 @@ export default function AdminDemoPage() {
                   <h2 className="text-2xl font-bold text-white">ניהול חבילות</h2>
                 </div>
                 
-                <div className="grid lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
                   {/* רשימת חבילות קיימות */}
                   <div>
                     <h3 className="text-xl font-semibold text-white mb-4">חבילות במערכת</h3>
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                    <div className="space-y-2 sm:space-y-4 max-h-60 sm:max-h-96 overflow-y-auto pr-1">
                       {packages.map((pkg) => (
                         <motion.div
                           key={pkg.id}
@@ -443,7 +442,7 @@ export default function AdminDemoPage() {
                           }`}
                           onClick={() => setSelectedPackage(pkg)}
                         >
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start justify-between flex-wrap gap-2">
                             <div className="flex items-start gap-3">
                               <div className="text-2xl">
                                 {getSizeIcon(pkg.size)}
@@ -455,7 +454,7 @@ export default function AdminDemoPage() {
                                     {getStatusText(pkg.status)}
                                   </span>
                                 </div>
-                                <div className="text-sm text-white/70">
+                                <div className="text-xs sm:text-sm text-white/70">
                                   <p>קוד: {pkg.trackingCode}</p>
                                   <p>לקוח: {pkg.customerName}</p>
                                   {pkg.cellNumber && <p>תא: #{pkg.cellNumber}</p>}
@@ -484,7 +483,7 @@ export default function AdminDemoPage() {
                   {/* הוספת חבילה חדשה */}
                   <div>
                     <h3 className="text-xl font-semibold text-white mb-4">הוספת חבילה חדשה</h3>
-                    <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                    <div className="bg-white/5 rounded-xl p-3 sm:p-6 border border-white/10">
                       <div className="space-y-4">
                         <div>
                           <label className="block text-white/70 text-sm mb-2">תיאור החבילה</label>
@@ -602,7 +601,7 @@ export default function AdminDemoPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-4">
                   {locker.cells.map((cell) => (
                     <motion.div
                       key={cell.id}
@@ -617,10 +616,10 @@ export default function AdminDemoPage() {
                       }`}
                       onClick={() => handleSelectCell(cell)}
                     >
-                      <div className="h-full flex flex-col items-center justify-center p-2">
+                      <div className="h-full flex flex-col items-center justify-center p-1 sm:p-2">
                         <div className="text-2xl mb-1">{getSizeIcon(cell.size)}</div>
-                        <div className="text-xs font-bold text-white">#{cell.cellNumber}</div>
-                        <div className={`text-xs ${getSizeColor(cell.size)}`}>{cell.size}</div>
+                        <div className="text-xs sm:text-base font-bold text-white">#{cell.cellNumber}</div>
+                        <div className={`text-[10px] sm:text-xs ${getSizeColor(cell.size)}`}>{cell.size}</div>
                         {cell.hasPackage && (
                           <div className="w-2 h-2 bg-red-400 rounded-full mt-1"></div>
                         )}
@@ -647,10 +646,10 @@ export default function AdminDemoPage() {
                 </div>
                 
                 <div className="text-center">
-                  <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
-                    <div className="text-3xl mb-4">{getSizeIcon(selectedPackage.size)}</div>
-                    <h3 className="text-xl font-semibold text-white mb-2">{selectedPackage.description}</h3>
-                    <div className="text-white/70 space-y-1">
+                  <div className="bg-white/5 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+                    <div className="text-3xl mb-2 sm:mb-4">{getSizeIcon(selectedPackage.size)}</div>
+                    <h3 className="text-base sm:text-xl font-semibold text-white mb-1 sm:mb-2">{selectedPackage.description}</h3>
+                    <div className="text-white/70 space-y-1 text-xs sm:text-base">
                       <p>לקוח: {selectedPackage.customerName}</p>
                       <p>טלפון: {selectedPackage.customerPhone}</p>
                       {selectedPackage.cellNumber && <p>תא: #{selectedPackage.cellNumber}</p>}
@@ -658,7 +657,7 @@ export default function AdminDemoPage() {
                   </div>
                   
                   {selectedPackage.status === 'ASSIGNED' && !isProcessing && (
-                    <div className="space-y-4">
+                    <div className="space-y-2 sm:space-y-4">
                       <div className="bg-green-500/20 rounded-xl p-4 border border-green-400/30">
                         <div className="text-2xl mb-2">✅</div>
                         <h4 className="text-lg font-semibold text-green-400 mb-2">התא נפתח בהצלחה!</h4>
@@ -667,7 +666,7 @@ export default function AdminDemoPage() {
                       
                       <button
                         onClick={handleConfirmDelivery}
-                        className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105"
+                        className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 text-xs sm:text-base"
                       >
                         ✅ אישור הכנסה לתא
                       </button>
@@ -707,10 +706,10 @@ export default function AdminDemoPage() {
                 </div>
                 
                 <div className="text-center">
-                  <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
-                    <div className="text-3xl mb-4">✅</div>
-                    <h3 className="text-xl font-semibold text-white mb-2">החבילה הוכנסה בהצלחה!</h3>
-                    <div className="text-white/70 space-y-1">
+                  <div className="bg-white/5 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+                    <div className="text-3xl mb-2 sm:mb-4">✅</div>
+                    <h3 className="text-base sm:text-xl font-semibold text-white mb-1 sm:mb-2">החבילה הוכנסה בהצלחה!</h3>
+                    <div className="text-white/70 space-y-1 text-xs sm:text-base">
                       <p>חבילה: {selectedPackage.description}</p>
                       <p>תא: #{selectedPackage.cellNumber}</p>
                       <p>מיקום: {selectedPackage.lockerLocation}</p>
@@ -718,10 +717,10 @@ export default function AdminDemoPage() {
                     </div>
                   </div>
                   
-                  <div className="bg-blue-500/20 rounded-xl p-6 border border-blue-400/30 mb-6">
+                  <div className="bg-blue-500/20 rounded-xl p-3 sm:p-6 border border-blue-400/30 mb-4 sm:mb-6">
                     <div className="text-2xl mb-3">📨</div>
                     <h4 className="text-lg font-semibold text-blue-400 mb-3">תוכן ההודעה:</h4>
-                    <div className="bg-white/10 rounded-lg p-4 text-right">
+                    <div className="bg-white/10 rounded-lg p-2 sm:p-4 text-right">
                       <p className="text-white">
                         📦 חבילה מ-{selectedPackage.senderName} הגיעה!<br/>
                         קוד: {selectedPackage.trackingCode}<br/>
@@ -733,7 +732,7 @@ export default function AdminDemoPage() {
                   
                   <button
                     onClick={handleSendNotification}
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105"
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 text-xs sm:text-base"
                   >
                     📱 שלח הודעת SMS
                   </button>
@@ -750,17 +749,17 @@ export default function AdminDemoPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 max-w-md w-full text-center"
+                className="bg-white/10 backdrop-blur-xl rounded-2xl p-4 sm:p-8 border border-white/20 max-w-md w-full text-center"
               >
-                <div className="text-6xl mb-4">📱</div>
-                <h3 className="text-xl font-bold text-white mb-4">הודעה נשלחה!</h3>
-                <div className="bg-green-500/20 rounded-lg p-4 border border-green-400/30">
+                <div className="text-6xl mb-2 sm:mb-4">📱</div>
+                <h3 className="text-base sm:text-xl font-bold text-white mb-2 sm:mb-4">הודעה נשלחה!</h3>
+                <div className="bg-green-500/20 rounded-lg p-2 sm:p-4 border border-green-400/30">
                   <p className="text-white text-sm">{notificationMessage}</p>
                 </div>
                 <div className="mt-4 text-white/70 text-sm">
@@ -778,51 +777,51 @@ export default function AdminDemoPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 max-w-md w-full"
+                className="bg-white/10 backdrop-blur-xl rounded-2xl p-4 sm:p-8 border border-white/20 max-w-md w-full"
               >
-                <div className="text-center mb-6">
-                  <div className="text-4xl mb-3">🔗</div>
-                  <h3 className="text-xl font-bold text-white mb-2">אישור שיוך לתא</h3>
+                <div className="text-center mb-3 sm:mb-6">
+                  <div className="text-4xl mb-1 sm:mb-3">🔗</div>
+                  <h3 className="text-base sm:text-xl font-bold text-white mb-1 sm:mb-2">אישור שיוך לתא</h3>
                 </div>
                 
-                <div className="space-y-4 mb-6">
-                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="space-y-2 sm:space-y-4 mb-3 sm:mb-6">
+                  <div className="bg-white/5 rounded-lg p-2 sm:p-4 border border-white/10">
                     <div className="text-center">
-                      <div className="text-2xl mb-2">{getSizeIcon(selectedPackage.size)}</div>
+                      <div className="text-2xl mb-1 sm:mb-2">{getSizeIcon(selectedPackage.size)}</div>
                       <h4 className="font-semibold text-white">{selectedPackage.description}</h4>
                       <p className="text-white/70 text-sm">גודל: {selectedPackage.size}</p>
                     </div>
                   </div>
                   
-                  <div className="text-center text-white/60">↓</div>
+                  <div className="text-center text-white/60 text-xs sm:text-base">↓</div>
                   
-                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                  <div className="bg-white/5 rounded-lg p-2 sm:p-4 border border-white/10">
                     <div className="text-center">
-                      <div className="text-2xl mb-2">{getSizeIcon(selectedCell.size)}</div>
+                      <div className="text-2xl mb-1 sm:mb-2">{getSizeIcon(selectedCell.size)}</div>
                       <h4 className="font-semibold text-white">תא #{selectedCell.cellNumber}</h4>
                       <p className="text-white/70 text-sm">גודל: {selectedCell.size}</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <button
                     onClick={handleAssignToCell}
                     disabled={isProcessing}
-                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-all duration-300 text-xs sm:text-base"
                   >
                     {isProcessing ? 'פותח תא...' : '✅ אישור ופתיחה'}
                   </button>
                   <button
                     onClick={() => setShowAssignCell(false)}
                     disabled={isProcessing}
-                    className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+                    className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-all duration-300 text-xs sm:text-base"
                   >
                     ביטול
                   </button>

@@ -222,52 +222,51 @@ export default function CustomerDemoPage() {
         ))}
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
+      <div className="relative z-10 container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-4 sm:mb-8"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2">
             <button
               onClick={() => router.push('/demo')}
-              className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm sm:text-base"
             >
               <span>←</span>
               <span>חזרה לדף הבחירה</span>
             </button>
-            <div className="text-2xl">👤</div>
+            <div className="text-xl sm:text-2xl">👤</div>
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-black text-transparent bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text mb-4">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-transparent bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text mb-2 sm:mb-4">
             לקוח דמה
           </h1>
-          <p className="text-white/80 text-lg mb-8">
+          <p className="text-white/80 text-base sm:text-lg mb-4 sm:mb-8">
             התנסו במסע המלא של לקוח במערכת הלוקרים החכמה
           </p>
 
           {/* Progress Bar */}
-          <div className="max-w-4xl mx-auto mb-8">
-            <div className="flex justify-between items-center relative">
+          <div className="max-w-full sm:max-w-4xl mx-auto mb-4 sm:mb-8 px-1">
+            <div className="flex justify-between items-center relative overflow-x-auto scrollbar-thin scrollbar-thumb-blue-400/30 scrollbar-track-transparent">
               <div className="absolute top-1/2 left-0 right-0 h-1 bg-white/20 rounded-full"></div>
               <div 
                 className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
                 style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
               ></div>
-              
               {steps.map((step, index) => (
-                <div key={index} className="relative z-10">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-500 ${
+                <div key={index} className="relative z-10 min-w-[60px] sm:min-w-[80px]">
+                  <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-xl transition-all duration-500 ${
                     index <= currentStep 
-                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white' 
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
                       : 'bg-white/20 text-white/40'
                   }`}>
                     {step.icon}
                   </div>
-                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 text-center">
-                    <div className="text-white/90 font-medium text-sm">{step.title}</div>
-                    <div className="text-white/60 text-xs mt-1 max-w-32">{step.description}</div>
+                  <div className="absolute top-10 sm:top-16 left-1/2 transform -translate-x-1/2 text-center w-24 sm:w-32">
+                    <div className="text-white/90 font-medium text-xs sm:text-sm">{step.title}</div>
+                    <div className="text-white/60 text-[10px] sm:text-xs mt-1 max-w-32">{step.description}</div>
                   </div>
                 </div>
               ))}
@@ -352,7 +351,7 @@ export default function CustomerDemoPage() {
                   <h2 className="text-2xl font-bold text-white">החבילות שלי</h2>
                 </div>
                 
-                <div className="grid gap-6">
+                <div className="grid gap-2 sm:gap-6">
                   {demoPackages.map((pkg) => (
                     <motion.div
                       key={pkg.id}
@@ -361,7 +360,7 @@ export default function CustomerDemoPage() {
                       className="bg-white/5 rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
                       onClick={() => handlePackageSelect(pkg)}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between flex-wrap gap-2">
                         <div className="flex items-start gap-4">
                           <div className="text-3xl">
                             {getSizeIcon(pkg.size)}
@@ -428,10 +427,10 @@ export default function CustomerDemoPage() {
                 </div>
                 
                 <div className="text-center mb-8">
-                  <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
-                    <div className="text-3xl mb-4">{getSizeIcon(selectedPackage.size)}</div>
-                    <h3 className="text-xl font-semibold text-white mb-2">{selectedPackage.description}</h3>
-                    <div className="text-white/70 space-y-1">
+                  <div className="bg-white/5 rounded-xl p-3 sm:p-6 border border-white/10 mb-4 sm:mb-6">
+                    <div className="text-3xl mb-2 sm:mb-4">{getSizeIcon(selectedPackage.size)}</div>
+                    <h3 className="text-base sm:text-xl font-semibold text-white mb-1 sm:mb-2">{selectedPackage.description}</h3>
+                    <div className="text-white/70 space-y-1 text-xs sm:text-base">
                       <p>קוד מעקב: <span className="font-mono text-white">{selectedPackage.trackingCode}</span></p>
                       <p>מיקום: <span className="text-white">{selectedPackage.lockerLocation}</span></p>
                       <p>תא: <span className="text-white">#{selectedPackage.cellNumber}</span></p>
@@ -441,14 +440,14 @@ export default function CustomerDemoPage() {
                   {!showScanner && !isUnlocking && (
                     <button
                       onClick={handleScanCode}
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 text-lg"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-4 sm:px-8 py-2 sm:py-4 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 text-xs sm:text-base"
                     >
                       📱 סרוק QR קוד
                     </button>
                   )}
                   
                   {showScanner && (
-                    <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl p-8 border border-purple-400/30">
+                    <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl p-4 sm:p-8 border border-purple-400/30">
                       <div className="text-6xl mb-4 animate-pulse">📱</div>
                       <h3 className="text-xl font-semibold text-white mb-2">סורק QR קוד...</h3>
                       <p className="text-white/70">הנח את הטלפון מול הקוד על הלוקר</p>
@@ -459,7 +458,7 @@ export default function CustomerDemoPage() {
                   )}
                   
                   {isUnlocking && (
-                    <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl p-8 border border-green-400/30">
+                    <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl p-4 sm:p-8 border border-green-400/30">
                       <div className="text-6xl mb-4 animate-bounce">🔓</div>
                       <h3 className="text-xl font-semibold text-white mb-2">פותח תא...</h3>
                       <p className="text-white/70">התא נפתח בעוד רגע</p>
@@ -490,17 +489,17 @@ export default function CustomerDemoPage() {
                   החבילה נאספה בהצלחה. תודה שהשתמשת במערכת הלוקרים החכמה!
                 </p>
                 
-                <div className="bg-green-500/20 rounded-xl p-6 border border-green-400/30 mb-8">
-                  <div className="text-2xl mb-2">✅</div>
-                  <h3 className="text-lg font-semibold text-green-400 mb-2">פרטי האיסוף</h3>
-                  <div className="text-white/80 space-y-1">
+                <div className="bg-green-500/20 rounded-xl p-3 sm:p-6 border border-green-400/30 mb-4 sm:mb-8">
+                  <div className="text-2xl mb-1 sm:mb-2">✅</div>
+                  <h3 className="text-base sm:text-lg font-semibold text-green-400 mb-1 sm:mb-2">פרטי האיסוף</h3>
+                  <div className="text-white/80 space-y-1 text-xs sm:text-base">
                     <p>חבילה: {selectedPackage?.description}</p>
                     <p>תאריך איסוף: {new Date().toLocaleDateString('he-IL')}</p>
                     <p>שעת איסוף: {new Date().toLocaleTimeString('he-IL')}</p>
                   </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center">
                   <button
                     onClick={() => {
                       setCurrentStep(1)
