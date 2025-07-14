@@ -43,6 +43,8 @@ export default function LockersManagementPage() {
   const [selectedLiveLocker, setSelectedLiveLocker] = useState<any>(null)
   const [predefinedLockers, setPredefinedLockers] = useState<Locker[]>([])
   const [showCreateNewOption, setShowCreateNewOption] = useState(false)
+  const [showPackageDialog, setShowPackageDialog] = useState(false)
+  const [selectedCellForPackage, setSelectedCellForPackage] = useState<{cell: Cell, lockerId: number} | null>(null)
   
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
@@ -216,43 +218,89 @@ export default function LockersManagementPage() {
     console.log('📊 מתחיל לטעון לוקרים...')
     try {
       setLoading(true)
-      console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
-      const response = await fetch('/api/admin/lockers-management')
-      console.log('📡 תגובה מהשרת:', response.status, response.statusText)
       
-      if (!response.ok) {
-        console.error('❌ HTTP Error:', response.status, response.statusText)
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      // יצירת נתוני דמה - 3 לוקרים עם 16 תאים כל אחד
+      const demoLockers: Locker[] = [
+        {
+          id: 1,
+          name: 'לוקר ראשי - קומה 1',
+          location: 'כניסה ראשית',
+          description: 'לוקר מרכזי עם 16 תאים בגדלים שונים',
+          ip: '192.168.1.100',
+          port: 80,
+          deviceId: 'ESP32_001',
+          status: 'ONLINE',
+          lastSeen: new Date().toISOString(),
+          isActive: true,
+          cells: []
+        },
+        {
+          id: 2,
+          name: 'לוקר משני - קומה 2',
+          location: 'מחלקת משאבי אנוש',
+          description: 'לוקר משני עם 16 תאים בגדלים שונים',
+          ip: '192.168.1.101',
+          port: 80,
+          deviceId: 'ESP32_002',
+          status: 'ONLINE',
+          lastSeen: new Date().toISOString(),
+          isActive: true,
+          cells: []
+        },
+        {
+          id: 3,
+          name: 'לוקר מחלקת IT',
+          location: 'חדר שרתים',
+          description: 'לוקר מיוחד למחלקת IT עם 16 תאים',
+          ip: '192.168.1.102',
+          port: 80,
+          deviceId: 'ESP32_003',
+          status: 'OFFLINE',
+          lastSeen: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+          isActive: true,
+          cells: []
+        }
+      ]
+
+      // יצירת 16 תאים לכל לוקר
+      const sizes = ['SMALL', 'MEDIUM', 'LARGE', 'WIDE']
+      const packages = [
+        { name: 'חבילת Amazon', recipient: 'יוסי כהן', trackingCode: 'AMZ123456' },
+        { name: 'מסמכים חשובים', recipient: 'שרה לוי', trackingCode: 'DOC789012' },
+        { name: 'ספר לימוד', recipient: 'דוד מזרחי', trackingCode: 'BOOK345678' },
+        { name: 'חבילת AliExpress', recipient: 'מירי גולדשטיין', trackingCode: 'ALI901234' },
+        { name: 'תרופות', recipient: 'אברהם שמעון', trackingCode: 'MED567890' },
+        null, null, null, null, null, null, null, null, null, null, null
+      ]
+
+      demoLockers.forEach((locker, lockerIndex) => {
+        locker.cells = Array.from({ length: 16 }, (_, cellIndex) => {
+          const cellNumber = cellIndex + 1
+          const size = sizes[cellIndex % sizes.length]
+          const hasPackage = packages[cellIndex] !== null
+          const packageInfo = packages[cellIndex]
+          
+          return {
+            id: (lockerIndex + 1) * 100 + cellNumber,
+            cellNumber,
+            code: `LOC${String(locker.id).padStart(3, '0')}_CELL${String(cellNumber).padStart(2, '0')}`,
+            name: `תא ${cellNumber}`,
+            size,
+            status: hasPackage ? 'OCCUPIED' : 'AVAILABLE',
+            isLocked: hasPackage,
+            isActive: true,
+            lockerId: locker.id,
+            openCount: hasPackage ? 1 : 0,
+            lastOpenedAt: hasPackage ? new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24).toISOString() : undefined,
+            packageInfo
+          } as Cell & { packageInfo?: any }
+        })
+      })
       
-      console.log('📋 מפענח JSON...')
-      const data = await response.json()
-      console.log('✅ נתונים התקבלו:', data)
-      
-      if (data.success && Array.isArray(data.lockers)) {
-        const validatedLockers = data.lockers.map((locker: any) => ({
-          ...locker,
-          id: locker.id || Math.random(),
-          cells: Array.isArray(locker.cells) ? locker.cells.map((cell: any) => ({
-            ...cell,
-            id: cell.id || Math.random(),
-            cellNumber: cell.cellNumber || cell.id || Math.random()
-          })) : []
-        }))
-        
-        console.log(' מעדכן רשימת לוקרים:', validatedLockers.length, 'לוקרים')
-        setLockers(validatedLockers)
-      } else {
-        console.error('שגיאה בטעינת לוקרים:', data.error)
-        setLockers([])
-      }
+      console.log('✅ נתוני דמה נטענו:', demoLockers.length, 'לוקרים')
+      setLockers(demoLockers)
     } catch (error) {
       console.error('❌ שגיאה בטעינת לוקרים:', error)
-      console.error('🔍 פרטי השגיאה:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : 'No stack'
-      })
       setLockers([])
     } finally {
       setLoading(false)
@@ -594,34 +642,120 @@ export default function LockersManagementPage() {
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
 
     try {
-      const response = await fetch('/api/admin/cell-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cellId,
-          lockerId,
-          action,
-          userId: 'admin'
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      // סימולציה של פתיחת תא
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
-      if (data.success) {
-        alert(`פקודת ${action === 'open' ? 'פתיחה' : 'סגירה'} נשלחה בהצלחה!`)
-        await loadLockers()
-      } else {
-        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
-      }
+      // עדכון מקומי של הסטטוס
+      setLockers(prev => prev.map(locker => 
+        locker.id === lockerId 
+          ? {
+              ...locker,
+              cells: locker.cells.map(cell => 
+                cell.id === cellId 
+                  ? { ...cell, isLocked: action === 'close' }
+                  : cell
+              )
+            }
+          : locker
+      ))
+
+      alert(`תא ${action === 'open' ? 'נפתח' : 'נסגר'} בהצלחה!`)
     } catch (error) {
       console.error('שגיאה בבקרת תא:', error)
       alert('שגיאה בבקרת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     } finally {
       setControlLoading(prev => ({ ...prev, [controlKey]: false }))
+    }
+  }
+
+  const openPackageDialog = (cell: Cell, lockerId: number) => {
+    setSelectedCellForPackage({ cell, lockerId })
+    setShowPackageDialog(true)
+  }
+
+  const placePackage = async (packageData: {
+    recipientName: string
+    recipientPhone: string
+    packageType: string
+    trackingCode: string
+  }) => {
+    if (!selectedCellForPackage) return
+
+    const { cell, lockerId } = selectedCellForPackage
+    
+    try {
+      // סימולציה של הכנסת חבילה
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // עדכון התא עם פרטי החבילה
+      setLockers(prev => prev.map(locker => 
+        locker.id === lockerId 
+          ? {
+              ...locker,
+              cells: locker.cells.map(c => 
+                c.id === cell.id 
+                  ? { 
+                      ...c, 
+                      status: 'OCCUPIED',
+                      isLocked: true,
+                      packageInfo: packageData,
+                      lastOpenedAt: new Date().toISOString()
+                    }
+                  : c
+              )
+            }
+          : locker
+      ))
+
+      // סימולציה של שליחת הודעה ללקוח
+      console.log('📱 שולח הודעה ללקוח:', packageData.recipientPhone)
+      console.log('💌 תוכן ההודעה:', `
+        שלום ${packageData.recipientName},
+        החבילה שלך (${packageData.packageType}) הגיעה!
+        קוד איסוף: ${packageData.trackingCode}
+        תא: ${cell.name}
+        מיקום: ${lockers.find(l => l.id === lockerId)?.location}
+      `)
+
+      alert('החבילה הוכנסה בהצלחה והודעה נשלחה ללקוח!')
+      setShowPackageDialog(false)
+      setSelectedCellForPackage(null)
+    } catch (error) {
+      console.error('שגיאה בהכנסת חבילה:', error)
+      alert('שגיאה בהכנסת חבילה')
+    }
+  }
+
+  const removePackage = async (cellId: number, lockerId: number) => {
+    if (!confirm('האם אתה בטוח שברצונך להוציא את החבילה מהתא?')) return
+
+    try {
+      // סימולציה של הוצאת חבילה
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // עדכון התא - הפיכה לריק
+      setLockers(prev => prev.map(locker => 
+        locker.id === lockerId 
+          ? {
+              ...locker,
+              cells: locker.cells.map(cell => 
+                cell.id === cellId 
+                  ? { 
+                      ...cell, 
+                      status: 'AVAILABLE',
+                      isLocked: false,
+                      packageInfo: undefined
+                    }
+                  : cell
+              )
+            }
+          : locker
+      ))
+
+      alert('החבילה הוצאה בהצלחה!')
+    } catch (error) {
+      console.error('שגיאה בהוצאת חבילה:', error)
+      alert('שגיאה בהוצאת חבילה')
     }
   }
 
@@ -667,34 +801,8 @@ export default function LockersManagementPage() {
           </div>
         </div>
 
-        {/* הודעה כשאין לוקרים חיים */}
-        {Object.keys(liveLockers).length === 0 && (
-          <div className="mb-6 sm:mb-8">
-            <div className="bg-blue-500/10 backdrop-blur-md rounded-lg p-6 border border-blue-400/30 text-center">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-xl font-bold text-blue-400 mb-2">מחפש לוקרים חיים...</h3>
-              <p className="text-white/70 mb-4">
-                המערכת מחפשת לוקרים אמיתיים המחוברים לשרת החומרה בזמן אמת.
-              </p>
-              <div className="flex items-center justify-center gap-2 text-sm text-white/60 mb-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  wsStatus === 'מחובר' ? 'bg-green-400 animate-pulse' : 
-                  wsStatus === 'מתחבר' ? 'bg-yellow-400 animate-pulse' : 
-                  'bg-red-400'
-                }`}></div>
-                <span>סטטוס חיבור לשרת החומרה: {wsStatus}</span>
-              </div>
-              {wsStatus !== 'מחובר' && (
-                <p className="text-orange-300 text-sm">
-                  💡 וודא שהשרת החומרה פועל על ws://localhost:3003
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* סטטוס WebSocket */}
-        <div className="mb-6">
+        <div className="mb-8">
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
@@ -713,92 +821,6 @@ export default function LockersManagementPage() {
             </div>
           </div>
         </div>
-
-        {/* לוקרים חיים בזמן אמת */}
-        {Object.keys(liveLockers).length > 0 && (
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-400 mb-4 flex items-center gap-2">
-              <span className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></span>
-              לוקרים חיים בזמן אמת ({Object.keys(liveLockers).length})
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {Object.values(liveLockers).map((liveLocker: any, index: number) => (
-                <div key={liveLocker.id || `live_${index}`} className="bg-blue-500/10 backdrop-blur-md rounded-lg p-4 sm:p-6 border border-blue-400/30 hover:bg-blue-500/20 transition-all">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-4 h-4 rounded-full ${liveLocker.isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                        <h3 className="text-lg font-bold text-white truncate">{String(liveLocker.id)}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          liveLocker.isOnline ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
-                        }`}>
-                          {liveLocker.isOnline ? 'מחובר' : 'מנותק'}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/70">
-                        <div>IP: {String(liveLocker.ip || 'לא מוגדר')}</div>
-                        <div>עדכון אחרון: {liveLocker.lastSeen ? new Date(liveLocker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</div>
-                        <div>תאים: {Object.keys(liveLocker.cells || {}).length}</div>
-                        <div>סטטוס: {liveLocker.isOnline ? '🟢 פעיל' : '🔴 לא פעיל'}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col gap-2 w-full sm:w-auto">
-                      <button
-                        onClick={() => openAssignDialog(liveLocker)}
-                        className="w-full sm:w-auto px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-sm transition-all"
-                      >
-                        🔗 שייך למערכת
-                      </button>
-                      {liveLocker.isOnline && (
-                        <button
-                          onClick={() => {
-                            // רענון נתוני הלוקר
-                            console.log('🔄 מרענן נתוני לוקר:', liveLocker.id)
-                          }}
-                          className="w-full sm:w-auto px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg text-sm transition-all"
-                        >
-                          🔄 רענן נתונים
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* תאים של הלוקר החי */}
-                  {liveLocker.cells && Object.keys(liveLocker.cells).length > 0 && (
-                    <div className="border-t border-white/10 pt-4">
-                      <h4 className="text-sm font-semibold text-white mb-3">תאים זמינים:</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {Object.entries(liveLocker.cells).map(([cellId, cellData]: [string, any]) => (
-                          <div key={`${liveLocker.id}-${cellId}`} className="bg-white/10 rounded-lg p-2 border border-white/20">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-white">תא {cellId}</span>
-                              <div className={`w-2 h-2 rounded-full ${
-                                cellData.locked ? 'bg-red-400' : 'bg-green-400'
-                              }`}></div>
-                            </div>
-                            <div className="text-xs text-white/60 mb-2">
-                              <div>{cellData.locked ? 'נעול' : 'פתוח'}</div>
-                              {cellData.hasPackage && <div className="text-orange-300">יש חבילה</div>}
-                            </div>
-                            <button
-                              onClick={() => unlockCell(liveLocker.id, cellId)}
-                              disabled={!liveLocker.isOnline || controlLoading[`${liveLocker.id}-${cellId}`]}
-                              className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
-                            >
-                              {controlLoading[`${liveLocker.id}-${cellId}`] ? 'פותח...' : '🔓 פתח'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="space-y-6">
           {lockers.map((locker, index) => (
@@ -862,8 +884,12 @@ export default function LockersManagementPage() {
                 
                 {locker.cells && locker.cells.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {locker.cells.map((cell, cellIndex) => (
-                      <div key={`${locker.id || index}-${cell.cellNumber || cell.id || cellIndex}`} className="bg-white/5 rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-all">
+                    {locker.cells.map((cell: any, cellIndex) => (
+                      <div key={`${locker.id || index}-${cell.cellNumber || cell.id || cellIndex}`} className={`rounded-lg p-3 border transition-all ${
+                        cell.status === 'OCCUPIED' 
+                          ? 'bg-red-500/10 border-red-400/30 hover:bg-red-500/20' 
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1 min-w-0">
                             <span className="font-medium text-white text-sm truncate block">{String(cell.name || `תא ${cell.cellNumber || cell.id}`)}</span>
@@ -873,20 +899,71 @@ export default function LockersManagementPage() {
                         </div>
                         
                         <div className="space-y-1 text-xs text-white/70 mb-3">
-                          <div>גודל: {String(cell.size || 'לא מוגדר')}</div>
-                          <div>סטטוס: {String(cell.status || 'לא מוגדר')}</div>
-                          <div>נעול: {cell.isLocked ? 'כן' : 'לא'}</div>
-                          <div>פעיל: {cell.isActive ? 'כן' : 'לא'}</div>
+                          <div className="flex items-center gap-1">
+                            <span>גודל:</span>
+                            <span className={`px-1 py-0.5 rounded text-xs ${
+                              cell.size === 'SMALL' ? 'bg-blue-500/20 text-blue-300' :
+                              cell.size === 'MEDIUM' ? 'bg-green-500/20 text-green-300' :
+                              cell.size === 'LARGE' ? 'bg-purple-500/20 text-purple-300' :
+                              'bg-orange-500/20 text-orange-300'
+                            }`}>
+                              {cell.size === 'SMALL' ? 'קטן' : cell.size === 'MEDIUM' ? 'בינוני' : cell.size === 'LARGE' ? 'גדול' : 'רחב'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span>סטטוס:</span>
+                            <span className={cell.status === 'AVAILABLE' ? 'text-green-300' : 'text-red-300'}>
+                              {cell.status === 'AVAILABLE' ? '🟢 ריק' : '🔴 מלא'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span>מצב:</span>
+                            <span className={cell.isLocked ? 'text-red-300' : 'text-green-300'}>
+                              {cell.isLocked ? '🔒 נעול' : '🔓 פתוח'}
+                            </span>
+                          </div>
                         </div>
 
+                        {/* פרטי החבילה אם קיימת */}
+                        {cell.packageInfo && (
+                          <div className="bg-white/10 rounded-lg p-2 mb-3 border border-white/20">
+                            <div className="text-xs text-white/90 font-medium mb-1">📦 {cell.packageInfo.name}</div>
+                            <div className="text-xs text-white/70 space-y-0.5">
+                              <div>לקוח: {cell.packageInfo.recipient}</div>
+                              <div>קוד: {cell.packageInfo.trackingCode}</div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => controlCell(cell.id, locker.id, 'open')}
-                            disabled={controlLoading[`${cell.id}-open`] || locker.status !== 'ONLINE'}
-                            className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
-                          >
-                            {controlLoading[`${cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
-                          </button>
+                          {/* כפתורי פעולה לפי סטטוס התא */}
+                          {cell.status === 'AVAILABLE' ? (
+                            <button
+                              onClick={() => openPackageDialog(cell, locker.id)}
+                              disabled={locker.status !== 'ONLINE'}
+                              className="w-full text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
+                            >
+                              📦 הכנס חבילה
+                            </button>
+                          ) : (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => controlCell(cell.id, locker.id, 'open')}
+                                disabled={controlLoading[`${cell.id}-open`] || locker.status !== 'ONLINE'}
+                                className="flex-1 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
+                              >
+                                {controlLoading[`${cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
+                              </button>
+                              <button
+                                onClick={() => removePackage(cell.id, locker.id)}
+                                className="flex-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 px-2 py-1 rounded transition-all"
+                                title="הוצא חבילה"
+                              >
+                                📤 הוצא
+                              </button>
+                            </div>
+                          )}
+                          
                           <div className="flex gap-1">
                             <button
                               onClick={() => {
@@ -989,6 +1066,18 @@ export default function LockersManagementPage() {
             onCancel={() => {
               setShowCellForm(false)
               setSelectedCell(null)
+            }}
+          />
+        )}
+
+        {showPackageDialog && selectedCellForPackage && (
+          <PackageDialog
+            cell={selectedCellForPackage.cell}
+            lockerId={selectedCellForPackage.lockerId}
+            onSave={placePackage}
+            onCancel={() => {
+              setShowPackageDialog(false)
+              setSelectedCellForPackage(null)
             }}
           />
         )}
@@ -1288,6 +1377,133 @@ function CellForm({ cell, lockerId, maxCellNumber, onSave, onCancel }: {
               className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-all"
             >
               ביטול
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function PackageDialog({ cell, lockerId, onSave, onCancel }: {
+  cell: Cell
+  lockerId: number
+  onSave: (packageData: {
+    recipientName: string
+    recipientPhone: string
+    packageType: string
+    trackingCode: string
+  }) => void
+  onCancel: () => void
+}) {
+  const [formData, setFormData] = useState({
+    recipientName: '',
+    recipientPhone: '',
+    packageType: '',
+    trackingCode: ''
+  })
+
+  const generateTrackingCode = () => {
+    const prefix = 'LW'
+    const timestamp = Date.now().toString().slice(-6)
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase()
+    return `${prefix}${timestamp}${random}`
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trackingCode = formData.trackingCode || generateTrackingCode()
+    onSave({
+      ...formData,
+      trackingCode
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl max-w-md w-full p-6 border border-white/20">
+        <h3 className="text-2xl font-bold text-white mb-6 text-center">
+          📦 הכנסת חבילה לתא
+        </h3>
+        
+        <div className="bg-blue-500/10 rounded-lg p-4 mb-6 border border-blue-400/30">
+          <h4 className="text-lg font-semibold text-blue-400 mb-2">פרטי התא:</h4>
+          <div className="text-sm text-white/70 space-y-1">
+            <div>תא: {cell.name}</div>
+            <div>מספר: #{cell.cellNumber}</div>
+            <div>גודל: {cell.size === 'SMALL' ? 'קטן' : cell.size === 'MEDIUM' ? 'בינוני' : cell.size === 'LARGE' ? 'גדול' : 'רחב'}</div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-white/70 text-sm mb-2">שם הלקוח *</label>
+            <input
+              type="text"
+              value={formData.recipientName}
+              onChange={e => setFormData({...formData, recipientName: e.target.value})}
+              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
+              placeholder="יוסי כהן"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-white/70 text-sm mb-2">מספר טלפון *</label>
+            <input
+              type="tel"
+              value={formData.recipientPhone}
+              onChange={e => setFormData({...formData, recipientPhone: e.target.value})}
+              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
+              placeholder="050-1234567"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-white/70 text-sm mb-2">סוג החבילה *</label>
+            <select
+              value={formData.packageType}
+              onChange={e => setFormData({...formData, packageType: e.target.value})}
+              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">בחר סוג חבילה</option>
+              <option value="חבילת Amazon">חבילת Amazon</option>
+              <option value="חבילת AliExpress">חבילת AliExpress</option>
+              <option value="מסמכים">מסמכים</option>
+              <option value="ספר">ספר</option>
+              <option value="תרופות">תרופות</option>
+              <option value="בגדים">בגדים</option>
+              <option value="אלקטרוניקה">אלקטרוניקה</option>
+              <option value="אחר">אחר</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-white/70 text-sm mb-2">קוד מעקב (אופציונלי)</label>
+            <input
+              type="text"
+              value={formData.trackingCode}
+              onChange={e => setFormData({...formData, trackingCode: e.target.value})}
+              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
+              placeholder="יוצר אוטומטית אם לא מוזן"
+            />
+          </div>
+
+          <div className="flex gap-3 mt-8">
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all"
+            >
+              📦 הכנס חבילה
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 px-6 py-3 rounded-lg font-medium transition-all"
+            >
+              ❌ ביטול
             </button>
           </div>
         </form>
