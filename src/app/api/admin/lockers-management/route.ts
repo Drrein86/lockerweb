@@ -396,21 +396,21 @@ export async function PUT(request: NextRequest) {
           })
         } else {
           // עדכון תא קיים
-          const cell = await db.cell.update({
-            where: { id },
-            data: {
-              cellNumber,
-              name,
-              size,
-              code,
-              isActive
-            }
-          })
+        const cell = await db.cell.update({
+          where: { id },
+          data: {
+            cellNumber,
+            name,
+            size,
+            code,
+            isActive
+          }
+        })
 
-          return NextResponse.json({
-            success: true,
-            cell
-          })
+        return NextResponse.json({
+          success: true,
+          cell
+        })
         }
       } else {
         // Fallback - עדכון במערך המדומה

@@ -446,16 +446,16 @@ export default function LockersManagementPage() {
       }
 
       const requestBody = {
-        type: 'locker',
-        id: predefinedLockerId,
-        name: existingLocker.name,
-        location: existingLocker.location,
-        description: existingLocker.description,
-        deviceId: selectedLiveLocker.id,
-        ip: selectedLiveLocker.ip,
-        port: existingLocker.port || 80,
-        status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
-        isActive: existingLocker.isActive
+          type: 'locker',
+          id: predefinedLockerId,
+          name: existingLocker.name,
+          location: existingLocker.location,
+          description: existingLocker.description,
+          deviceId: selectedLiveLocker.id,
+          ip: selectedLiveLocker.ip,
+          port: existingLocker.port || 80,
+          status: selectedLiveLocker.isOnline ? 'ONLINE' : 'OFFLINE',
+          isActive: existingLocker.isActive
       }
       
       console.log('📤 שולח בקשת PUT עם נתונים:', requestBody)
@@ -646,6 +646,12 @@ export default function LockersManagementPage() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => window.open('/demo', '_blank')}
+              className="w-full sm:w-auto btn bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base font-bold shadow-lg"
+            >
+              🎯 דף הדגמה ללקוחות
+            </button>
             <button
               onClick={() => setShowLockerForm(true)}
               className="w-full sm:w-auto btn bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base"

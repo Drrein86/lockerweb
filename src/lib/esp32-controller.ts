@@ -62,7 +62,7 @@ class ESP32Controller {
     if (hasDatabase) {
       this.log('✅ מערכת ESP32 פועלת עם מסד נתונים PostgreSQL');
     } else {
-      this.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
+    this.log('✅ מערכת ESP32 פועלת במצב Mock (ללא מסד נתונים)');
     }
 
     // התחלת בדיקה תקופתית
