@@ -32,8 +32,6 @@ export default function DemoPage() {
     }
   }
 
-
-
   const handleModeSelect = (mode: 'customer' | 'admin') => {
     setSelectedMode(mode)
     setShowLogin(true)
@@ -58,17 +56,17 @@ export default function DemoPage() {
 
       {/* כוכבים נוצצים */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(100)].map((_, i) => (
+        {[...Array(50)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-white rounded-full opacity-50"
+            className="absolute w-1 h-1 bg-white rounded-full opacity-30"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
             }}
             animate={{
-              opacity: [0.2, 1, 0.2],
-              scale: [0.5, 1.5, 0.5],
+              opacity: [0.1, 0.8, 0.1],
+              scale: [0.5, 1.2, 0.5],
             }}
             transition={{
               duration: Math.random() * 3 + 2,
@@ -79,7 +77,7 @@ export default function DemoPage() {
         ))}
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
+      <div className="relative z-10 container mx-auto px-4">
         <AnimatePresence mode="wait">
           {!showLogin ? (
             // דף בחירת מצב
@@ -89,137 +87,150 @@ export default function DemoPage() {
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="min-h-screen flex flex-col items-center justify-center"
             >
-              {/* כותרת ראשית */}
-              <motion.div
-                variants={itemVariants}
-                className="text-center mb-16"
-              >
-                <motion.h1 
-                  className="text-6xl md:text-8xl font-black text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-blue-400 bg-clip-text mb-6"
-                  animate={{ y: [-10, 10, -10] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  LockerWeb
-                </motion.h1>
-                <motion.p 
-                  className="text-xl md:text-2xl text-white/80 font-light max-w-2xl mx-auto leading-relaxed"
-                  variants={itemVariants}
-                >
-                  מערכת לוקרים חכמה ומתקדמת לעתיד הלוגיסטיקה
-                </motion.p>
-                <motion.div
-                  variants={itemVariants}
-                  className="mt-8 px-8 py-3 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full border border-purple-400/30 backdrop-blur-sm inline-block"
-                >
-                  <span className="text-purple-300 font-medium">🚀 הדגמה אינטראקטיבית</span>
+              {/* חלק עליון - כותרת ותיאור */}
+              <div className="pt-16 pb-8 text-center">
+                <motion.div variants={itemVariants}>
+                  <motion.h1 
+                    className="text-5xl md:text-7xl font-black text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-blue-400 bg-clip-text mb-6"
+                    animate={{ y: [-5, 5, -5] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    LockerWeb
+                  </motion.h1>
+                  <motion.p 
+                    className="text-xl md:text-2xl text-white/80 font-light max-w-3xl mx-auto leading-relaxed mb-8"
+                    variants={itemVariants}
+                  >
+                    מערכת לוקרים חכמה ומתקדמת לעתיד הלוגיסטיקה
+                  </motion.p>
+                  <motion.div
+                    variants={itemVariants}
+                    className="px-8 py-3 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full border border-purple-400/30 backdrop-blur-sm inline-block"
+                  >
+                    <span className="text-purple-300 font-medium">🚀 הדגמה אינטראקטיבית מלאה</span>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
+              </div>
 
-              {/* בחירת מצב */}
-              <motion.div
-                variants={itemVariants}
-                className="grid md:grid-cols-2 gap-8 max-w-4xl w-full"
-              >
-                {/* מצב לקוח */}
+              {/* רווח */}
+              <div className="py-12"></div>
+
+              {/* חלק תחתון - בחירת מצב */}
+              <div className="pb-16">
                 <motion.div
-                  onClick={() => handleModeSelect('customer')}
-                  className="group relative cursor-pointer"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  variants={itemVariants}
+                  className="text-center mb-12"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-2xl blur-xl transition-all duration-500 group-hover:blur-2xl"></div>
-                  <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 hover:border-blue-400/50 transition-all duration-500">
-                    <div className="text-center">
-                      <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform duration-300">
-                        👤
-                      </div>
-                      <h3 className="text-2xl font-bold text-white mb-4">
-                        חווית לקוח
-                      </h3>
-                      <p className="text-white/70 mb-6 leading-relaxed">
-                        התנסו במסע המלא של לקוח - קבלת הודעות, איסוף חבילות ופתיחת תאים
-                      </p>
-                      <div className="space-y-2 text-sm text-white/60">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                          <span>קבלת הודעות SMS</span>
+                  <h2 className="text-3xl font-bold text-white mb-4">בחרו מצב הדגמה</h2>
+                  <p className="text-white/60 text-lg max-w-2xl mx-auto">
+                    התנסו בחוויה המלאה של המערכת מנקודת מבט של לקוח או אדמין
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  variants={itemVariants}
+                  className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+                >
+                  {/* מצב לקוח */}
+                  <motion.div
+                    onClick={() => handleModeSelect('customer')}
+                    className="group relative cursor-pointer"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-2xl blur-xl transition-all duration-500 group-hover:blur-2xl"></div>
+                    <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 hover:border-blue-400/50 transition-all duration-500">
+                      <div className="text-center">
+                        <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform duration-300">
+                          👤
                         </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                          <span>סריקת QR קוד</span>
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-pink-400 rounded-full"></span>
-                          <span>פתיחת תא בזמן אמת</span>
+                        <h3 className="text-2xl font-bold text-white mb-4">
+                          חווית לקוח
+                        </h3>
+                        <p className="text-white/70 mb-6 leading-relaxed">
+                          התנסו במסע המלא של לקוח - קבלת הודעות, איסוף חבילות ופתיחת תאים
+                        </p>
+                        <div className="space-y-2 text-sm text-white/60">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                            <span>קבלת הודעות SMS</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                            <span>סריקת QR קוד</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-pink-400 rounded-full"></span>
+                            <span>פתיחת תא בזמן אמת</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
 
-                {/* מצב אדמין */}
-                <motion.div
-                  onClick={() => handleModeSelect('admin')}
-                  className="group relative cursor-pointer"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-600/20 rounded-2xl blur-xl transition-all duration-500 group-hover:blur-2xl"></div>
-                  <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 hover:border-purple-400/50 transition-all duration-500">
-                    <div className="text-center">
-                      <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform duration-300">
-                        👨‍💼
-                      </div>
-                      <h3 className="text-2xl font-bold text-white mb-4">
-                        ממשק אדמין
-                      </h3>
-                      <p className="text-white/70 mb-6 leading-relaxed">
-                        נהלו את המערכת - הכנסת חבילות, שיוך לתאים ובקרה מלאה על הלוקרים
-                      </p>
-                      <div className="space-y-2 text-sm text-white/60">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                          <span>הוספת חבילות</span>
+                  {/* מצב אדמין */}
+                  <motion.div
+                    onClick={() => handleModeSelect('admin')}
+                    className="group relative cursor-pointer"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-600/20 rounded-2xl blur-xl transition-all duration-500 group-hover:blur-2xl"></div>
+                    <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 hover:border-purple-400/50 transition-all duration-500">
+                      <div className="text-center">
+                        <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform duration-300">
+                          👨‍💼
                         </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-pink-400 rounded-full"></span>
-                          <span>שיוך לתאים</span>
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                          <span>ניהול מלא</span>
+                        <h3 className="text-2xl font-bold text-white mb-4">
+                          ממשק אדמין
+                        </h3>
+                        <p className="text-white/70 mb-6 leading-relaxed">
+                          נהלו את המערכת - הכנסת חבילות, שיוך לתאים ובקרה מלאה על הלוקרים
+                        </p>
+                        <div className="space-y-2 text-sm text-white/60">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                            <span>הוספת חבילות</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-pink-400 rounded-full"></span>
+                            <span>שיוך לתאים</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                            <span>ניהול מלא</span>
+                          </div>
                         </div>
                       </div>
                     </div>
+                  </motion.div>
+                </motion.div>
+
+                {/* פיצרים */}
+                <motion.div
+                  variants={itemVariants}
+                  className="mt-16 text-center"
+                >
+                  <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+                      <div className="text-3xl mb-3">🚀</div>
+                      <h4 className="text-white font-semibold mb-2">טכנולוגיה מתקדמת</h4>
+                      <p className="text-white/60 text-sm">WebSocket, עדכונים בזמן אמת</p>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+                      <div className="text-3xl mb-3">📱</div>
+                      <h4 className="text-white font-semibold mb-2">ממשק נוח</h4>
+                      <p className="text-white/60 text-sm">עיצוב רספונסיבי ואינטואיטיבי</p>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+                      <div className="text-3xl mb-3">🔒</div>
+                      <h4 className="text-white font-semibold mb-2">אבטחה מתקדמת</h4>
+                      <p className="text-white/60 text-sm">הצפנה וקודים ייחודיים</p>
+                    </div>
                   </div>
                 </motion.div>
-              </motion.div>
-
-              {/* פיצרים */}
-              <motion.div
-                variants={itemVariants}
-                className="mt-16 text-center"
-              >
-                <div className="grid md:grid-cols-3 gap-6 max-w-4xl">
-                  <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-                    <div className="text-3xl mb-3">🚀</div>
-                    <h4 className="text-white font-semibold mb-2">טכנולוגיה מתקדמת</h4>
-                    <p className="text-white/60 text-sm">WebSocket, עדכונים בזמן אמת</p>
-                  </div>
-                  <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-                    <div className="text-3xl mb-3">📱</div>
-                    <h4 className="text-white font-semibold mb-2">ממשק נוח</h4>
-                    <p className="text-white/60 text-sm">עיצוב רספונסיבי ואינטואיטיבי</p>
-                  </div>
-                  <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-                    <div className="text-3xl mb-3">🔒</div>
-                    <h4 className="text-white font-semibold mb-2">אבטחה מתקדמת</h4>
-                    <p className="text-white/60 text-sm">הצפנה וקודים ייחודיים</p>
-                  </div>
-                </div>
-              </motion.div>
+              </div>
             </motion.div>
           ) : (
             // דף התחברות
@@ -229,7 +240,7 @@ export default function DemoPage() {
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="min-h-screen flex flex-col items-center justify-center"
+              className="min-h-screen flex flex-col items-center justify-center py-8"
             >
               <motion.div
                 variants={itemVariants}
