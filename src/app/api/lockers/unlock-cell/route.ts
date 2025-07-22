@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 }
 
 // פונקציה לשליחת פקודה ל-ESP32
-async function sendCommandToESP32(ip: string, port: number | null, command: any) {
+async function sendCommandToESP32(ip: string | null, port: number | null, command: any) {
   try {
     if (!ip) {
       return { success: false, message: 'כתובת IP לא זמינה' }

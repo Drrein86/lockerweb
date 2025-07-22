@@ -119,7 +119,7 @@ export async function GET(request: Request) {
 }
 
 // פונקציה לבדיקת סטטוס תא דרך ESP32
-async function checkCellStatusFromESP32(ip: string, port: number | null, cellNumber: string) {
+async function checkCellStatusFromESP32(ip: string | null, port: number | null, cellNumber: string) {
   try {
     if (!ip) {
       return { success: false, message: 'כתובת IP לא זמינה' }
