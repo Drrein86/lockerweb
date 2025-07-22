@@ -135,8 +135,7 @@ async function checkCellStatusFromESP32(ip: string, port: number | null, cellNum
       body: JSON.stringify({
         action: 'checkCell',
         cellId: cellNumber
-      }),
-      timeout: 5000 // 5 שניות timeout
+      })
     })
 
     if (!response.ok) {

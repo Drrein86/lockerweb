@@ -144,8 +144,7 @@ async function sendCommandToESP32(ip: string, port: number | null, command: any)
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(command),
-      timeout: 10000 // 10 שניות timeout
+      body: JSON.stringify(command)
     })
 
     if (!response.ok) {
