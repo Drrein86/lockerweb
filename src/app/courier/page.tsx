@@ -11,8 +11,8 @@ export default function CourierPage() {
   console.log('🌐 URL נוכחי בדף שליח:', typeof window !== 'undefined' ? window.location.href : 'SSR')
   const router = useRouter()
 
-  const handleSelectCell = () => {
-    router.push('/courier/select-cell')
+  const handleStartDelivery = () => {
+    router.push('/courier/location-search')
   }
 
   return (
@@ -45,17 +45,18 @@ export default function CourierPage() {
               <p className="text-blue-200 text-lg">ברוכים הבאים למערכת הכנסת מוצרים ללוקר</p>
             </div>
 
-            {/* כפתור בחירת תא */}
+            {/* כפתור התחלת משלוח */}
             <div className="text-center">
                 <button
-                onClick={handleSelectCell}
+                onClick={handleStartDelivery}
                 className="btn-primary text-xl px-12 py-4 transform hover:scale-105 transition-all duration-300 shadow-2xl"
               >
                 <div className="flex items-center justify-center gap-3">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                  בחר תא
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  התחל משלוח חדש
                     </div>
                 </button>
             </div>
@@ -71,19 +72,19 @@ export default function CourierPage() {
               <ul className="space-y-3 text-blue-200">
                 <li className="flex items-start gap-3">
                   <span className="text-blue-300 font-bold">1.</span>
-                  <span>לחץ על "בחר תא" כדי להתחיל</span>
+                  <span>לחץ על "התחל משלוח חדש" כדי להתחיל</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-blue-300 font-bold">2.</span>
-                  <span>המערכת תציג לך תאים פנויים לפי גודל</span>
+                  <span>הזן כתובת למשלוח כדי למצוא לוקרים באזור</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-blue-300 font-bold">3.</span>
-                  <span>בחר תא מתאים והמשך לתהליך ההכנסה</span>
+                  <span>בחר לוקר מתאים וגודל תא לחבילה</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-blue-300 font-bold">4.</span>
-                  <span>התא ייפתח אוטומטיות לאחר השלמת התהליך</span>
+                  <span>התא ייפתח אוטומטית להכנסת החבילה</span>
                 </li>
               </ul>
             </div>

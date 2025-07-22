@@ -2,20 +2,71 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-type PackageSize = 'קטן' | 'בינוני' | 'גדול' | 'רחב'
+type PackageSize = 'SMALL' | 'MEDIUM' | 'LARGE' | 'WIDE'
+
+interface LockerInfo {
+  id: number
+  name: string
+  location: string
+  description: string
+  cellsBySize: {
+    SMALL: number
+    MEDIUM: number
+    LARGE: number
+    WIDE: number
+  }
+}
 
 export default function SizeSelectionPage() {
   const [selectedSize, setSelectedSize] = useState<PackageSize | null>(null)
   const [loading, setLoading] = useState(false)
+  const [locker, setLocker] = useState<LockerInfo | null>(null)
+  const [loadingLocker, setLoadingLocker] = useState(true)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const lockerId = searchParams.get('lockerId')
+  const location = searchParams.get('location')
+
+  useEffect(() => {
+    if (lockerId) {
+      loadLockerInfo()
+    } else {
+      // אם אין lockerId, חזרה לדף החיפוש
+      router.push('/courier/location-search')
+    }
+  }, [lockerId])
+
+  const loadLockerInfo = async () => {
+    try {
+      const response = await fetch(`/api/lockers/by-location?location=${encodeURIComponent(location || '')}`)
+      const data = await response.json()
+      
+      if (data.found) {
+        const selectedLocker = data.lockers.find((l: LockerInfo) => l.id === parseInt(lockerId!))
+        if (selectedLocker) {
+          setLocker(selectedLocker)
+        } else {
+          // אם הלוקר לא נמצא, חזרה לדף החיפוש
+          router.push('/courier/location-search')
+        }
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת מידע לוקר:', error)
+      router.push('/courier/location-search')
+    } finally {
+      setLoadingLocker(false)
+    }
+  }
 
   const packageSizes = [
     {
-      size: 'קטן' as PackageSize,
+      size: 'SMALL' as PackageSize,
+      displayName: 'קטן',
       icon: '📱',
       description: 'עד 15x10x5 ס"מ',
       area: '150 ס"מ רבועים',
@@ -23,7 +74,8 @@ export default function SizeSelectionPage() {
       examples: ['טלפון נייד', 'ארנק', 'מפתחות']
     },
     {
-      size: 'בינוני' as PackageSize,
+      size: 'MEDIUM' as PackageSize,
+      displayName: 'בינוני',
       icon: '📦',
       description: 'עד 30x20x15 ס"מ',
       area: '600 ס"מ רבועים',
@@ -31,7 +83,8 @@ export default function SizeSelectionPage() {
       examples: ['ספר', 'קופסת נעליים קטנה', 'מוצרי קוסמטיקה']
     },
     {
-      size: 'גדול' as PackageSize,
+      size: 'LARGE' as PackageSize,
+      displayName: 'גדול',
       icon: '📦',
       description: 'עד 45x35x25 ס"מ',
       area: '1,575 ס"מ רבועים',
@@ -39,7 +92,8 @@ export default function SizeSelectionPage() {
       examples: ['קופסת נעליים', 'מוצרי אלקטרוניקה', 'בגדים']
     },
     {
-      size: 'רחב' as PackageSize,
+      size: 'WIDE' as PackageSize,
+      displayName: 'רחב',
       icon: '📦',
       description: 'עד 60x40x10 ס"מ',
       area: '2,400 ס"מ רבועים',
@@ -48,20 +102,27 @@ export default function SizeSelectionPage() {
     }
   ]
 
+  // סינון גדלים זמינים בלוקר הנבחר
+  const availableSizes = packageSizes.filter(pkg => 
+    locker ? locker.cellsBySize[pkg.size] > 0 : true
+  )
+
   const handleSizeSelection = async (size: PackageSize) => {
+    if (!locker || !lockerId) return
+    
     setSelectedSize(size)
     setLoading(true)
     
     try {
-      // בדיקת זמינות לוקרים/תאים לפי הגודל שנבחר
-      const response = await fetch(`/api/lockers/available?size=${size}`)
+      // בדיקת זמינות תאים בלוקר הספציפי לפי הגודל שנבחר
+      const response = await fetch(`/api/lockers/available?size=${size}&lockerId=${lockerId}`)
       const data = await response.json()
       
-      if (data.available) {
-        // מעבר לדף הצגת לוקרים/תאים זמינים לפי גודל
-        router.push(`/courier/lockers-by-size?size=${size}`)
+      if (data.available && data.cells.length > 0) {
+        // מעבר לדף בחירת תא ספציפי
+        router.push(`/courier/select-cell?lockerId=${lockerId}&size=${size}&location=${encodeURIComponent(location || '')}`)
       } else {
-        alert(`אין תאים זמינים בגודל ${size} כרגע`)
+        alert(`אין תאים זמינים בגודל ${getSizeDisplayName(size)} בלוקר זה כרגע`)
       }
     } catch (error) {
       console.error('שגיאה בבדיקת זמינות:', error)
@@ -69,6 +130,11 @@ export default function SizeSelectionPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getSizeDisplayName = (size: PackageSize) => {
+    const pkg = packageSizes.find(p => p.size === size)
+    return pkg?.displayName || size
   }
 
   return (
@@ -79,11 +145,11 @@ export default function SizeSelectionPage() {
       <div className="relative z-10 min-h-screen flex flex-col p-4">
         {/* כותרת עליונה */}
         <div className="flex items-center justify-between mb-8">
-          <Link href="/courier/select-cell" className="btn-secondary flex items-center gap-2">
+          <Link href={`/courier/location-search`} className="btn-secondary flex items-center gap-2">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            חזרה לבחירת תא
+            חזרה לחיפוש לוקרים
           </Link>
         </div>
 
@@ -99,21 +165,59 @@ export default function SizeSelectionPage() {
               </div>
               <h1 className="heading-primary">בחירת גודל מוצר</h1>
               <p className="text-gray-300 text-lg">בחר את הגודל המתאים למוצר שלך</p>
+              
+              {/* מידע על הלוקר הנבחר */}
+              {loadingLocker ? (
+                <div className="glass-card-sm">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    <span className="text-white/70">טוען מידע לוקר...</span>
+                  </div>
+                </div>
+              ) : locker && (
+                <div className="glass-card-sm">
+                  <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    לוקר נבחר: {locker.name}
+                  </h3>
+                  <p className="text-white/70 mb-3">{locker.location}</p>
+                  {locker.description && (
+                    <p className="text-white/60 text-sm mb-3">{locker.description}</p>
+                  )}
+                  <div className="flex gap-2 text-sm">
+                    {Object.entries(locker.cellsBySize).map(([size, count]) => (
+                      count > 0 && (
+                        <span key={size} className="bg-blue-500/20 px-2 py-1 rounded text-xs text-blue-200">
+                          {getSizeDisplayName(size as PackageSize)}: {count} זמינים
+                        </span>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* בחירת גודל */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {packageSizes.map((pkg) => (
-                <button
-                  key={pkg.size}
-                  onClick={() => handleSizeSelection(pkg.size)}
-                  disabled={loading}
-                  className={`
-                    relative glass-card text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105
-                    ${selectedSize === pkg.size ? 'ring-2 ring-white/50 bg-white/20' : ''}
-                    ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                  `}
-                >
+            {!loadingLocker && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {packageSizes.map((pkg) => {
+                  const isAvailable = locker ? locker.cellsBySize[pkg.size] > 0 : true
+                  const cellsCount = locker ? locker.cellsBySize[pkg.size] : 0
+                  
+                  return (
+                    <button
+                      key={pkg.size}
+                      onClick={() => isAvailable && handleSizeSelection(pkg.size)}
+                      disabled={loading || !isAvailable}
+                      className={`
+                        relative glass-card text-white transition-all duration-300 transform
+                        ${isAvailable ? 'hover:bg-white/20 hover:scale-105 cursor-pointer' : 'opacity-50 cursor-not-allowed bg-gray-500/20'}
+                        ${selectedSize === pkg.size ? 'ring-2 ring-white/50 bg-white/20' : ''}
+                        ${loading ? 'opacity-50 cursor-not-allowed' : ''}
+                      `}
+                    >
                   <div className="p-6">
                     {/* אייקון וכותרת */}
                     <div className="flex items-center gap-4 mb-4">
@@ -121,7 +225,18 @@ export default function SizeSelectionPage() {
                         {pkg.icon}
                       </div>
                       <div className="text-right flex-1">
-                        <h3 className="text-2xl font-bold mb-1">{pkg.size}</h3>
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-2xl font-bold">{pkg.displayName}</h3>
+                          {locker && (
+                            <span className={`text-sm px-2 py-1 rounded ${
+                              isAvailable 
+                                ? 'bg-green-500/20 text-green-300' 
+                                : 'bg-red-500/20 text-red-300'
+                            }`}>
+                              {isAvailable ? `${cellsCount} זמינים` : 'לא זמין'}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-gray-300 text-sm">{pkg.description}</p>
                         <p className="text-gray-400 text-xs">{pkg.area}</p>
                       </div>
@@ -152,8 +267,9 @@ export default function SizeSelectionPage() {
                     </div>
                   )}
                 </button>
-              ))}
+              )})}
             </div>
+          )}
 
             {/* מידע נוסף */}
             <div className="glass-card-sm">

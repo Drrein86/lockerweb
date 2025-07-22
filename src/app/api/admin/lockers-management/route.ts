@@ -206,7 +206,9 @@ export async function POST(request: NextRequest) {
             name,
             size: size || 'MEDIUM',
             code,
-            isActive: isActive ?? true
+            status: 'AVAILABLE',
+            isLocked: true,
+            isActive: false  // תאים חדשים מתחילים כלא פעילים עד חיבור WebSocket ראשון
           }
         })
 

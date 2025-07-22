@@ -62,7 +62,7 @@ async function main() {
         size: i <= 4 ? 'SMALL' : i <= 8 ? 'MEDIUM' : 'LARGE',
         status: 'AVAILABLE',
         isLocked: true,
-        isActive: true,
+        isActive: false,  // תאים מתחילים כלא פעילים עד חיבור WebSocket ראשון
         lockerId: locker1.id
       }
     });
@@ -77,7 +77,7 @@ async function main() {
         size: i <= 4 ? 'SMALL' : i <= 8 ? 'MEDIUM' : 'LARGE',
         status: 'AVAILABLE',
         isLocked: true,
-        isActive: true,
+        isActive: false,  // תאים מתחילים כלא פעילים עד חיבור WebSocket ראשון
         lockerId: locker2.id
       }
     });

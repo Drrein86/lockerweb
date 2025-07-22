@@ -6,270 +6,588 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+interface CellInfo {
+  cellId: string
+  cellCode: string
+  cellNumber: string
+  lockerId: string
+  lockerName: string
+  size: string
+  location: string
+}
+
+type VerificationStep = 'opening' | 'waiting-closure' | 'package-info' | 'success' | 'timeout' | 'error'
+
 function CellVerificationContent() {
-  const [timeLeft, setTimeLeft] = useState(60) // 60 שניות
-  const [cellOpened, setCellOpened] = useState(false)
-  const [verificationStatus, setVerificationStatus] = useState<'waiting' | 'success' | 'timeout'>('waiting')
+  const [timeLeft, setTimeLeft] = useState(300) // 5 דקות
+  const [currentStep, setCurrentStep] = useState<VerificationStep>('opening')
   const [loading, setLoading] = useState(false)
+  const [cellInfo, setCellInfo] = useState<CellInfo | null>(null)
+  const [packageData, setPackageData] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    trackingCode: '',
+    notes: ''
+  })
+  const [error, setError] = useState<string>('')
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  const cellId = searchParams.get('cellId')
-  const cellCode = searchParams.get('cellCode')
-  const lockerId = searchParams.get('lockerId')
 
   useEffect(() => {
-    if (!cellId || !cellCode || !lockerId) {
-      router.push('/courier/select-cell')
+    // טעינת פרמטרים מ-URL
+    const params = {
+      cellId: searchParams.get('cellId'),
+      cellCode: searchParams.get('cellCode'),
+      cellNumber: searchParams.get('cellNumber'),
+      lockerId: searchParams.get('lockerId'),
+      lockerName: searchParams.get('lockerName'),
+      size: searchParams.get('size'),
+      location: searchParams.get('location')
+    }
+
+    // בדיקת תקינות פרמטרים
+    if (!params.cellId || !params.cellCode || !params.lockerId) {
+      router.push('/courier/location-search')
       return
     }
 
-    // התחלת הטיימר
+    setCellInfo(params as CellInfo)
+    
+    // יצירת קוד מעקב אוטומטי
+    const trackingCode = generateTrackingCode()
+    setPackageData(prev => ({ ...prev, trackingCode }))
+
+    // התחלת תהליך פתיחת התא
+    initiateUnlockCell(params.lockerId, params.cellNumber)
+  }, [searchParams, router])
+
+  const generateTrackingCode = () => {
+    const prefix = 'PKG'
+    const timestamp = Date.now().toString().slice(-6)
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+    return `${prefix}${timestamp}${random}`
+  }
+
+  const initiateUnlockCell = async (lockerId: string, cellNumber: string) => {
+    setLoading(true)
+    setError('')
+    
+    try {
+      // קריאה ל-API לפתיחת התא דרך ESP32
+      const response = await fetch('/api/lockers/unlock-cell', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lockerId: parseInt(lockerId),
+          cellNumber: parseInt(cellNumber),
+          action: 'unlock'
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setCurrentStep('waiting-closure')
+        startTimer()
+        startCellStatusMonitoring(lockerId, cellNumber)
+      } else {
+        setError(data.message || 'שגיאה בפתיחת התא')
+        setCurrentStep('error')
+      }
+    } catch (error) {
+      console.error('שגיאה בפתיחת התא:', error)
+      setError('שגיאה בחיבור לרשת. נסה שוב.')
+      setCurrentStep('error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startTimer = () => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          if (!cellOpened) {
-            setVerificationStatus('timeout')
+          if (currentStep === 'waiting-closure') {
+            setCurrentStep('timeout')
           }
           return 0
         }
         return prev - 1
       })
     }, 1000)
+  }
 
-    // סימולציה של בדיקת פתיחת התא
-    const checkCellStatus = setInterval(async () => {
+  const startCellStatusMonitoring = (lockerId: string, cellNumber: string) => {
+    const checkInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/lockers/cell-status?cellId=${cellId}`)
+        const response = await fetch(`/api/lockers/cell-status?lockerId=${lockerId}&cellNumber=${cellNumber}`)
         const data = await response.json()
         
-        if (data.opened) {
-          setCellOpened(true)
-          setVerificationStatus('success')
-          clearInterval(checkCellStatus)
-          clearInterval(timer)
+        if (data.success && data.cellClosed) {
+          clearInterval(checkInterval)
+          setCurrentStep('package-info')
         }
       } catch (error) {
         console.error('שגיאה בבדיקת סטטוס התא:', error)
       }
-    }, 2000) // בדיקה כל 2 שניות
+    }, 3000) // בדיקה כל 3 שניות
 
-    return () => {
-      clearInterval(timer)
-      clearInterval(checkCellStatus)
+    // מנקה את הinterval אחרי 5 דקות
+    setTimeout(() => {
+      clearInterval(checkInterval)
+    }, 300000)
+  }
+
+  const handlePackageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      // שמירת החבילה במסד הנתונים
+      const response = await fetch('/api/packages/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingCode: packageData.trackingCode,
+          customerName: packageData.customerName,
+          customerPhone: packageData.customerPhone,
+          customerEmail: packageData.customerEmail,
+          size: cellInfo?.size,
+          lockerId: parseInt(cellInfo?.lockerId || '0'),
+          cellId: parseInt(cellInfo?.cellId || '0'),
+          notes: packageData.notes
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setCurrentStep('success')
+        // שליחת הודעה ללקוח יתבצע ב-API
+      } else {
+        setError(data.message || 'שגיאה בשמירת החבילה')
+      }
+    } catch (error) {
+      console.error('שגיאה בשמירת החבילה:', error)
+      setError('שגיאה בשמירת החבילה. נסה שוב.')
+    } finally {
+      setLoading(false)
     }
-  }, [cellId, cellCode, lockerId, cellOpened, router])
+  }
 
-  const handleSimulateOpen = () => {
-    // סימולציה של פתיחת התא (לצרכי פיתוח)
-    setCellOpened(true)
-    setVerificationStatus('success')
+  const handleRetry = () => {
+    if (cellInfo) {
+      setCurrentStep('opening')
+      setError('')
+      initiateUnlockCell(cellInfo.lockerId, cellInfo.cellNumber)
+    }
   }
 
   const handleSelectAnotherCell = () => {
-    router.push('/courier/select-cell')
+    router.push('/courier/location-search')
   }
 
-  const handleContinue = () => {
-    setLoading(true)
-    // מעבר לשלב הבא - סריקת QR או הכנסת פרטים
-    router.push(`/courier/scan-qr?cellId=${cellId}&cellCode=${cellCode}&lockerId=${lockerId}`)
+  const handleNewDelivery = () => {
+    router.push('/courier/location-search')
   }
 
-  const getStatusColor = () => {
-    switch (verificationStatus) {
-      case 'waiting': return 'text-yellow-400'
-      case 'success': return 'text-green-400'
-      case 'timeout': return 'text-red-400'
-      default: return 'text-white'
-    }
-  }
-
-  const getStatusIcon = () => {
-    switch (verificationStatus) {
-      case 'waiting':
-        return (
-          <svg className="w-8 h-8 text-yellow-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )
+  const getStepInfo = () => {
+    switch (currentStep) {
+      case 'opening':
+        return {
+          title: 'פותח תא...',
+          subtitle: 'המערכת מתחברת ל-ESP32 ופותחת את התא',
+          color: 'text-blue-400',
+          icon: (
+            <svg className="w-8 h-8 text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )
+        }
+      case 'waiting-closure':
+        return {
+          title: 'התא נפתח! הכנס את החבילה וסגור את התא',
+          subtitle: 'המערכת ממתינה לסגירת התא',
+          color: 'text-yellow-400',
+          icon: (
+            <svg className="w-8 h-8 text-yellow-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          )
+        }
+      case 'package-info':
+        return {
+          title: 'התא נסגר! הזן פרטי חבילה',
+          subtitle: 'כעת נדרש להזין את פרטי הלקוח והחבילה',
+          color: 'text-purple-400',
+          icon: (
+            <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          )
+        }
       case 'success':
-        return (
-          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )
+        return {
+          title: 'המשלוח הושלם בהצלחה!',
+          subtitle: 'החבילה נשמרה והלקוח יקבל הודעה',
+          color: 'text-green-400',
+          icon: (
+            <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        }
       case 'timeout':
-        return (
-          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )
+        return {
+          title: 'זמן הפעולה פג',
+          subtitle: 'התא לא נסגר בזמן הנדרש',
+          color: 'text-red-400',
+          icon: (
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        }
+      case 'error':
+        return {
+          title: 'שגיאה בתהליך',
+          subtitle: error || 'אירעה שגיאה לא צפויה',
+          color: 'text-red-400',
+          icon: (
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          )
+        }
       default:
-        return null
+        return {
+          title: '',
+          subtitle: '',
+          color: 'text-white',
+          icon: null
+        }
     }
   }
+
+  const stepInfo = getStepInfo()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-900 text-white p-4">
+      <div className="max-w-4xl mx-auto">
         {/* כותרת */}
         <div className="text-center mb-8">
-          <Link href="/courier/select-cell" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
+          <Link href="/courier/location-search" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span>חזרה לבחירת תא</span>
+            <span>חזרה לחיפוש לוקרים</span>
           </Link>
           <h1 className="text-3xl font-bold text-white mb-2">
-            אימות פתיחת תא
+            הכנסת חבילה ללוקר
           </h1>
-          <p className="text-white/70">
-            תא {cellCode} - אנא פתח את התא פיזית
-          </p>
+          {cellInfo && (
+            <p className="text-white/70">
+              {cellInfo.lockerName} - תא {cellInfo.cellNumber} ({cellInfo.cellCode})
+            </p>
+          )}
         </div>
 
-        {/* סטטוס התא */}
+        {/* סטטוס העיבוד */}
         <div className="glass-card text-center mb-8">
           <div className="flex flex-col items-center gap-4">
-            {getStatusIcon()}
+            {stepInfo.icon}
             
             <div>
-              <h2 className={`text-2xl font-bold mb-2 ${getStatusColor()}`}>
-                {verificationStatus === 'waiting' && 'ממתין לפתיחת התא...'}
-                {verificationStatus === 'success' && 'התא נפתח בהצלחה!'}
-                {verificationStatus === 'timeout' && 'זמן הפתיחה פג'}
+              <h2 className={`text-2xl font-bold mb-2 ${stepInfo.color}`}>
+                {stepInfo.title}
               </h2>
+              <p className="text-white/70 mb-4">{stepInfo.subtitle}</p>
               
-              {verificationStatus === 'waiting' && (
+              {(currentStep === 'waiting-closure' || currentStep === 'opening') && timeLeft > 0 && (
                 <div className="space-y-2">
                   <div className="text-4xl font-mono text-yellow-400">
                     {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                   </div>
-                  <p className="text-white/70">זמן נותר לפתיחת התא</p>
+                  <p className="text-white/70">זמן נותר</p>
                 </div>
               )}
               
-              {verificationStatus === 'success' && (
-                <p className="text-green-300">
-                  כעת תוכל להמשיך לשלב הבא
-                </p>
-              )}
-              
-              {verificationStatus === 'timeout' && (
-                <p className="text-red-300">
-                  נא לחזור ולבחור תא אחר
-                </p>
+              {error && (
+                <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mt-4">
+                  <p className="text-red-300 text-sm">{error}</p>
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* פרטי התא */}
-        <div className="glass-card mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">פרטי התא שנבחר</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            <div className="p-3 bg-white/10 rounded-lg">
-              <div className="text-2xl font-bold text-purple-300 mb-1">{cellCode}</div>
-              <div className="text-white/70 text-sm">קוד תא</div>
-            </div>
-            <div className="p-3 bg-white/10 rounded-lg">
-              <div className="text-2xl font-bold text-purple-300 mb-1">{cellId}</div>
-              <div className="text-white/70 text-sm">מזהה תא</div>
-            </div>
-            <div className="p-3 bg-white/10 rounded-lg">
-              <div className="text-2xl font-bold text-purple-300 mb-1">{lockerId}</div>
-              <div className="text-white/70 text-sm">מזהה לוקר</div>
+        {cellInfo && (
+          <div className="glass-card mb-8">
+            <h3 className="text-lg font-semibold text-white mb-4">פרטי הלוקר והתא</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+              <div className="p-3 bg-white/10 rounded-lg">
+                <div className="text-xl font-bold text-emerald-300 mb-1">{cellInfo.cellCode}</div>
+                <div className="text-white/70 text-sm">קוד תא</div>
+              </div>
+              <div className="p-3 bg-white/10 rounded-lg">
+                <div className="text-xl font-bold text-emerald-300 mb-1">{cellInfo.cellNumber}</div>
+                <div className="text-white/70 text-sm">מספר תא</div>
+              </div>
+              <div className="p-3 bg-white/10 rounded-lg">
+                <div className="text-xl font-bold text-emerald-300 mb-1">{cellInfo.size}</div>
+                <div className="text-white/70 text-sm">גודל</div>
+              </div>
+              <div className="p-3 bg-white/10 rounded-lg">
+                <div className="text-xl font-bold text-emerald-300 mb-1">{packageData.trackingCode}</div>
+                <div className="text-white/70 text-sm">קוד מעקב</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* טופס פרטי חבילה */}
+        {currentStep === 'package-info' && (
+          <div className="glass-card mb-8">
+            <h3 className="text-lg font-semibold text-white mb-6">פרטי חבילה ולקוח</h3>
+            <form onSubmit={handlePackageSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-white/80 text-sm font-medium mb-2">
+                    שם הלקוח *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={packageData.customerName}
+                    onChange={(e) => setPackageData(prev => ({ ...prev, customerName: e.target.value }))}
+                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="הזן שם מלא"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-white/80 text-sm font-medium mb-2">
+                    טלפון *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={packageData.customerPhone}
+                    onChange={(e) => setPackageData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="05X-XXXXXXX"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-white/80 text-sm font-medium mb-2">
+                    אימייל (אופציונלי)
+                  </label>
+                  <input
+                    type="email"
+                    value={packageData.customerEmail}
+                    onChange={(e) => setPackageData(prev => ({ ...prev, customerEmail: e.target.value }))}
+                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="example@email.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-white/80 text-sm font-medium mb-2">
+                    קוד מעקב
+                  </label>
+                  <input
+                    type="text"
+                    value={packageData.trackingCode}
+                    onChange={(e) => setPackageData(prev => ({ ...prev, trackingCode: e.target.value }))}
+                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="קוד מעקב אוטומטי"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-2">
+                  הערות (אופציונלי)
+                </label>
+                <textarea
+                  rows={3}
+                  value={packageData.notes}
+                  onChange={(e) => setPackageData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
+                  placeholder="הערות נוספות על החבילה..."
+                />
+              </div>
+              
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 btn-primary text-lg py-3 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span>שומר...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>שמור חבילה ושלח הודעה ללקוח</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* כפתורי פעולה */}
         <div className="space-y-4">
-          {verificationStatus === 'waiting' && (
+          {currentStep === 'opening' && loading && (
+            <div className="glass-card-sm">
+              <p className="text-blue-300 text-center text-sm">
+                המערכת מתחברת ל-ESP32 ופותחת את התא... אנא המתן.
+              </p>
+            </div>
+          )}
+
+          {currentStep === 'waiting-closure' && (
             <div className="space-y-4">
-              <button
-                onClick={handleSimulateOpen}
-                className="w-full btn-secondary text-lg py-3"
-              >
-                סימולציה - פתח תא (לצרכי פיתוח)
-              </button>
-              
               <div className="glass-card-sm">
-                <p className="text-white/70 text-center text-sm">
-                  גש פיזית לתא {cellCode} ופתח אותו. המערכת תזהה את הפתיחה אוטומטית.
-                </p>
+                <h4 className="text-lg font-semibold text-white mb-3 text-center">
+                  🎯 הוראות לשליח
+                </h4>
+                <ol className="space-y-2 text-white/70 text-sm">
+                  <li className="flex items-start gap-3">
+                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
+                    <span>התא נפתח אוטומטית - גש אליו כעת</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
+                    <span>הכנס את החבילה לתוך התא</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
+                    <span>סגור את התא בחוזקה - המערכת תזהה את הסגירה</span>
+                  </li>
+                </ol>
               </div>
             </div>
           )}
 
-          {verificationStatus === 'success' && (
-            <button
-              onClick={handleContinue}
-              disabled={loading}
-              className="w-full btn-primary text-lg py-3 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>טוען...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                  <span>המשך לשלב הבא</span>
-                </>
-              )}
-            </button>
+          {currentStep === 'success' && (
+            <div className="space-y-4">
+              <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-6 text-center">
+                <h4 className="text-xl font-bold text-green-300 mb-2">
+                  🎉 המשלוח הושלם בהצלחה!
+                </h4>
+                <p className="text-green-200 mb-4">
+                  החבילה נשמרה במערכת והלקוח יקבל הודעה עם קוד השחרור.
+                </p>
+                <div className="bg-green-600/30 rounded-lg p-3 mb-4">
+                  <p className="text-green-100 text-sm">
+                    קוד מעקב: <span className="font-mono font-bold">{packageData.trackingCode}</span>
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleNewDelivery}
+                className="w-full btn-primary text-lg py-3 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>משלוח חדש</span>
+              </button>
+            </div>
           )}
 
-          {verificationStatus === 'timeout' && (
+          {(currentStep === 'timeout' || currentStep === 'error') && (
             <div className="space-y-4">
-              <button
-                onClick={handleSelectAnotherCell}
-                className="w-full btn-primary text-lg py-3"
-              >
-                בחר תא אחר
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={handleRetry}
+                  className="flex-1 btn-secondary text-lg py-3"
+                >
+                  נסה שוב
+                </button>
+                <button
+                  onClick={handleSelectAnotherCell}
+                  className="flex-1 btn-primary text-lg py-3"
+                >
+                  בחר תא אחר
+                </button>
+              </div>
               
               <div className="glass-card-sm">
                 <p className="text-red-300 text-center text-sm">
-                  המערכת לא מקצה תא אחר אוטומטית - יש לבצע בחירה מחדש
+                  {currentStep === 'timeout' 
+                    ? 'הזמן פג לסגירת התא. נסה שוב או בחר תא אחר.'
+                    : 'אירעה שגיאה בתהליך. בדוק את החיבור ונסה שוב.'}
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* הוראות */}
+        {/* הוראות כלליות */}
         <div className="glass-card mt-8">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            הוראות לשליח
+            מדריך תהליך המשלוח
           </h3>
-          <ul className="space-y-2 text-white/70 text-sm">
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400">1.</span>
-              <span>גש פיזית לתא {cellCode} במיקום הלוקר</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400">2.</span>
-              <span>פתח את התא בתוך {Math.floor(timeLeft / 60)} דקות ו-{timeLeft % 60} שניות</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400">3.</span>
-              <span>המערכת תזהה את הפתיחה ותאפשר לך להמשיך</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400">4.</span>
-              <span>אם הזמן יפוג, תצטרך לבחור תא אחר</span>
-            </li>
-          </ul>
+          <div className="space-y-4">
+            <div className="bg-emerald-500/20 border border-emerald-400/50 rounded-lg p-4">
+              <h4 className="font-semibold text-emerald-300 mb-2">השלבים:</h4>
+              <ol className="space-y-2 text-emerald-100 text-sm">
+                <li className="flex items-center gap-3">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
+                  <span>המערכת פותחת את התא אוטומטית דרך ESP32</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
+                  <span>השליח מכניס את החבילה לתא</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
+                  <span>השליח סוגר את התא - המערכת מזהה את הסגירה</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">4</span>
+                  <span>השליח מזין פרטי לקוח וחבילה</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">5</span>
+                  <span>המערכת שולחת הודעה ללקוח עם קוד שחרור</span>
+                </li>
+              </ol>
+            </div>
+            
+            <div className="bg-blue-500/20 border border-blue-400/50 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-300 mb-2">💡 טיפים חשובים:</h4>
+              <ul className="space-y-1 text-blue-100 text-sm">
+                <li>• וודא שהחבילה מתאימה לגודל התא שנבחר</li>
+                <li>• סגור את התא בחוזקה למניעת בעיות</li>
+                <li>• בדוק שפרטי הלקוח נכונים לפני השמירה</li>
+                <li>• שמור את קוד המעקב למקרה הצורך</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

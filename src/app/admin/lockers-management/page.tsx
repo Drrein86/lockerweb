@@ -47,6 +47,48 @@ export default function LockersManagementPage() {
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
   const [lastMessage, setLastMessage] = useState<string>('')
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // עדכון הזמן כל שנייה לתצוגה בזמן אמת
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [])
+
+  // פונקציה לחישוב זמן שעבר בצורה ידידותית
+  const getTimeAgo = (lastSeen: string | undefined) => {
+    if (!lastSeen) return 'לא מוגדר'
+    
+    const now = currentTime.getTime()
+    const lastSeenTime = new Date(lastSeen).getTime()
+    const diffMs = now - lastSeenTime
+    const diffSeconds = Math.floor(diffMs / 1000)
+    const diffMinutes = Math.floor(diffSeconds / 60)
+    const diffHours = Math.floor(diffMinutes / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    
+    if (diffSeconds < 10) return '🟢 כרגע'
+    if (diffSeconds < 60) return `🟡 לפני ${diffSeconds} שניות`
+    if (diffMinutes < 60) return `🟠 לפני ${diffMinutes} דקות`
+    if (diffHours < 24) return `🔴 לפני ${diffHours} שעות`
+    return `⚫ לפני ${diffDays} ימים`
+  }
+
+  // פונקציה לקבלת צבע סטטוס
+  const getStatusColor = (lastSeen: string | undefined) => {
+    if (!lastSeen) return 'text-gray-400'
+    
+    const diffMs = currentTime.getTime() - new Date(lastSeen).getTime()
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    
+    if (diffMinutes < 1) return 'text-green-400'
+    if (diffMinutes < 5) return 'text-yellow-400'
+    if (diffMinutes < 30) return 'text-orange-400'
+    return 'text-red-400'
+  }
   
   console.log('🚀 LockersManagementPage נטען')
 
@@ -732,7 +774,17 @@ export default function LockersManagementPage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/70">
                         <div>IP: {String(liveLocker.ip || 'לא מוגדר')}</div>
-                        <div>עדכון אחרון: {liveLocker.lastSeen ? new Date(liveLocker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</div>
+                        <div className="text-sm">
+                          עדכון אחרון: 
+                          <span className={`font-semibold ml-2 ${getStatusColor(liveLocker.lastSeen)}`}>
+                            {getTimeAgo(liveLocker.lastSeen)}
+                          </span>
+                          {liveLocker.lastSeen && (
+                            <div className="text-xs text-white/50 mt-1">
+                              {new Date(liveLocker.lastSeen).toLocaleString('he-IL')}
+                            </div>
+                          )}
+                        </div>
                         <div>תאים: {Object.keys(liveLocker.cells || {}).length}</div>
                         <div>סטטוס: {liveLocker.isOnline ? '🟢 פעיל' : '🔴 לא פעיל'}</div>
                       </div>
@@ -813,7 +865,17 @@ export default function LockersManagementPage() {
                       <div><span className="text-white/60">IP:</span> <span className="text-white">{String(locker.ip || 'לא מוגדר')}</span></div>
                       <div><span className="text-white/60">Device ID:</span> <span className="text-white">{String(locker.deviceId || 'לא מוגדר')}</span></div>
                       <div><span className="text-white/60">סטטוס:</span> <span className={`${locker.status === 'ONLINE' ? 'text-green-400' : 'text-red-400'}`}>{String(locker.status || 'לא מוגדר')}</span></div>
-                      <div className="sm:col-span-2"><span className="text-white/60">עדכון אחרון:</span> <span className="text-white">{locker.lastSeen ? new Date(locker.lastSeen).toLocaleString('he-IL') : 'לא מוגדר'}</span></div>
+                                                <div className="sm:col-span-2">
+                            <span className="text-white/60">עדכון אחרון:</span> 
+                            <span className={`font-semibold ml-2 ${getStatusColor(locker.lastSeen)}`}>
+                              {getTimeAgo(locker.lastSeen)}
+                            </span>
+                            {locker.lastSeen && (
+                              <div className="text-xs text-white/40 mt-1">
+                                {new Date(locker.lastSeen).toLocaleString('he-IL')}
+                              </div>
+                            )}
+                          </div>
                     </div>
                   </div>
                   

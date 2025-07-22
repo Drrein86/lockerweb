@@ -1,6 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WebSocketClient.h>
+#include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
 
@@ -51,8 +51,7 @@ CellState cellStates[5];
 WebServer server(80);
 
 // WebSocket client
-WebSocketClient webSocket;
-WiFiClient client;
+WebSocketsClient webSocket;
 bool wsConnected = false;
 unsigned long lastWsReconnectAttempt = 0;
 const unsigned long WS_RECONNECT_INTERVAL = 5000; // 5 שניות
@@ -103,17 +102,8 @@ void loop() {
     connectToWiFi();
   }
   
-  // בדיקת חיבור WebSocket
-  if (!wsConnected && millis() - lastWsReconnectAttempt > WS_RECONNECT_INTERVAL) {
-    Serial.println("🔄 מנסה להתחבר מחדש ל-WebSocket");
-    connectToWebSocket();
-  }
-  
-  // טיפול בהודעות WebSocket
-  if (wsConnected && webSocket.available()) {
-    String msg = webSocket.readString();
-    handleWebSocketMessage(msg);
-  }
+  // טיפול בWebSocket
+  webSocket.loop();
   
   // טיפול בבקשות HTTP
   server.handleClient();
@@ -169,11 +159,22 @@ void connectToWebSocket() {
   
   Serial.println("🔌 מתחבר לשרת WebSocket...");
   
-  if (client.connect(wsHost, wsPort)) {
-    Serial.println("✅ מחובר לשרת");
-    
-    if (webSocket.handshake(client)) {
-      Serial.println("✅ WebSocket handshake הושלם");
+  webSocket.begin(wsHost, wsPort, wsPath);
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+  
+  lastWsReconnectAttempt = millis();
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("❌ WebSocket מנותק");
+      wsConnected = false;
+      break;
+      
+    case WStype_CONNECTED:
+      Serial.println("✅ WebSocket מחובר");
       wsConnected = true;
       
       // שליחת הודעת register
@@ -185,19 +186,17 @@ void connectToWebSocket() {
       
       String jsonString;
       serializeJson(doc, jsonString);
-      webSocket.send(jsonString);
-      
+      webSocket.sendTXT(jsonString);
       Serial.println("📡 נשלחה הודעת register");
-    } else {
-      Serial.println("❌ שגיאה ב-WebSocket handshake");
-      wsConnected = false;
-    }
-  } else {
-    Serial.println("❌ לא ניתן להתחבר לשרת");
-    wsConnected = false;
+      break;
+      
+    case WStype_TEXT:
+      handleWebSocketMessage(String((char*)payload));
+      break;
+      
+    default:
+      break;
   }
-  
-  lastWsReconnectAttempt = millis();
 }
 
 void handleWebSocketMessage(String message) {
