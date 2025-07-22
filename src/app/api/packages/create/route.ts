@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('שגיאה בשמירת חבילה:', error)
     return NextResponse.json(
-      { success: false, message: 'שגיאה בשרת', details: error.message },
+      { success: false, message: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
       { status: 500 }
     )
   } finally {
@@ -224,7 +224,7 @@ async function sendCustomerNotification(data: {
     console.error('שגיאה בשליחת הודעה:', error)
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
       message: 'שגיאה בשליחת הודעה ללקוח'
     }
   }

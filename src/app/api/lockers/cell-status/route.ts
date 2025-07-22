@@ -110,7 +110,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('שגיאה בבדיקת סטטוס תא:', error)
     return NextResponse.json(
-      { success: false, message: 'שגיאה בשרת', details: error.message },
+      { success: false, message: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
       { status: 500 }
     )
   } finally {
@@ -161,7 +161,7 @@ async function checkCellStatusFromESP32(ip: string, port: number | null, cellNum
     console.error('שגיאה בחיבור ל-ESP32:', error)
     return { 
       success: false, 
-      message: `שגיאה בחיבור ל-ESP32: ${error.message}` 
+      message: `שגיאה בחיבור ל-ESP32: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` 
     }
   }
 } 
