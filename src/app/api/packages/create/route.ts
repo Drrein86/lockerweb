@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     const pickupCode = generatePickupCode()
 
     // יצירת רשומת החבילה
-    const package = await prisma.package.create({
+    const newPackage = await prisma.package.create({
       data: {
         trackingCode,
         customerId: customer.id,
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       data: {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',
-        entityId: package.id.toString(),
+        entityId: newPackage.id.toString(),
         details: {
           trackingCode,
           customerId: customer.id,
@@ -137,9 +137,9 @@ export async function POST(request: Request) {
       success: true,
       message: 'החבילה נשמרה בהצלחה',
       package: {
-        id: package.id,
-        trackingCode: package.trackingCode,
-        status: package.status,
+        id: newPackage.id,
+        trackingCode: newPackage.trackingCode,
+        status: newPackage.status,
         pickupCode,
         customer: {
           name: customerName,
