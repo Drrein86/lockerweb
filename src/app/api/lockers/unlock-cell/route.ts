@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     // שליחת פקודה ל-ESP32
-    const esp32Response = await sendCommandToESP32(locker.ip || '', locker.port, {
+    const esp32Response = await sendCommandToESP32(locker.ip, locker.port, {
       action: action,
       cellId: cellNumber.toString(),
       packageId: `TEMP_${Date.now()}`
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       })
 
       // יצירת לוג אודיט
-      await (prisma as any).auditLog.create({
+      await prisma.auditLog.create({
         data: {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       })
     } else {
       // לוג כישלון
-      await (prisma as any).auditLog.create({
+      await prisma.auditLog.create({
         data: {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('שגיאה בפתיחת תא:', error)
     return NextResponse.json(
-      { success: false, message: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
+      { success: false, message: 'שגיאה בשרת', details: error.message },
       { status: 500 }
     )
   } finally {
@@ -144,7 +144,8 @@ async function sendCommandToESP32(ip: string, port: number | null, command: any)
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(command)
+      body: JSON.stringify(command),
+      timeout: 10000 // 10 שניות timeout
     })
 
     if (!response.ok) {
@@ -158,7 +159,7 @@ async function sendCommandToESP32(ip: string, port: number | null, command: any)
     console.error('שגיאה בחיבור ל-ESP32:', error)
     return { 
       success: false, 
-      message: `שגיאה בחיבור ל-ESP32: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` 
+      message: `שגיאה בחיבור ל-ESP32: ${error.message}` 
     }
   }
 } 

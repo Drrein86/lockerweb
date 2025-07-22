@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     // בדיקת סטטוס התא דרך ESP32
-    const esp32Status = await checkCellStatusFromESP32(locker.ip || '', locker.port, cellNumber)
+    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port, cellNumber)
 
     if (esp32Status.success) {
       // עדכון סטטוס התא במסד הנתונים לפי התגובה מה-ESP32
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         })
 
         // יצירת לוג
-        await (prisma as any).auditLog.create({
+        await prisma.auditLog.create({
           data: {
             action: 'CELL_CLOSED',
             entityType: 'CELL',
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('שגיאה בבדיקת סטטוס תא:', error)
     return NextResponse.json(
-      { success: false, message: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
+      { success: false, message: 'שגיאה בשרת', details: error.message },
       { status: 500 }
     )
   } finally {
@@ -135,7 +135,8 @@ async function checkCellStatusFromESP32(ip: string, port: number | null, cellNum
       body: JSON.stringify({
         action: 'checkCell',
         cellId: cellNumber
-      })
+      }),
+      timeout: 5000 // 5 שניות timeout
     })
 
     if (!response.ok) {
@@ -160,7 +161,7 @@ async function checkCellStatusFromESP32(ip: string, port: number | null, cellNum
     console.error('שגיאה בחיבור ל-ESP32:', error)
     return { 
       success: false, 
-      message: `שגיאה בחיבור ל-ESP32: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` 
+      message: `שגיאה בחיבור ל-ESP32: ${error.message}` 
     }
   }
 } 

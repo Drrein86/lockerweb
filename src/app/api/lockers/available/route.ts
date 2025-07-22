@@ -148,7 +148,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('שגיאה בחיפוש לוקרים זמינים:', error)
     return NextResponse.json(
-      { error: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
+      { error: 'שגיאה בשרת', details: error.message },
       { status: 500 }
     )
   } finally {

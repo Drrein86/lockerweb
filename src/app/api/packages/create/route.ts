@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     const pickupCode = generatePickupCode()
 
     // יצירת רשומת החבילה
-    const newPackage = await prisma.package.create({
+    const package = await prisma.package.create({
       data: {
         trackingCode,
         customerId: customer.id,
@@ -100,11 +100,11 @@ export async function POST(request: Request) {
     })
 
     // שמירת קוד השחרור בטבלה נפרדת (אם קיימת) או ב-metadata
-    await (prisma as any).auditLog.create({
+    await prisma.auditLog.create({
       data: {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',
-        entityId: newPackage.id.toString(),
+        entityId: package.id.toString(),
         details: {
           trackingCode,
           customerId: customer.id,
@@ -137,9 +137,9 @@ export async function POST(request: Request) {
       success: true,
       message: 'החבילה נשמרה בהצלחה',
       package: {
-        id: newPackage.id,
-        trackingCode: newPackage.trackingCode,
-        status: newPackage.status,
+        id: package.id,
+        trackingCode: package.trackingCode,
+        status: package.status,
         pickupCode,
         customer: {
           name: customerName,
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('שגיאה בשמירת חבילה:', error)
     return NextResponse.json(
-      { success: false, message: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
+      { success: false, message: 'שגיאה בשרת', details: error.message },
       { status: 500 }
     )
   } finally {
@@ -224,7 +224,7 @@ async function sendCustomerNotification(data: {
     console.error('שגיאה בשליחת הודעה:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+      error: error.message,
       message: 'שגיאה בשליחת הודעה ללקוח'
     }
   }
