@@ -331,7 +331,7 @@ class WebSocketManager {
    * טיפול בשגיאות
    */
   private handleError(ws: LockerConnection, error: Error): void {
-    this.logEvent('error', '❌ שגיאת WebSocket', { error: error.message });
+          this.logEvent('error', '❌ שגיאת WebSocket', { error: error instanceof Error ? error.message : 'שגיאה לא ידועה' });
   }
 
   /**
