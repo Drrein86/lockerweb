@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         })
 
         // יצירת לוג
-        await prisma.auditLog.create({
+        await (prisma as any).auditLog.create({
           data: {
             action: 'CELL_CLOSED',
             entityType: 'CELL',

@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     })
 
     // שמירת קוד השחרור בטבלה נפרדת (אם קיימת) או ב-metadata
-    await prisma.auditLog.create({
+    await (prisma as any).auditLog.create({
       data: {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',

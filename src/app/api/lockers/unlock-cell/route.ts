@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       })
 
       // יצירת לוג אודיט
-      await prisma.auditLog.create({
+      await (prisma as any).auditLog.create({
         data: {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       })
     } else {
       // לוג כישלון
-      await prisma.auditLog.create({
+      await (prisma as any).auditLog.create({
         data: {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
