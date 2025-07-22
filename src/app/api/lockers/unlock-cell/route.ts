@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     // שליחת פקודה ל-ESP32
-    const esp32Response = await sendCommandToESP32(locker.ip, locker.port, {
+    const esp32Response = await sendCommandToESP32(locker.ip || '', locker.port, {
       action: action,
       cellId: cellNumber.toString(),
       packageId: `TEMP_${Date.now()}`
