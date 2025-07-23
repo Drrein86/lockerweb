@@ -590,6 +590,12 @@ export default function LockersManagementPage() {
   }
 
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
+    // בדיקת תקינות הפרמטרים
+    if (!cellId || !lockerId) {
+      alert('❌ שגיאה: חסרים פרטי תא או לוקר')
+      return
+    }
+
     const controlKey = `${cellId}-${action}`
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
 
@@ -897,11 +903,19 @@ export default function LockersManagementPage() {
 
                         <div className="flex flex-col gap-2">
                           <button
-                            onClick={() => controlCell(cell.id, locker.id, 'open')}
-                            disabled={controlLoading[`${cell.id}-open`] || locker.status !== 'ONLINE'}
+                            onClick={() => {
+                              const cellNumber = cell.cellNumber || cell.id
+                              const lockerId = locker.id
+                              if (!cellNumber || !lockerId) {
+                                alert('❌ שגיאה: חסרים פרטי תא או לוקר')
+                                return
+                              }
+                              controlCell(cellNumber, lockerId, 'open')
+                            }}
+                            disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
                             className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
                           >
-                            {controlLoading[`${cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
+                            {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
                           </button>
                           <div className="flex gap-1">
                             <button
