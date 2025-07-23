@@ -9,9 +9,9 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const lockerId = url.searchParams.get('lockerId')
-    const cellNumber = url.searchParams.get('cellNumber')
+    const cellNumberParam = url.searchParams.get('cellNumber')
 
-    if (!lockerId || !cellNumber) {
+    if (!lockerId || !cellNumberParam) {
       return NextResponse.json(
         { success: false, message: 'חסרים פרמטרים נדרשים' },
         { status: 400 }
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       where: { id: parseInt(lockerId) },
       include: {
         cells: {
-          where: { cellNumber: parseInt(cellNumber) }
+          where: { cellNumber: parseInt(cellNumberParam) }
         }
       }
     })
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     // בדיקת סטטוס התא דרך ESP32
-    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, cellNumber.toString())
+    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, cellNumberParam)
 
     if (esp32Status.success) {
       // עדכון סטטוס התא במסד הנתונים לפי התגובה מה-ESP32
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
             entityId: cell.id.toString(),
             details: {
               lockerId: parseInt(lockerId),
-              cellNumber: parseInt(cellNumber),
+              cellNumber: parseInt(cellNumberParam),
               esp32Data: esp32Status
             },
             success: true,
