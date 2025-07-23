@@ -148,20 +148,8 @@ export class StateTrackerService {
   // קבלת מצב כל הלוקרים
   static async getAllLockerStates() {
     try {
-      return await (prisma as any).lockerState.findMany({
-        include: {
-          locker: {
-            include: {
-              cells: {
-                include: {
-                  cellState: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { lastCommunication: 'desc' }
-      })
+      console.log('❌ שגיאה בקבלת מצב כל הלוקרים: מודל LockerState לא זמין')
+      return []
     } catch (error) {
       console.error('❌ שגיאה בקבלת מצב כל הלוקרים:', error)
       return []
@@ -171,20 +159,8 @@ export class StateTrackerService {
   // קבלת תאים עם פקודות ממתינות
   static async getPendingCommands() {
     try {
-      return await (prisma as any).cellState.findMany({
-        where: {
-          commandInProgress: {
-            not: null
-          }
-        },
-        include: {
-          cell: {
-            include: {
-              locker: true
-            }
-          }
-        }
-      })
+      console.log('❌ שגיאה בקבלת פקודות ממתינות: מודל CellState לא זמין')
+      return []
     } catch (error) {
       console.error('❌ שגיאה בקבלת פקודות ממתינות:', error)
       return []
@@ -234,22 +210,16 @@ export class StateTrackerService {
   // סטטיסטיקות מהירות
   static async getSystemStats() {
     try {
-      const [totalLockers, onlineLockers, totalCells, lockedCells, pendingCommands] = await Promise.all([
-        prisma.locker.count(),
-                  (prisma as any).lockerState.count({ where: { isResponding: true } }),
-        prisma.cell.count(),
-        (prisma as any).cellState.count({ where: { lastKnownStatus: 'LOCKED' } }),
-        (prisma as any).cellState.count({ where: { commandInProgress: { not: null } } })
-      ])
-
+      console.log('❌ שגיאה בקבלת סטטיסטיקות: מודל LockerState לא זמין')
+      // נתונים זמניים עד לתיקון מודל הנתונים
       return {
-        totalLockers,
-        onlineLockers,
-        offlineLockers: totalLockers - onlineLockers,
-        totalCells,
-        lockedCells,
-        unlockedCells: totalCells - lockedCells,
-        pendingCommands
+        totalLockers: 0,
+        onlineLockers: 0,
+        offlineLockers: 0,
+        totalCells: 0,
+        lockedCells: 0,
+        unlockedCells: 0,
+        pendingCommands: 0
       }
     } catch (error) {
       console.error('❌ שגיאה בקבלת סטטיסטיקות:', error)
