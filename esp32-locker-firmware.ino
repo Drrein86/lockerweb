@@ -3,15 +3,20 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
+#include <HTTPClient.h>
 
 // הגדרות WiFi
 const char* ssid = "WIFI_NAME";       // החלף עם שם הרשת שלך
 const char* password = "WIFI_PASSWORD"; // החלף עם הסיסמה שלך
 
-// הגדרות WebSocket
-const char* wsHost = "your-server.com";  // החלף עם כתובת השרת שלך
-const int wsPort = 8080;
-const char* wsPath = "/ws";
+// 🌐 הגדרות WebSocket - שרת החומרה ב-Railway
+const char* websocket_host = "lockerweb-production.up.railway.app";
+const int websocket_port = 443;
+const char* websocket_path = "/";
+
+// 🌐 הגדרות רישום במערכת הראשית - Vercel
+const char* main_app_host = "lockerweb-alpha.vercel.app";
+const char* register_endpoint = "/api/lockers/register";
 
 // הגדרות EEPROM
 #define EEPROM_SIZE 512
@@ -56,6 +61,9 @@ bool wsConnected = false;
 unsigned long lastWsReconnectAttempt = 0;
 const unsigned long WS_RECONNECT_INTERVAL = 5000; // 5 שניות
 
+unsigned long lastMainAppRegister = 0;
+const unsigned long MAIN_APP_REGISTER_INTERVAL = 300000; // 5 דקות
+
 // LED סטטוס
 const int STATUS_LED = 2;
 
@@ -92,6 +100,10 @@ void setup() {
   loadLockerId();
   Serial.println("מזהה הלוקר: " + String(lockerId));
   
+  // רישום באפליקציה הראשית
+  delay(2000); // המתנה כדי לוודא שהכל מוכן
+  registerInMainApp();
+  
   Serial.println("✅ ESP32 Smart Locker מוכן לשימוש!");
 }
 
@@ -107,6 +119,12 @@ void loop() {
   
   // טיפול בבקשות HTTP
   server.handleClient();
+  
+  // רישום מחדש באפליקציה הראשית מדי 5 דקות
+  if (millis() - lastMainAppRegister > MAIN_APP_REGISTER_INTERVAL) {
+    registerInMainApp();
+    lastMainAppRegister = millis();
+  }
   
   // עדכון LED סטטוס
   updateStatusLED();
@@ -159,11 +177,54 @@ void connectToWebSocket() {
   
   Serial.println("🔌 מתחבר לשרת WebSocket...");
   
-  webSocket.begin(wsHost, wsPort, wsPath);
+  webSocket.begin(websocket_host, websocket_port, websocket_path);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
   
   lastWsReconnectAttempt = millis();
+}
+
+// 📡 רישום באפליקציה הראשית
+void registerInMainApp() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  String url = String("https://") + main_app_host + register_endpoint;
+  
+  Serial.println("📡 נרשם באפליקציה הראשית: " + url);
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  
+  // יצירת JSON לרישום
+  DynamicJsonDocument doc(1024);
+  doc["id"] = lockerId;
+  doc["ip"] = WiFi.localIP().toString();
+  doc["deviceId"] = lockerId;
+  doc["status"] = "ONLINE";
+  
+  // הוספת נתוני תאים
+  JsonObject cells = doc.createNestedObject("cells");
+  cells["A1"]["size"] = "SMALL";
+  cells["A1"]["locked"] = true;
+  cells["A2"]["size"] = "MEDIUM"; 
+  cells["A2"]["locked"] = true;
+  cells["A3"]["size"] = "LARGE";
+  cells["A3"]["locked"] = true;
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  int httpResponseCode = http.POST(jsonString);
+  
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("✅ תגובה מהאפליקציה: " + response);
+  } else {
+    Serial.println("❌ שגיאה ברישום באפליקציה: " + String(httpResponseCode));
+  }
+  
+  http.end();
 }
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {

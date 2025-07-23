@@ -77,17 +77,41 @@ async function getPrisma() {
       }
 
       const { PrismaClient } = await import('@prisma/client')
-      prisma = new PrismaClient()
-      await prisma.$connect()
+      prisma = new PrismaClient({
+        errorFormat: 'pretty',
+        log: ['error', 'warn']
+      })
+      
+      // בדיקת חיבור עם timeout
+      const connectPromise = prisma.$connect()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 5000)
+      )
+      
+      await Promise.race([connectPromise, timeoutPromise])
+      
+      // בדיקה פשוטה שהחיבור עובד
+      await prisma.$queryRaw`SELECT 1`
+      
       console.log('✅ התחברות למסד הנתונים הצליחה')
       return prisma
     } catch (error) {
       console.error('❌ שגיאה בהתחברות למסד הנתונים:', error)
       console.log('⚠️ לא ניתן להתחבר לדאטאבייס, משתמש במידע מדומה')
+      prisma = null // איפוס לוודא שלא נשתמש בחיבור שבור
       return null
     }
   }
-  return prisma
+  
+  // אם prisma כבר קיים, בודק שהחיבור עדיין תקין
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    return prisma
+  } catch (error) {
+    console.error('❌ חיבור קיים לא תקין, מנסה מחדש:', error)
+    prisma = null // איפוס החיבור הישן
+    return await getPrisma() // ניסיון חדש
+  }
 }
 
 // GET - קבלת כל הלוקרים עם התאים
@@ -136,23 +160,28 @@ export async function POST(request: NextRequest) {
       const { name, location, description, ip, port, deviceId, status, isActive } = body
 
       if (db) {
-        const locker = await db.locker.create({
-          data: {
-            name,
-            location,
-            description,
-            ip,
-            port: port || 80,
-            deviceId,
-            status: status || 'OFFLINE',
-            isActive: isActive ?? true
-          }
-        })
+        try {
+          const locker = await db.locker.create({
+            data: {
+              name,
+              location,
+              description,
+              ip,
+              port: port || 80,
+              deviceId,
+              status: status || 'OFFLINE',
+              isActive: isActive ?? true
+            }
+          })
 
-        return NextResponse.json({
-          success: true,
-          locker
-        })
+          return NextResponse.json({
+            success: true,
+            locker
+          })
+        } catch (dbError) {
+          console.error('❌ Database error creating locker, falling back to mock:', dbError)
+          // נופל לfallback mode אם יש שגיאת DB
+        }
       } else {
         // Fallback - הוספה למערך המדומה
         const newLocker: any = {
@@ -290,39 +319,44 @@ export async function PUT(request: NextRequest) {
       console.log('📝 Updating locker with data:', { id, name, location, description, ip, port, deviceId, status, isActive })
 
       if (db) {
-        // קודם נקבל את הנתונים הקיימים
-        const existingLocker = await db.locker.findUnique({
-          where: { id }
-        })
+        try {
+          // קודם נקבל את הנתונים הקיימים
+          const existingLocker = await db.locker.findUnique({
+            where: { id }
+          })
 
-        if (!existingLocker) {
-          console.error('❌ Locker not found:', id)
-          return NextResponse.json({
-            success: false,
-            error: 'לוקר לא נמצא'
-          }, { status: 404 })
-        }
-
-        console.log('📋 Existing locker:', existingLocker)
-
-        const locker = await db.locker.update({
-          where: { id },
-          data: {
-            name: name || existingLocker.name,
-            location: location || existingLocker.location,
-            description: description || existingLocker.description,
-            ip: ip || existingLocker.ip,
-            port: port || existingLocker.port,
-            deviceId: deviceId || existingLocker.deviceId,
-            status: status || existingLocker.status,
-            isActive: isActive !== undefined ? isActive : existingLocker.isActive
+          if (!existingLocker) {
+            console.error('❌ Locker not found:', id)
+            return NextResponse.json({
+              success: false,
+              error: 'לוקר לא נמצא'
+            }, { status: 404 })
           }
-        })
 
-        return NextResponse.json({
-          success: true,
-          locker
-        })
+          console.log('📋 Existing locker:', existingLocker)
+
+          const locker = await db.locker.update({
+            where: { id },
+            data: {
+              name: name || existingLocker.name,
+              location: location || existingLocker.location,
+              description: description || existingLocker.description,
+              ip: ip || existingLocker.ip,
+              port: port || existingLocker.port,
+              deviceId: deviceId || existingLocker.deviceId,
+              status: status || existingLocker.status,
+              isActive: isActive !== undefined ? isActive : existingLocker.isActive
+            }
+          })
+
+          return NextResponse.json({
+            success: true,
+            locker
+          })
+        } catch (dbError) {
+          console.error('❌ Database error, falling back to mock:', dbError)
+          // נופל לfallback mode אם יש שגיאת DB
+        }
       } else {
         // Fallback - עדכון במערך המדומה
         const lockerIndex = mockLockers.findIndex((l: any) => l.id === id)
