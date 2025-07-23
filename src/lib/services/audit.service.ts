@@ -18,11 +18,11 @@ export class AuditService {
   static async log(data: AuditLogData) {
     try {
       console.log(`📋 אודיט נשמר: ${data.action} על ${data.entityType} ${data.entityId}`, {
-        action: data.action,
-        entityType: data.entityType,
-        entityId: data.entityId,
-        userId: data.userId,
-        details: data.details,
+          action: data.action,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          userId: data.userId,
+          details: data.details,
         success: data.success ?? true
       })
     } catch (error) {

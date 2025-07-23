@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     if (db) {
       try {
-        // מציאת הלוקר במסד הנתונים
+    // מציאת הלוקר במסד הנתונים
         const locker = await db.locker.findUnique({
           where: { id: lockerId }
         })
@@ -71,15 +71,15 @@ export async function POST(request: Request) {
           console.log(`🔍 מצא לוקר: ${locker.deviceId} ב-${lockerIP}:${lockerPort}`)
         } else {
           console.log('⚠️ לא נמצא לוקר במסד הנתונים, משתמש ברירת מחדל')
-        }
+    }
       } catch (dbError) {
         console.error('❌ Database query error:', dbError)
         console.log('⚠️ נכשל בחיפוש לוקר, משתמש ברירת מחדל')
-      }
+    }
     }
     
     console.log(`🔧 מנסה לפתוח תא ${cellNumber} בלוקר ${lockerId} ב-${lockerIP}:${lockerPort}`)
-    
+
     // שליחת פקודה ל-ESP32 האמיתי
     const esp32Response = await sendCommandToESP32(lockerIP, lockerPort, {
       action: action,
@@ -89,27 +89,27 @@ export async function POST(request: Request) {
 
     console.log('📡 ESP32 Response:', esp32Response)
 
-    // יצירת לוג אודיט
+      // יצירת לוג אודיט
     try {
       console.log('נוצר לוג: פתיחת תא', {
-        action: 'UNLOCK_CELL',
-        entityType: 'CELL',
+          action: 'UNLOCK_CELL',
+          entityType: 'CELL',
         entityId: cellNumber.toString(),
-        lockerId: lockerId,
-        cellNumber: cellNumber,
-        esp32Response: esp32Response
+            lockerId: lockerId,
+            cellNumber: cellNumber,
+            esp32Response: esp32Response
       })
     } catch (logError) {
       console.error('שגיאה ביצירת לוג:', logError)
     }
 
-    return NextResponse.json({
-      success: true,
+      return NextResponse.json({
+        success: true,
       message: esp32Response.simulated ? 
         'התא נפתח בהצלחה (סימולציה)' : 
         'התא נפתח בהצלחה',
       cellId: cellNumber,
-      lockerId: lockerId,
+        lockerId: lockerId,
       esp32Response: esp32Response,
       simulated: esp32Response.simulated || false
     })
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     // Prisma cleanup אם צריך
     if (prisma) {
       try {
-        await prisma.$disconnect()
+    await prisma.$disconnect()
       } catch (disconnectError) {
         console.error('Error disconnecting Prisma:', disconnectError)
       }
@@ -158,24 +158,24 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
     const timeoutId = setTimeout(() => controller.abort(), 3000)
     
     try {
-      const response = await fetch(esp32Url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(command),
+    const response = await fetch(esp32Url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(command),
         signal: controller.signal
-      })
+    })
 
       clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
 
-      const data = await response.json()
+    const data = await response.json()
       console.log('✅ ESP32 הגיב בהצלחה:', data)
-      return data
+    return data
 
     } catch (fetchError) {
       clearTimeout(timeoutId)

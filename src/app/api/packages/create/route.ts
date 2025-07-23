@@ -105,15 +105,15 @@ export async function POST(request: Request) {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',
         entityId: newPackage.id.toString(),
-        trackingCode,
-        customerId: customer.id,
-        customerName,
-        customerPhone,
-        lockerId,
-        cellId,
-        pickupCode, // שמירת קוד השחרור
-        size,
-        notes
+          trackingCode,
+          customerId: customer.id,
+          customerName,
+          customerPhone,
+          lockerId,
+          cellId,
+          pickupCode, // שמירת קוד השחרור
+          size,
+          notes
       })
     } catch (logError) {
       console.error('שגיאה ביצירת לוג:', logError)

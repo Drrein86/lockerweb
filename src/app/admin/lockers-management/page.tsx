@@ -609,15 +609,15 @@ export default function LockersManagementPage() {
         })
       } else {
         response = await fetch('/api/admin/cell-control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cellId,
-            lockerId,
-            action,
-            userId: 'admin'
-          })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cellId,
+          lockerId,
+          action,
+          userId: 'admin'
         })
+      })
       }
 
       if (!response.ok) {

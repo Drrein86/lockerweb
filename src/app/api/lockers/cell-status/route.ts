@@ -69,9 +69,9 @@ export async function GET(request: Request) {
             action: 'CELL_CLOSED',
             entityType: 'CELL',
             entityId: cell.id.toString(),
-            lockerId: parseInt(lockerId),
-            cellNumber: parseInt(cellNumberString),
-            esp32Data: esp32Status
+              lockerId: parseInt(lockerId),
+              cellNumber: parseInt(cellNumberString),
+              esp32Data: esp32Status
           })
         } catch (logError) {
           console.error('שגיאה ביצירת לוג:', logError)
