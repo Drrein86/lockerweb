@@ -73,20 +73,18 @@ export async function POST(request: Request) {
       })
 
       // יצירת לוג אודיט
-      await prisma.auditLog.create({
-        data: {
+      try {
+        console.log('נוצר לוג: פתיחת תא', {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
           entityId: cell.id.toString(),
-          details: {
-            lockerId: lockerId,
-            cellNumber: cellNumber,
-            esp32Response: esp32Response
-          },
-          success: true,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-        }
-      })
+          lockerId: lockerId,
+          cellNumber: cellNumber,
+          esp32Response: esp32Response
+        })
+      } catch (logError) {
+        console.error('שגיאה ביצירת לוג:', logError)
+      }
 
       return NextResponse.json({
         success: true,
@@ -97,21 +95,18 @@ export async function POST(request: Request) {
       })
     } else {
       // לוג כישלון
-      await prisma.auditLog.create({
-        data: {
+      try {
+        console.error('נכשל לפתוח תא', {
           action: 'UNLOCK_CELL',
           entityType: 'CELL',
           entityId: cell.id.toString(),
-          details: {
-            lockerId: lockerId,
-            cellNumber: cellNumber,
-            error: esp32Response.message
-          },
-          success: false,
-          errorMessage: esp32Response.message,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-        }
-      })
+          lockerId: lockerId,
+          cellNumber: cellNumber,
+          error: esp32Response.message
+        })
+      } catch (logError) {
+        console.error('שגיאה ביצירת לוג:', logError)
+      }
 
       return NextResponse.json(
         { success: false, message: esp32Response.message },

@@ -64,20 +64,18 @@ export async function GET(request: Request) {
         })
 
         // יצירת לוג
-        await prisma.auditLog.create({
-          data: {
+        try {
+          console.log('נוצר לוג: תא נסגר', { 
             action: 'CELL_CLOSED',
             entityType: 'CELL',
             entityId: cell.id.toString(),
-            details: {
-              lockerId: parseInt(lockerId),
-              cellNumber: parseInt(cellNumberString),
-              esp32Data: esp32Status
-            },
-            success: true,
-            ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-          }
-        })
+            lockerId: parseInt(lockerId),
+            cellNumber: parseInt(cellNumberString),
+            esp32Data: esp32Status
+          })
+        } catch (logError) {
+          console.error('שגיאה ביצירת לוג:', logError)
+        }
       }
 
       return NextResponse.json({

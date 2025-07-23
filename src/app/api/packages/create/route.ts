@@ -100,26 +100,24 @@ export async function POST(request: Request) {
     })
 
     // שמירת קוד השחרור בטבלה נפרדת (אם קיימת) או ב-metadata
-    await prisma.auditLog.create({
-      data: {
+    try {
+      console.log('נוצר לוג: חבילה נוצרה', {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',
         entityId: newPackage.id.toString(),
-        details: {
-          trackingCode,
-          customerId: customer.id,
-          customerName,
-          customerPhone,
-          lockerId,
-          cellId,
-          pickupCode, // שמירת קוד השחרור
-          size,
-          notes
-        },
-        success: true,
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-      }
-    })
+        trackingCode,
+        customerId: customer.id,
+        customerName,
+        customerPhone,
+        lockerId,
+        cellId,
+        pickupCode, // שמירת קוד השחרור
+        size,
+        notes
+      })
+    } catch (logError) {
+      console.error('שגיאה ביצירת לוג:', logError)
+    }
 
     // שליחת הודעה ללקוח (SMS/Email)
     const notificationResult = await sendCustomerNotification({
