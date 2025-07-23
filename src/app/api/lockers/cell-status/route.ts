@@ -9,21 +9,24 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const lockerId = url.searchParams.get('lockerId')
-    const cellNumberStr = url.searchParams.get('cellNumber')
+    const cellNumberFromUrl = url.searchParams.get('cellNumber')
 
-    if (!lockerId || !cellNumberStr) {
+    if (!lockerId || !cellNumberFromUrl) {
       return NextResponse.json(
         { success: false, message: 'חסרים פרמטרים נדרשים' },
         { status: 400 }
       )
     }
 
+    // כפיית המרה ל-string
+    const cellNumberString: string = String(cellNumberFromUrl)
+
     // מציאת הלוקר והתא במסד הנתונים
     const locker = await prisma.locker.findUnique({
       where: { id: parseInt(lockerId) },
       include: {
         cells: {
-          where: { cellNumber: parseInt(cellNumberStr) }
+          where: { cellNumber: parseInt(cellNumberString) }
         }
       }
     })
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
     }
 
     // בדיקת סטטוס התא דרך ESP32
-    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, String(cellNumberStr))
+    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, cellNumberString)
 
     if (esp32Status.success) {
       // עדכון סטטוס התא במסד הנתונים לפי התגובה מה-ESP32
@@ -68,7 +71,7 @@ export async function GET(request: Request) {
             entityId: cell.id.toString(),
             details: {
               lockerId: parseInt(lockerId),
-              cellNumber: parseInt(cellNumberStr),
+              cellNumber: parseInt(cellNumberString),
               esp32Data: esp32Status
             },
             success: true,
