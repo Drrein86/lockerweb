@@ -48,7 +48,7 @@ function CellVerificationContent() {
     }
 
     // בדיקת תקינות פרמטרים
-    if (!params.cellId || !params.cellCode || !params.lockerId) {
+    if (!params.cellId || !params.cellCode || !params.lockerId || !params.cellNumber) {
       router.push('/courier/location-search')
       return
     }

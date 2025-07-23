@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     // יצירת או מציאת לקוח
-    let customer = await prisma.customer.findUnique({
+    let customer = await prisma.customer.findFirst({
       where: { phone: customerPhone }
     })
 

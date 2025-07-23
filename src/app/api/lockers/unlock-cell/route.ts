@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     // שליחת פקודה ל-ESP32
-    const esp32Response = await sendCommandToESP32(locker.ip, locker.port ? parseInt(locker.port) : null, {
+    const esp32Response = await sendCommandToESP32(locker.ip, locker.port, {
       action: action,
       cellId: cellNumber.toString(),
       packageId: `TEMP_${Date.now()}`
@@ -144,8 +144,7 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(command),
-      timeout: 10000 // 10 שניות timeout
+      body: JSON.stringify(command)
     })
 
     if (!response.ok) {
