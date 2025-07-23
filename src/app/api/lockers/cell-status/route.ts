@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     }
 
     // בדיקת סטטוס התא דרך ESP32
-    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, cellNumberString)
+    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port ? parseInt(locker.port) : null, cellNumberString as string)
 
     if (esp32Status.success) {
       // עדכון סטטוס התא במסד הנתונים לפי התגובה מה-ESP32
