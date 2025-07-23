@@ -51,11 +51,37 @@ export async function POST(request: Request) {
       )
     }
 
-    // תמיד נחזיר הצלחה עם סימולציה אם ESP32 לא זמין
-    console.log('🔧 Starting unlock simulation for demo purposes')
+    // קבלת חיבור למסד הנתונים לקבלת פרטי הלוקר האמיתי
+    const db = await getPrisma()
+    console.log('🔗 Database connection:', db ? 'Connected' : 'Using fallback')
+
+    let lockerIP = '192.168.1.100' // ברירת מחדל
+    let lockerPort = 80
+
+    if (db) {
+      try {
+        // מציאת הלוקר במסד הנתונים
+        const locker = await db.locker.findUnique({
+          where: { id: lockerId }
+        })
+        
+        if (locker && locker.ip) {
+          lockerIP = locker.ip
+          lockerPort = locker.port || 80
+          console.log(`🔍 מצא לוקר: ${locker.deviceId} ב-${lockerIP}:${lockerPort}`)
+        } else {
+          console.log('⚠️ לא נמצא לוקר במסד הנתונים, משתמש ברירת מחדל')
+        }
+      } catch (dbError) {
+        console.error('❌ Database query error:', dbError)
+        console.log('⚠️ נכשל בחיפוש לוקר, משתמש ברירת מחדל')
+      }
+    }
     
-    // שליחת פקודה ל-ESP32 (או סימולציה)
-    const esp32Response = await sendCommandToESP32('192.168.0.100', 80, {
+    console.log(`🔧 מנסה לפתוח תא ${cellNumber} בלוקר ${lockerId} ב-${lockerIP}:${lockerPort}`)
+    
+    // שליחת פקודה ל-ESP32 האמיתי
+    const esp32Response = await sendCommandToESP32(lockerIP, lockerPort, {
       action: action,
       cellId: cellNumber.toString(),
       packageId: `TEMP_${Date.now()}`
