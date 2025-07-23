@@ -5,6 +5,23 @@ const prisma = new PrismaClient()
 
 export const dynamic = 'force-dynamic'
 
+// GET handler לבדיקה שה-API קיים
+export async function GET() {
+  return NextResponse.json({
+    message: 'Unlock Cell API is working',
+    timestamp: new Date().toISOString(),
+    methods: ['POST'],
+    example: {
+      method: 'POST',
+      body: {
+        lockerId: 1,
+        cellNumber: 1,
+        action: 'unlock'
+      }
+    }
+  })
+}
+
 export async function POST(request: Request) {
   try {
     const { lockerId, cellNumber, action } = await request.json()
