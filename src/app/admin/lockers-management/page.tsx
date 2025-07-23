@@ -594,28 +594,50 @@ export default function LockersManagementPage() {
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
 
     try {
-      const response = await fetch('/api/admin/cell-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cellId,
-          lockerId,
-          action,
-          userId: 'admin'
+      let response, data
+      
+      if (action === 'open') {
+        // עבור פתיחת תאים, נשתמש ב-API המיוחד שתומך בסימולציה
+        response = await fetch('/api/lockers/unlock-cell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lockerId: lockerId,
+            cellNumber: cellId,
+            action: 'unlock'
+          })
         })
-      })
+      } else {
+        response = await fetch('/api/admin/cell-control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cellId,
+            lockerId,
+            action,
+            userId: 'admin'
+          })
+        })
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.json()
+      data = await response.json()
       
       if (data.success) {
-        alert(`פקודת ${action === 'open' ? 'פתיחה' : 'סגירה'} נשלחה בהצלחה!`)
+        const actionText = action === 'open' ? 'פתיחה' : 'סגירה'
+        let message = `פקודת ${actionText} נשלחה בהצלחה!`
+        
+        if (data.simulated) {
+          message += '\n\n🔧 הערה: זוהי סימולציה כי ESP32 לא מחובר כרגע.'
+        }
+        
+        alert(message)
         await loadLockers()
       } else {
-        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
+        alert('שגיאה: ' + (data.error || data.message || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('שגיאה בבקרת תא:', error)
