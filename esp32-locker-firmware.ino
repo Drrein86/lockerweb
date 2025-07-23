@@ -292,6 +292,9 @@ void setupServerRoutes() {
   // נתיב לקבלת פקודות
   server.on("/locker", HTTP_POST, handleLockerCommand);
   
+  // נתיב נוסף לטיפול בפקודות (גיבוי)
+  server.on("/locker", HTTP_POST, handleLocker);
+  
   // נתיב סטטוס JSON
   server.on("/status", HTTP_GET, []() {
     String json = buildStatusJSON();
@@ -303,76 +306,119 @@ void setupServerRoutes() {
 }
 
 void handleLockerCommand() {
+  if (server.method() != HTTP_POST) {
+    server.send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+    return;
+  }
+
   if (server.hasArg("plain")) {
     String body = server.arg("plain");
     Serial.println("📨 פקודה התקבלה: " + body);
     
     // פענוח JSON
     DynamicJsonDocument doc(1024);
-    deserializeJson(doc, body);
+    DeserializationError error = deserializeJson(doc, body);
+    if (error) {
+      Serial.println("❌ שגיאה בפענוח JSON");
+      server.send(400, "application/json", "{\"error\":\"Bad JSON\"}");
+      return;
+    }
     
     String action = doc["action"];
-    String cellId = doc["cellId"];
-    String packageId = doc["packageId"];
-    
-    bool success = false;
-    String message = "";
+    Serial.println("🔧 פעולה: " + action);
     
     if (action == "unlock") {
-      success = unlockCell(cellId);
-      message = success ? "תא נפתח בהצלחה" : "שגיאה בפתיחת תא";
-    } 
-    else if (action == "lock") {
-      success = lockCell(cellId, packageId);
-      message = success ? "תא ננעל בהצלחה" : "שגיאה בנעילת תא";
-    }
-    else if (action == "checkCell") {
+      String cellId = doc["cellId"];
+      Serial.println("🔓 פותח תא: " + cellId);
+      
+      bool success = unlockCell(cellId);
+      
+      DynamicJsonDocument response(512);
+      response["success"] = success;
+      response["message"] = success ? "תא נפתח בהצלחה" : "שגיאה בפתיחת תא";
+      response["deviceId"] = lockerId;
+      response["cellId"] = cellId;
+      
+      String jsonString;
+      serializeJson(response, jsonString);
+      server.send(200, "application/json", jsonString);
+      
+    } else if (action == "ping") {
+      Serial.println("🏓 Ping התקבל");
+      
+      DynamicJsonDocument response(512);
+      response["pong"] = true;
+      response["deviceId"] = lockerId;
+      response["status"] = "online";
+      
+      String jsonString;
+      serializeJson(response, jsonString);
+      server.send(200, "application/json", jsonString);
+      
+    } else if (action == "checkCell") {
+      String cellId = doc["cellId"];
+      Serial.println("🔍 בודק תא: " + cellId);
+      
       int cellIndex = getCellIndex(cellId);
       if (cellIndex >= 0) {
         bool isClosed = digitalRead(cells[cellIndex].sensorPin) == HIGH;
-        success = true;
         
-        // יצירת תגובה מיוחדת לבדיקת סגירה
         DynamicJsonDocument response(512);
         response["success"] = true;
         response["cellId"] = cellId;
-        response["cellClosed"] = isClosed;
         response["locked"] = cellStates[cellIndex].locked;
-        response["timestamp"] = millis();
+        response["cellClosed"] = isClosed;
         
         String jsonString;
         serializeJson(response, jsonString);
-        server.send(200, "application/json; charset=utf-8", jsonString);
-        return;
+        server.send(200, "application/json", jsonString);
       } else {
-        success = false;
-        message = "תא לא נמצא";
+        server.send(400, "application/json", "{\"error\":\"Cell not found\"}");
       }
-    }
-    else if (action == "ping") {
-      success = true;
-      message = "ESP32 פעיל ומחובר";
-    }
-    else {
-      message = "פעולה לא מוכרת";
+      
+    } else {
+      Serial.println("❓ פעולה לא ידועה: " + action);
+      server.send(400, "application/json", "{\"error\":\"Unknown action\"}");
     }
     
-    // שליחת תגובה
-    DynamicJsonDocument response(512);
-    response["success"] = success;
-    response["message"] = message;
-    response["lockerId"] = lockerId;
-    response["cellId"] = cellId;
-    response["timestamp"] = millis();
-    
-    String jsonString;
-    serializeJson(response, jsonString);
-    
-    server.send(200, "application/json; charset=utf-8", jsonString);
-    
-    Serial.println("📤 תגובה נשלחה: " + message);
   } else {
-    server.send(400, "application/json", "{\"success\":false,\"message\":\"חסר גוף בקשה\"}");
+    server.send(400, "application/json", "{\"error\":\"Missing request body\"}");
+  }
+}
+
+// פונקציה נוספת לטיפול בפקודות (למקרה שהאפליקציה קוראת ל-/locker)
+void handleLocker() {
+  if (server.method() != HTTP_POST) {
+    server.send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+    return;
+  }
+
+  StaticJsonDocument<256> doc;
+  DeserializationError err = deserializeJson(doc, server.arg("plain"));
+  if (err) {
+    server.send(400, "application/json", "{\"error\":\"Bad JSON\"}");
+    return;
+  }
+
+  String action = doc["action"];
+  if (action == "unlock") {
+    String cellId = doc["cellId"];
+    Serial.println("🔓 פותח תא: " + cellId);
+    bool success = unlockCell(cellId);
+    server.send(200, "application/json", "{\"success\":" + String(success ? "true" : "false") + ",\"deviceId\":\"" + lockerId + "\",\"cellId\":\"" + cellId + "\"}");
+  } else if (action == "ping") {
+    server.send(200, "application/json", "{\"pong\":true,\"deviceId\":\"" + lockerId + "\",\"status\":\"online\"}");
+  } else if (action == "checkCell") {
+    String cellId = doc["cellId"];
+    int cellIndex = getCellIndex(cellId);
+    if (cellIndex >= 0) {
+      bool isClosed = digitalRead(cells[cellIndex].sensorPin) == HIGH;
+      server.send(200, "application/json", "{\"success\":true,\"cellId\":\"" + cellId + "\",\"locked\":" + String(cellStates[cellIndex].locked ? "true" : "false") + "}");
+    } else {
+      server.send(400, "application/json", "{\"error\":\"Cell not found\"}");
+    }
+  } else {
+    server.send(400, "application/json", "{\"error\":\"Unknown action\"}");
   }
 }
 
