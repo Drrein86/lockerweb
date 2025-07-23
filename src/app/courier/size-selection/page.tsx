@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -21,7 +21,7 @@ interface LockerInfo {
   }
 }
 
-export default function SizeSelectionPage() {
+function SizeSelectionPageContent() {
   const [selectedSize, setSelectedSize] = useState<PackageSize | null>(null)
   const [loading, setLoading] = useState(false)
   const [locker, setLocker] = useState<LockerInfo | null>(null)
@@ -302,5 +302,17 @@ export default function SizeSelectionPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SizeSelectionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">טוען...</div>
+      </div>
+    }>
+      <SizeSelectionPageContent />
+    </Suspense>
   )
 } 

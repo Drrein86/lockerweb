@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -36,7 +36,7 @@ interface CellOption {
 
 type ViewMode = 'size-selection' | 'locker-selection' | 'cell-selection'
 
-export default function ChangeCellPage() {
+function ChangeCellPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('size-selection')
   const [selectedSize, setSelectedSize] = useState<string>('')
   const [selectedLocker, setSelectedLocker] = useState<LockerOption | null>(null)
@@ -348,5 +348,17 @@ export default function ChangeCellPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ChangeCellPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">טוען...</div>
+      </div>
+    }>
+      <ChangeCellPageContent />
+    </Suspense>
   )
 } 
