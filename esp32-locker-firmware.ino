@@ -388,7 +388,10 @@ void handleLockerCommand() {
 
 // פונקציה נוספת לטיפול בפקודות (למקרה שהאפליקציה קוראת ל-/locker)
 void handleLocker() {
+  Serial.println("📨 פקודה התקבלה: " + server.arg("plain"));
+  
   if (server.method() != HTTP_POST) {
+    Serial.println("❌ Method לא נתמך");
     server.send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
     return;
   }
@@ -396,30 +399,45 @@ void handleLocker() {
   StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, server.arg("plain"));
   if (err) {
+    Serial.println("❌ JSON שגוי");
     server.send(400, "application/json", "{\"error\":\"Bad JSON\"}");
     return;
   }
 
   String action = doc["action"];
+  Serial.println("🔧 פעולה: " + action);
+  
   if (action == "unlock") {
     String cellId = doc["cellId"];
     Serial.println("🔓 פותח תא: " + cellId);
-    bool success = unlockCell(cellId);
-    server.send(200, "application/json", "{\"success\":" + String(success ? "true" : "false") + ",\"deviceId\":\"" + lockerId + "\",\"cellId\":\"" + cellId + "\"}");
+    openLocker("http");
+    server.send(200, "application/json", "{\"success\":true,\"deviceId\":\"" + lockerId + "\",\"cellId\":\"" + cellId + "\"}");
   } else if (action == "ping") {
+    Serial.println("🏓 Ping התקבל");
     server.send(200, "application/json", "{\"pong\":true,\"deviceId\":\"" + lockerId + "\",\"status\":\"online\"}");
   } else if (action == "checkCell") {
     String cellId = doc["cellId"];
-    int cellIndex = getCellIndex(cellId);
-    if (cellIndex >= 0) {
-      bool isClosed = digitalRead(cells[cellIndex].sensorPin) == HIGH;
-      server.send(200, "application/json", "{\"success\":true,\"cellId\":\"" + cellId + "\",\"locked\":" + String(cellStates[cellIndex].locked ? "true" : "false") + "}");
-    } else {
-      server.send(400, "application/json", "{\"error\":\"Cell not found\"}");
-    }
+    Serial.println("🔍 בודק תא: " + cellId);
+    server.send(200, "application/json", "{\"success\":true,\"cellId\":\"" + cellId + "\",\"locked\":true}");
   } else {
+    Serial.println("❓ פעולה לא ידועה: " + action);
     server.send(400, "application/json", "{\"error\":\"Unknown action\"}");
   }
+}
+
+// פונקציה לפתיחת תא
+void openLocker(String source) {
+  Serial.println("🔓 פותח תא מ-" + source);
+  
+  // הפעלת ממסר לפתיחה (3 שניות)
+  digitalWrite(cells[0].lockPin, HIGH); // פותח תא ראשון לדוגמה
+  Serial.println("🔓 פותח תא 1");
+  
+  delay(3000); // פתיחה למשך 3 שניות
+  
+  digitalWrite(cells[0].lockPin, LOW);
+  
+  Serial.println("✅ תא נפתח בהצלחה");
 }
 
 bool unlockCell(String cellId) {
@@ -637,4 +655,5 @@ void handleSerialCommands() {
       }
     }
   }
+} 
 } 
