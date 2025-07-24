@@ -362,28 +362,79 @@ export default function LockersManagementPage() {
 
   const deleteLocker = (id: number) => deleteItem(id, 'locker')
 
-  // פונקציות בקרת תאים בזמן אמת
+  // פונקציות בקרת תאים בזמן אמת - משתמש באותו API כמו לוקרי DB
   const unlockCell = async (lockerId: string, cellId: string) => {
     const actionKey = `${lockerId}-${cellId}`
     setControlLoading(prev => ({ ...prev, [actionKey]: true }))
     
     try {
-      const response = await fetch('/api/websocket', {
+      // מציאת הלוקר במסד הנתונים לפי deviceId
+      const lockersResponse = await fetch('/api/admin/lockers-management')
+      const lockersData = await lockersResponse.json()
+      
+      let dbLockerId = null
+      if (lockersData.success) {
+        const foundLocker = lockersData.lockers.find((l: any) => l.deviceId === lockerId)
+        if (foundLocker) {
+          dbLockerId = foundLocker.id
+        }
+      }
+      
+      // אם לא נמצא במסד הנתונים, ננסה להשתמש ב-IP מהלוקר החי
+      if (!dbLockerId) {
+        const liveLocker = liveLockers[lockerId]
+        if (liveLocker?.ip) {
+          // יצירת לוקר זמני במסד הנתונים
+          const createResponse = await fetch('/api/admin/lockers-management', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'locker',
+              name: `לוקר ${lockerId}`,
+              location: 'לוקר בזמן אמת',
+              description: `לוקר זמני נוצר מ-${liveLocker.ip}`,
+              ip: liveLocker.ip,
+              port: 80,
+              deviceId: lockerId,
+              status: 'ONLINE',
+              isActive: true
+            })
+          })
+          
+          const createData = await createResponse.json()
+          if (createData.success) {
+            dbLockerId = createData.locker.id
+          }
+        }
+      }
+      
+      if (!dbLockerId) {
+        throw new Error('לא ניתן למצוא או ליצור לוקר במסד הנתונים')
+      }
+      
+      // שימוש באותו API כמו לוקרי DB
+      const response = await fetch('/api/lockers/unlock-cell', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'openCell',
-          lockerId,
-          cellCode: cellId
+          lockerId: dbLockerId,
+          cellNumber: parseInt(cellId),
+          action: 'unlock'
         })
       })
       
       const result = await response.json()
       
       if (result.success) {
-        console.log(`✅ תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`)
+        let message = `תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`
+        
+        if (result.simulated) {
+          message += '\n\n🔧 הערה: זוהי סימולציה כי ESP32 לא מחובר כרגע.'
+        }
+        
+        alert(message)
+        console.log(`✅ ${message}`)
+        
         // עדכון מקומי של הסטטוס
         setLiveLockers(prev => ({
           ...prev,
@@ -400,12 +451,11 @@ export default function LockersManagementPage() {
           }
         }))
       } else {
-        console.error(`❌ שגיאה בפתיחת תא: ${result.error}`)
-        alert('שגיאה בפתיחת התא: ' + result.error)
+        alert('שגיאה: ' + (result.error || result.message || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('שגיאה בפתיחת תא:', error)
-      alert('שגיאה בחיבור לשרת')
+      alert('שגיאה בפתיחת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     } finally {
       setControlLoading(prev => ({ ...prev, [actionKey]: false }))
     }
