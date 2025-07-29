@@ -154,6 +154,7 @@ export default function LockersManagementPage() {
                               'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
+                              type: 'locker',
                               name: `לוקר ${id}`,
                               location: 'מיקום אוטומטי',
                               description: `נרשם אוטומטית מ-WebSocket`,
