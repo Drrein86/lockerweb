@@ -143,8 +143,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: false,
       message: 'לוקר לא זמין כרגע, נסה שוב מאוחר יותר',
-      cellId: cellNumber || 'לא ידוע',
-      lockerId: lockerId || 'לא ידוע',
+      cellId: 'לא ידוע',
+      lockerId: 'לא ידוע',
       simulated: true,
       error: error instanceof Error ? error.message : 'שגיאה לא ידועה'
     })
