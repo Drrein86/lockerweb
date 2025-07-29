@@ -133,26 +133,90 @@ export default function LockersManagementPage() {
 
               case 'lockerUpdate':
                 console.log('🔄 עדכון לוקר:', data)
-                if (data.data && typeof data.data === 'object') {
-                  const lockersData = data.data.lockers || data.data
+                
+                if (data.data && data.data.lockers) {
+                  setLiveLockers(data.data.lockers)
                   
-                  setLiveLockers(prev => {
-                    const updated = { ...prev }
-                    Object.entries(lockersData).forEach(([id, lockerData]: [string, any]) => {
-                      updated[id] = {
-                        id,
-                        isOnline: lockerData.isOnline ?? true,
-                        lastSeen: lockerData.lastSeen || new Date(data.timestamp).toISOString(),
-                        cells: {
-                          ...(prev[id]?.cells || {}),
-                          ...(lockerData.cells || {})
-                        },
-                        ip: lockerData.ip || prev[id]?.ip,
-                        deviceId: id
+                  // רישום אוטומטי של לוקרים חדשים ב-DB
+                  Object.entries(data.data.lockers).forEach(async ([id, lockerData]: [string, any]) => {
+                    if (lockerData.isOnline) {
+                      try {
+                        // בדיקה אם הלוקר כבר קיים ב-DB
+                        const existingLocker = lockers.find(l => l.deviceId === id)
+                        
+                        if (!existingLocker) {
+                          console.log(`📝 רושם לוקר חדש ב-DB: ${id}`)
+                          
+                          // רישום הלוקר ב-DB
+                          const response = await fetch('/api/admin/lockers-management', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              name: `לוקר ${id}`,
+                              location: 'מיקום אוטומטי',
+                              description: `נרשם אוטומטית מ-WebSocket`,
+                              ip: lockerData.ip || '192.168.0.100',
+                              port: 80,
+                              deviceId: id,
+                              status: 'ONLINE',
+                              isActive: true
+                            })
+                          })
+                          
+                          if (response.ok) {
+                            console.log(`✅ לוקר ${id} נרשם בהצלחה ב-DB`)
+                            // רענון רשימת הלוקרים
+                            await loadLockers()
+                          }
+                        } else {
+                          // עדכון סטטוס לוקר קיים
+                          const updatedLocker = {
+                            ...existingLocker,
+                            status: 'ONLINE',
+                            lastSeen: new Date().toISOString(),
+                            ip: lockerData.ip || existingLocker.ip
+                          }
+                          
+                          // עדכון ב-state
+                          setLockers(prev => prev.map(l => 
+                            l.deviceId === id ? updatedLocker : l
+                          ))
+                        }
+                      } catch (error) {
+                        console.error(`❌ שגיאה ברישום לוקר ${id}:`, error)
+                      }
+                    }
+                  })
+                  
+                  // עדכון הלוקרים הקיימים עם מידע WebSocket
+                  setLockers(prev => {
+                    const updated = prev.map(locker => {
+                      const id = locker.deviceId
+                      const lockerData = data.data.lockers[id || '']
+                      
+                      if (lockerData) {
+                        return {
+                          ...locker,
+                          status: lockerData.isOnline ? 'ONLINE' : 'OFFLINE',
+                          lastSeen: new Date().toISOString(),
+                          ip: lockerData.ip || locker.ip
+                        }
+                      }
+                      return {
+                        ...locker,
+                        status: 'OFFLINE' // לוקרים שלא ב-WebSocket יסומנו כלא מחוברים
                       }
                     })
                     return updated
                   })
+                } else {
+                  // אם אין נתונים מ-WebSocket, סמן את כל הלוקרים כלא מחוברים
+                  setLockers(prev => prev.map(locker => ({
+                    ...locker,
+                    status: 'OFFLINE'
+                  })))
                 }
                 break
 
@@ -182,6 +246,12 @@ export default function LockersManagementPage() {
         ws.onclose = () => {
           setWsStatus('מנותק')
           console.log('🔌 החיבור לשרת החומרה נסגר')
+          
+          // כשה-WebSocket מנותק, עדכן את כל הלוקרים ל-OFFLINE אבל השאר אותם מוצגים
+          setLockers(prev => prev.map(locker => ({
+            ...locker,
+            status: 'OFFLINE'
+          })))
           
           if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++
@@ -737,28 +807,14 @@ export default function LockersManagementPage() {
           </div>
         </div>
 
-        {/* הודעה כשאין לוקרים חיים */}
-        {Object.keys(liveLockers).length === 0 && (
+        {/* הודעה על מצב WebSocket */}
+        {wsStatus !== 'מחובר' && (
           <div className="mb-6 sm:mb-8">
-            <div className="bg-blue-500/10 backdrop-blur-md rounded-lg p-6 border border-blue-400/30 text-center">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-xl font-bold text-blue-400 mb-2">מחפש לוקרים חיים...</h3>
-              <p className="text-white/70 mb-4">
-                המערכת מחפשת לוקרים אמיתיים המחוברים לשרת החומרה בזמן אמת.
+            <div className="bg-yellow-500/10 backdrop-blur-md rounded-lg p-4 border border-yellow-400/30 text-center">
+              <div className="text-2xl mb-2">⚠️</div>
+              <p className="text-yellow-300 text-sm">
+                שרת החומרה לא מחובר - מוצגים לוקרים ששמורים במערכת
               </p>
-              <div className="flex items-center justify-center gap-2 text-sm text-white/60 mb-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  wsStatus === 'מחובר' ? 'bg-green-400 animate-pulse' : 
-                  wsStatus === 'מתחבר' ? 'bg-yellow-400 animate-pulse' : 
-                  'bg-red-400'
-                }`}></div>
-                <span>סטטוס חיבור לשרת החומרה: {wsStatus}</span>
-              </div>
-              {wsStatus !== 'מחובר' && (
-                <p className="text-orange-300 text-sm">
-                  💡 וודא שהשרת החומרה פועל על ws://localhost:3003
-                </p>
-              )}
             </div>
           </div>
         )}
