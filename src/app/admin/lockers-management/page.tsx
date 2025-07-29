@@ -683,17 +683,15 @@ export default function LockersManagementPage() {
       data = await response.json()
       
       if (data.success) {
-        const actionText = action === 'open' ? 'פתיחה' : 'סגירה'
-        let message = `פקודת ${actionText} נשלחה בהצלחה!`
-        
-        if (data.simulated) {
-          message += '\n\n🔧 הערה: זוהי סימולציה כי ESP32 לא מחובר כרגע.'
-        }
-        
-        alert(message)
+        const actionText = action === 'open' ? 'התא נפתח' : 'התא נסגר'
+        alert(`✅ ${actionText} בהצלחה!`)
         await loadLockers()
       } else {
-        alert('שגיאה: ' + (data.error || data.message || 'שגיאה לא ידועה'))
+        if (data.simulated) {
+          alert('⚠️ לוקר לא זמין כרגע, נסה שוב מאוחר יותר')
+        } else {
+          alert('❌ שגיאה: ' + (data.error || data.message || 'שגיאה לא ידועה'))
+        }
       }
     } catch (error) {
       console.error('שגיאה בבקרת תא:', error)

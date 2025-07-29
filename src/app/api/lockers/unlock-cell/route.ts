@@ -127,24 +127,24 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-      message: railwayResponse.simulated ? 
-        'התא נפתח בהצלחה (סימולציה)' : 
-        'התא נפתח בהצלחה',
-      cellId: cellNumber,
+        message: railwayResponse.simulated ? 
+          'לוקר לא זמין כרגע, נסה שוב מאוחר יותר' : 
+          'התא נפתח בהצלחה',
+        cellId: cellNumber,
         lockerId: lockerId,
-      esp32Response: railwayResponse,
-      simulated: railwayResponse.simulated || false
-    })
+        esp32Response: railwayResponse,
+        simulated: railwayResponse.simulated || false
+      })
 
   } catch (error) {
     console.error('שגיאה בפתיחת תא:', error)
     
-    // גם במקרה של שגיאה, נחזיר הצלחה במצב demo
+    // גם במקרה של שגיאה, נחזיר הודעה ברורה
     return NextResponse.json({
-      success: true,
-      message: 'התא נפתח בהצלחה (מצב סימולציה בשל שגיאה)',
-      cellId: 1,
-      lockerId: 1,
+      success: false,
+      message: 'לוקר לא זמין כרגע, נסה שוב מאוחר יותר',
+      cellId: cellNumber || 'לא ידוע',
+      lockerId: lockerId || 'לא ידוע',
       simulated: true,
       error: error instanceof Error ? error.message : 'שגיאה לא ידועה'
     })
@@ -214,8 +214,8 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
       
       // Fallback לסימולציה
       return { 
-        success: true, 
-        message: 'פתיחת תא הצליחה (Railway לא זמין - סימולציה)',
+        success: false, 
+        message: 'לוקר לא זמין כרגע',
         simulated: true,
         originalError: fetchError instanceof Error ? fetchError.message : String(fetchError)
       }
@@ -224,10 +224,10 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
   } catch (error) {
     console.error('שגיאה כללית בחיבור ל-Railway:', error)
     
-    // גם במקרה של שגיאה כללית, נחזיר הצלחה במצב פיתוח
+    // גם במקרה של שגיאה כללית, נחזיר הודעה ברורה
     return { 
-      success: true, 
-      message: 'פתיחת תא הצליחה (סימולציה בשל שגיאה)',
+      success: false, 
+      message: 'לוקר לא זמין כרגע',
       simulated: true,
       error: error instanceof Error ? error.message : String(error)
     }
