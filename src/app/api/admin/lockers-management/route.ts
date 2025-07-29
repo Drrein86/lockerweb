@@ -153,23 +153,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, name, location, description, ip, port, deviceId, status, isActive } = body
+    const { type } = body
     const db = await getPrisma()
 
-    // אם אין type, ברירת המחדל היא 'locker'
-    const requestType = type || 'locker'
+    if (type === 'locker') {
+      const { name, location, description, ip, port, deviceId, status, isActive } = body
 
-    if (requestType === 'locker') {
       if (db) {
         try {
         const locker = await db.locker.create({
           data: {
-            name: name || 'לוקר חדש',
-            location: location || 'לא מוגדר',
-            description: description || '',
-            ip: ip || '192.168.1.1',
+            name,
+            location,
+            description,
+            ip,
             port: port || 80,
-            deviceId: deviceId || `ESP32_${Date.now()}`,
+            deviceId,
             status: status || 'OFFLINE',
             isActive: isActive ?? true
           }
@@ -210,7 +209,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (requestType === 'cell') {
+    if (type === 'cell') {
       const { lockerId, cellNumber, name, size, code, isActive } = body
 
       if (db) {
