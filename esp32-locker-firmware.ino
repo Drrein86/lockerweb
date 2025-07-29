@@ -270,15 +270,71 @@ void handleWebSocketMessage(String message) {
   }
   
   String type = doc["type"];
+  String requestId = doc["requestId"]; // שמירת מזהה הבקשה
   
   if (type == "unlock") {
+    // תמיכה בשני פורמטים: 'cellId' ו-'cell'
     String cellId = doc["cellId"];
-    unlockCell(cellId);
+    if (cellId == "" || cellId == "null") {
+      cellId = doc["cell"];
+    }
+    
+    if (cellId != "" && cellId != "null") {
+      Serial.println("🔓 מקבל פקודת פתיחה לתא: " + cellId);
+      bool success = unlockCell(cellId);
+      
+      // שליחת תגובה חזרה לשרת
+      DynamicJsonDocument response(256);
+      response["type"] = "unlockResponse";
+      response["cellId"] = cellId;
+      response["success"] = success;
+      response["lockerId"] = lockerId;
+      if (requestId != "" && requestId != "null") {
+        response["requestId"] = requestId; // החזרת מזהה הבקשה
+      }
+      
+      String responseString;
+      serializeJson(response, responseString);
+      webSocket.sendTXT(responseString);
+      Serial.println("📤 נשלחה תגובה: " + responseString);
+    } else {
+      Serial.println("❌ לא נמצא מזהה תא בהודעת פתיחה");
+    }
   } 
   else if (type == "lock") {
     String cellId = doc["cellId"];
+    if (cellId == "" || cellId == "null") {
+      cellId = doc["cell"];
+    }
     String packageId = doc["packageId"];
-    lockCell(cellId, packageId);
+    
+    if (cellId != "" && cellId != "null") {
+      Serial.println("🔒 מקבל פקודת נעילה לתא: " + cellId);
+      bool success = lockCell(cellId, packageId);
+      
+      // שליחת תגובה חזרה לשרת
+      DynamicJsonDocument response(256);
+      response["type"] = "lockResponse";
+      response["cellId"] = cellId;
+      response["success"] = success;
+      response["lockerId"] = lockerId;
+      if (requestId != "" && requestId != "null") {
+        response["requestId"] = requestId; // החזרת מזהה הבקשה
+      }
+      
+      String responseString;
+      serializeJson(response, responseString);
+      webSocket.sendTXT(responseString);
+      Serial.println("📤 נשלחה תגובה: " + responseString);
+    } else {
+      Serial.println("❌ לא נמצא מזהה תא בהודעת נעילה");
+    }
+  }
+  else if (type == "identified" || type == "registerSuccess") {
+    Serial.println("✅ לוקר זוהה בשרת: " + String((char*)doc["message"]));
+  }
+  else {
+    Serial.println("❓ הודעה לא מזוהה: " + type);
   }
 }
 

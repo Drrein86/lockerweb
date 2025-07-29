@@ -58,32 +58,8 @@ defaultLockers.forEach(locker => {
   registeredLockers.set(locker.id, locker);
 });
 
-// יצירת HTTP/HTTPS server עבור מידע על המערכת
-let server;
-if (USE_SSL && SSL_KEY && SSL_CERT) {
-  const options = {
-    key: fs.readFileSync(SSL_KEY),
-    cert: fs.readFileSync(SSL_CERT)
-  };
-  server = https.createServer(options, handleRequest);
-  console.log('🔒 שרת HTTPS הופעל');
-} else {
-  server = http.createServer(handleRequest);
-  console.log('ℹ️ שרת HTTP הופעל (ללא SSL)');
-}
-
-function handleRequest(req, res) {
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify({
-    message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
-    status: 'פעיל',
-    lockers: getLockerStates(),
-    timestamp: new Date().toISOString()
-  }, null, 2));
-}
-
-// WebSocket server עבור תקשורת עם האפליקציה והלוקרים
-const wss = new WebSocket.Server({ server });
+// מפת בקשות ממתינות לתגובה מה-ESP32
+const pendingRequests = new Map();
 
 // פונקציה לשליחת הודעה ללוקר ספציפי
 function sendToLocker(id, messageObj) {
@@ -95,6 +71,49 @@ function sendToLocker(id, messageObj) {
     console.log(`🚫 לוקר ${id} לא מחובר`);
     return false;
   }
+}
+
+// פונקציה לשליחת פקודה ללוקר עם המתנה לתגובה
+function sendToLockerWithResponse(id, messageObj, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    const conn = lockerConnections.get(id);
+    if (!conn || conn.readyState !== WebSocket.OPEN) {
+      console.log(`🚫 לוקר ${id} לא מחובר`);
+      resolve({ success: false, message: `לוקר ${id} לא מחובר` });
+      return;
+    }
+
+    // יצירת מזהה יחודי לבקשה
+    const requestId = `${id}_${messageObj.type}_${Date.now()}`;
+    
+    // שמירת הבקשה במפה
+    pendingRequests.set(requestId, {
+      resolve,
+      lockerId: id,
+      messageObj,
+      timestamp: Date.now()
+    });
+    
+    // הוספת מזהה בקשה להודעה
+    messageObj.requestId = requestId;
+    
+    // שליחת ההודעה
+    conn.send(JSON.stringify(messageObj));
+    console.log(`📤 נשלחה פקודה ללוקר ${id} עם מזהה ${requestId}`);
+    
+    // טיימאאוט - אם לא מגיעה תגובה בזמן
+    setTimeout(() => {
+      if (pendingRequests.has(requestId)) {
+        pendingRequests.delete(requestId);
+        console.log(`⏰ תם הזמן לתגובה מלוקר ${id}`);
+        resolve({ 
+          success: false, 
+          message: `תם הזמן לתגובה מלוקר ${id}`,
+          timeout: true 
+        });
+      }
+    }, timeoutMs);
+  });
 }
 
 // פונקציה לשליחת עדכון סטטוס לכל ממשקי הניהול
@@ -262,6 +281,114 @@ function startESP32Monitoring() {
   }, 60000); // כל דקה
 }
 
+// יצירת HTTP/HTTPS server עבור מידע על המערכת
+let server;
+if (USE_SSL && SSL_KEY && SSL_CERT) {
+  const options = {
+    key: fs.readFileSync(SSL_KEY),
+    cert: fs.readFileSync(SSL_CERT)
+  };
+  server = https.createServer(options, handleRequest);
+  console.log('🔒 שרת HTTPS הופעל');
+} else {
+  server = http.createServer(handleRequest);
+  console.log('ℹ️ שרת HTTP הופעל (ללא SSL)');
+}
+
+function handleRequest(req, res) {
+  // הגדרת CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // טיפול ב-OPTIONS request (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  // טיפול ב-POST לפתיחת תא
+  if (req.method === 'POST' && req.url === '/api/unlock') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        console.log('📡 בקשת פתיחת תא מ-Vercel:', data);
+        
+        const { type, id, cell } = data;
+        
+        if (type === 'unlock' && id && cell) {
+          // שליחת פקודת פתיחה ללוקר דרך WebSocket עם המתנה לתגובה
+          const result = await sendToLockerWithResponse(id, {
+            type: 'unlock',
+            cell: cell
+          });
+          
+          if (result.success) {
+            console.log(`✅ תא ${cell} נפתח בלוקר ${id}`);
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              success: true,
+              message: `תא ${cell} נפתח בהצלחה בלוקר ${id}`,
+              lockerId: id,
+              cellId: cell,
+              simulated: false
+            }));
+          } else {
+            console.log(`❌ כשל בפתיחת תא ${cell} בלוקר ${id}: ${result.message}`);
+            res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              success: false,
+              message: result.message || `לוקר ${id} לא מחובר למערכת`,
+              lockerId: id,
+              cellId: cell,
+              simulated: true
+            }));
+          }
+        } else {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            success: false,
+            message: 'חסרים פרמטרים נדרשים (type, id, cell)',
+            required: ['type', 'id', 'cell'],
+            received: data
+          }));
+        }
+      } catch (error) {
+        console.error('❌ שגיאה בעיבוד בקשת פתיחה:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          message: 'שגיאה בשרת',
+          error: error.message
+        }));
+      }
+    });
+    return;
+  }
+
+  // תגובה רגילה לבקשות GET אחרות
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify({
+    message: 'מערכת לוקר חכם - שרת חומרה עם ESP32',
+    status: 'פעיל',
+    lockers: getLockerStates(),
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      '/': 'מידע כללי על השרת',
+      '/api/unlock': 'POST - פתיחת תא (type, id, cell)'
+    }
+  }, null, 2));
+}
+
+// WebSocket server עבור תקשורת עם האפליקציה והלוקרים
+const wss = new WebSocket.Server({ server });
+
 // טיפול בחיבור חדש
 wss.on('connection', (ws, req) => {
   console.log('🔌 חיבור חדש התקבל');
@@ -416,6 +543,37 @@ wss.on('connection', (ws, req) => {
               cellCount: Object.keys(data.cells || {}).length 
             });
             broadcastStatus();
+          }
+          break;
+
+        case 'unlockResponse':
+        case 'lockResponse':
+          // טיפול בתגובות מה-ESP32
+          if (lockerId && data.requestId) {
+            console.log(`📥 התקבלה תגובה מלוקר ${lockerId}:`, data);
+            
+            // חיפוש הבקשה הממתינה
+            const pendingRequest = pendingRequests.get(data.requestId);
+            if (pendingRequest) {
+              pendingRequests.delete(data.requestId);
+              
+              // שליחת התגובה למי שממתין
+              pendingRequest.resolve({
+                success: data.success || false,
+                message: data.success ? 
+                  `תא ${data.cellId} ${data.type === 'unlockResponse' ? 'נפתח' : 'ננעל'} בהצלחה` :
+                  `כשל ב${data.type === 'unlockResponse' ? 'פתיחת' : 'נעילת'} תא ${data.cellId}`,
+                cellId: data.cellId,
+                lockerId: data.lockerId,
+                esp32Response: data
+              });
+              
+              console.log(`✅ תגובה עובדה לבקשה ${data.requestId}`);
+            } else {
+              console.log(`⚠️ לא נמצאה בקשה ממתינה למזהה ${data.requestId}`);
+            }
+          } else {
+            console.log(`⚠️ תגובה מלוקר ללא מזהה בקשה:`, data);
           }
           break;
       }

@@ -78,16 +78,38 @@ export async function POST(request: Request) {
     }
     }
     
-    console.log(`🔧 מנסה לפתוח תא ${cellNumber} בלוקר ${lockerId} ב-${lockerIP}:${lockerPort}`)
+    console.log(`🔧 מנסה לפתוח תא ${cellNumber} בלוקר ${lockerId} דרך Railway Server`)
 
-    // שליחת פקודה ל-ESP32 האמיתי
-    const esp32Response = await sendCommandToESP32(lockerIP, lockerPort, {
+    let deviceId = 'LOC632' // ברירת מחדל
+    
+    if (db) {
+      try {
+        // מציאת הלוקר במסד הנתונים לקבלת deviceId
+        const locker = await db.locker.findUnique({
+          where: { id: lockerId }
+        })
+        
+        if (locker && locker.deviceId) {
+          deviceId = locker.deviceId
+          console.log(`🔍 מצא לוקר: ${locker.deviceId}`)
+        } else {
+          console.log('⚠️ לא נמצא deviceId במסד הנתונים, משתמש ברירת מחדל')
+        }
+      } catch (dbError) {
+        console.error('❌ Database query error:', dbError)
+        console.log('⚠️ נכשל בחיפוש deviceId, משתמש ברירת מחדל')
+      }
+    }
+
+    // שליחת פקודה ל-Railway Server שיעביר ל-ESP32
+    const railwayResponse = await sendCommandToESP32(null, null, {
       action: action,
       cellId: cellNumber.toString(),
+      deviceId: deviceId,
       packageId: `TEMP_${Date.now()}`
     })
 
-    console.log('📡 ESP32 Response:', esp32Response)
+    console.log('📡 ESP32 Response:', railwayResponse)
 
       // יצירת לוג אודיט
     try {
@@ -97,7 +119,7 @@ export async function POST(request: Request) {
         entityId: cellNumber.toString(),
             lockerId: lockerId,
             cellNumber: cellNumber,
-            esp32Response: esp32Response
+            esp32Response: railwayResponse
       })
     } catch (logError) {
       console.error('שגיאה ביצירת לוג:', logError)
@@ -105,13 +127,13 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-      message: esp32Response.simulated ? 
+      message: railwayResponse.simulated ? 
         'התא נפתח בהצלחה (סימולציה)' : 
         'התא נפתח בהצלחה',
       cellId: cellNumber,
         lockerId: lockerId,
-      esp32Response: esp32Response,
-      simulated: esp32Response.simulated || false
+      esp32Response: railwayResponse,
+      simulated: railwayResponse.simulated || false
     })
 
   } catch (error) {
@@ -138,44 +160,48 @@ export async function POST(request: Request) {
   }
 }
 
-// פונקציה לשליחת פקודה ל-ESP32
+// פונקציה לשליחת פקודה ל-ESP32 דרך Railway WebSocket Server
 async function sendCommandToESP32(ip: string | null, port: number | null, command: any) {
   try {
-    if (!ip) {
-      console.log('🔧 מצב סימולציה - אין IP לוקר, מחזיר הצלחה')
-      return { 
-        success: true, 
-        message: 'פתיחת תא הצליחה (סימולציה)',
-        simulated: true 
-      }
-    }
-
-    const esp32Url = `http://${ip}${port ? `:${port}` : ''}/locker`
-    console.log(`📡 מנסה להתחבר ל-ESP32: ${esp32Url}`)
+    // במקום לשלוח ישירות ל-ESP32, נשלח ל-Railway WebSocket Server
+    const railwayUrl = 'https://lockerweb-production.up.railway.app'
     
-    // יצירת timeout של 3 שניות
+    console.log(`📡 מנסה להתחבר ל-Railway Server: ${railwayUrl}`)
+    
+    // יצירת timeout של 5 שניות
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000)
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
     
     try {
-    const response = await fetch(esp32Url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(command),
+      // שליחת בקשה ל-Railway Server שישלח WebSocket message ל-ESP32
+      const response = await fetch(`${railwayUrl}/api/unlock`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'unlock',
+          id: command.deviceId || 'LOC632', // מזהה הלוקר
+          cell: command.cellId // מספר התא
+        }),
         signal: controller.signal
-    })
+      })
 
       clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
-    const data = await response.json()
-      console.log('✅ ESP32 הגיב בהצלחה:', data)
-    return data
+      const data = await response.json()
+      console.log('✅ Railway Server הגיב בהצלחה:', data)
+      
+      return {
+        success: true,
+        message: 'התא נפתח בהצלחה דרך Railway',
+        simulated: false,
+        railwayResponse: data
+      }
 
     } catch (fetchError) {
       clearTimeout(timeoutId)
@@ -183,20 +209,20 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.log('⏰ Timeout - נופל לסימולציה')
       } else {
-        console.log('🔧 ESP32 לא זמין - נופל לסימולציה:', fetchError)
+        console.log('🔧 Railway Server לא זמין - נופל לסימולציה:', fetchError)
       }
       
       // Fallback לסימולציה
       return { 
         success: true, 
-        message: 'פתיחת תא הצליחה (ESP32 לא זמין - סימולציה)',
+        message: 'פתיחת תא הצליחה (Railway לא זמין - סימולציה)',
         simulated: true,
         originalError: fetchError instanceof Error ? fetchError.message : String(fetchError)
       }
     }
 
   } catch (error) {
-    console.error('שגיאה כללית בחיבור ל-ESP32:', error)
+    console.error('שגיאה כללית בחיבור ל-Railway:', error)
     
     // גם במקרה של שגיאה כללית, נחזיר הצלחה במצב פיתוח
     return { 
