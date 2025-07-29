@@ -43,6 +43,7 @@ export default function LockersManagementPage() {
   const [selectedLiveLocker, setSelectedLiveLocker] = useState<any>(null)
   const [predefinedLockers, setPredefinedLockers] = useState<Locker[]>([])
   const [showCreateNewOption, setShowCreateNewOption] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false) // דגל למניעת רישום כפול
   
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
@@ -137,15 +138,39 @@ export default function LockersManagementPage() {
                 if (data.data && data.data.lockers) {
                   setLiveLockers(data.data.lockers)
                   
+                  // מניעת רישום כפול
+                  if (isRegistering) {
+                    console.log('🚫 רישום בתהליך, מדלג על רישום נוסף')
+                    return
+                  }
+                  
+                  setIsRegistering(true)
+                  
                   // רישום אוטומטי של לוקרים חדשים ב-DB
-                  Object.entries(data.data.lockers).forEach(async ([id, lockerData]: [string, any]) => {
+                  const registrationPromises = Object.entries(data.data.lockers).map(async ([id, lockerData]: [string, any]) => {
                     if (lockerData.isOnline) {
                       try {
-                        // בדיקה אם הלוקר כבר קיים ב-DB
+                        // בדיקה מדויקת יותר אם הלוקר כבר קיים ב-DB
                         const existingLocker = lockers.find(l => l.deviceId === id)
                         
                         if (!existingLocker) {
-                          console.log(`📝 רושם לוקר חדש ב-DB: ${id}`)
+                          console.log(`📝 לוקר ${id} לא קיים ב-DB, בודק אם כבר נוצר...`)
+                          
+                          // בדיקה נוספת ב-API לפני יצירה
+                          const checkResponse = await fetch('/api/admin/lockers-management')
+                          if (checkResponse.ok) {
+                            const checkData = await checkResponse.json()
+                            const alreadyExists = checkData.lockers?.some((l: any) => l.deviceId === id)
+                            
+                            if (alreadyExists) {
+                              console.log(`⚠️ לוקר ${id} כבר קיים ב-DB, מדלג על יצירה`)
+                              // רק נרענן את הרשימה המקומית
+                              await loadLockers()
+                              return
+                            }
+                          }
+                          
+                          console.log(`📝 יוצר לוקר חדש ב-DB: ${id}`)
                           
                           // רישום הלוקר ב-DB
                           const response = await fetch('/api/admin/lockers-management', {
@@ -168,11 +193,14 @@ export default function LockersManagementPage() {
                           
                           if (response.ok) {
                             console.log(`✅ לוקר ${id} נרשם בהצלחה ב-DB`)
-                            // רענון רשימת הלוקרים
-                            await loadLockers()
+                            // רענון רשימת הלוקרים פעם אחת בלבד
+                            setTimeout(() => loadLockers(), 1000)
+                          } else {
+                            console.error(`❌ כשל ביצירת לוקר ${id}:`, await response.text())
                           }
                         } else {
-                          // עדכון סטטוס לוקר קיים
+                          // עדכון סטטוס לוקר קיים בלבד - ללא יצירה מחדש
+                          console.log(`🔄 מעדכן סטטוס לוקר קיים: ${id}`)
                           const updatedLocker = {
                             ...existingLocker,
                             status: 'ONLINE',
@@ -180,7 +208,7 @@ export default function LockersManagementPage() {
                             ip: lockerData.ip || existingLocker.ip
                           }
                           
-                          // עדכון ב-state
+                          // עדכון ב-state בלבד
                           setLockers(prev => prev.map(l => 
                             l.deviceId === id ? updatedLocker : l
                           ))
@@ -191,26 +219,31 @@ export default function LockersManagementPage() {
                     }
                   })
                   
-                  // עדכון הלוקרים הקיימים עם מידע WebSocket
-                  setLockers(prev => {
-                    const updated = prev.map(locker => {
-                      const id = locker.deviceId
-                      const lockerData = data.data.lockers[id || '']
-                      
-                      if (lockerData) {
+                  // המתנה לסיום כל הרישומים ואז איפוס הדגל
+                  Promise.all(registrationPromises).finally(() => {
+                    setIsRegistering(false)
+                    
+                    // עדכון הלוקרים הקיימים עם מידע WebSocket
+                    setLockers(prev => {
+                      const updated = prev.map(locker => {
+                        const id = locker.deviceId
+                        const lockerData = data.data.lockers[id || '']
+                        
+                        if (lockerData) {
+                          return {
+                            ...locker,
+                            status: lockerData.isOnline ? 'ONLINE' : 'OFFLINE',
+                            lastSeen: new Date().toISOString(),
+                            ip: lockerData.ip || locker.ip
+                          }
+                        }
                         return {
                           ...locker,
-                          status: lockerData.isOnline ? 'ONLINE' : 'OFFLINE',
-                          lastSeen: new Date().toISOString(),
-                          ip: lockerData.ip || locker.ip
+                          status: 'OFFLINE' // לוקרים שלא ב-WebSocket יסומנו כלא מחוברים
                         }
-                      }
-                      return {
-                        ...locker,
-                        status: 'OFFLINE' // לוקרים שלא ב-WebSocket יסומנו כלא מחוברים
-                      }
+                      })
+                      return updated
                     })
-                    return updated
                   })
                 } else {
                   // אם אין נתונים מ-WebSocket, סמן את כל הלוקרים כלא מחוברים
