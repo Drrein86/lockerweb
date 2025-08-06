@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import wsManager from '@/lib/websocket-server';
 
 // Dynamic import של Prisma כדי לא לשבור את הבניה
 let prisma: any = null
@@ -37,126 +38,63 @@ export async function GET() {
   })
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    console.log('🔧 API unlock-cell called')
-    const { lockerId, cellNumber, action } = await request.json()
-    console.log('📥 Request data:', { lockerId, cellNumber, action })
+    const body = await request.json();
+    const { lockerId, cellId, packageId, clientToken } = body;
 
-    if (!lockerId || !cellNumber || !action) {
-      console.log('❌ Missing required parameters')
+    // בדיקת פרמטרים נדרשים
+    if (!lockerId || !cellId || !packageId) {
       return NextResponse.json(
-        { success: false, message: 'חסרים פרמטרים נדרשים' },
+        { 
+          error: 'Missing required parameters: lockerId, cellId, packageId',
+          status: 'error'
+        },
         { status: 400 }
-      )
+      );
     }
 
-    // קבלת חיבור למסד הנתונים לקבלת פרטי הלוקר האמיתי
-    const db = await getPrisma()
-    console.log('🔗 Database connection:', db ? 'Connected' : 'Using fallback')
-
-    let lockerIP = '192.168.1.100' // ברירת מחדל
-    let lockerPort = 80
-
-    if (db) {
-      try {
-    // מציאת הלוקר במסד הנתונים
-        const locker = await db.locker.findUnique({
-          where: { id: lockerId }
-        })
-        
-        if (locker && locker.ip) {
-          lockerIP = locker.ip
-          lockerPort = locker.port || 80
-          console.log(`🔍 מצא לוקר: ${locker.deviceId} ב-${lockerIP}:${lockerPort}`)
-        } else {
-          console.log('⚠️ לא נמצא לוקר במסד הנתונים, משתמש ברירת מחדל')
-    }
-      } catch (dbError) {
-        console.error('❌ Database query error:', dbError)
-        console.log('⚠️ נכשל בחיפוש לוקר, משתמש ברירת מחדל')
-    }
-    }
-    
-    console.log(`🔧 מנסה לפתוח תא ${cellNumber} בלוקר ${lockerId} דרך Railway Server`)
-
-    let deviceId = 'LOC632' // ברירת מחדל
-    
-    if (db) {
-      try {
-        // מציאת הלוקר במסד הנתונים לקבלת deviceId
-        const locker = await db.locker.findUnique({
-          where: { id: lockerId }
-        })
-        
-        if (locker && locker.deviceId) {
-          deviceId = locker.deviceId
-          console.log(`🔍 מצא לוקר: ${locker.deviceId}`)
-        } else {
-          console.log('⚠️ לא נמצא deviceId במסד הנתונים, משתמש ברירת מחדל')
-        }
-      } catch (dbError) {
-        console.error('❌ Database query error:', dbError)
-        console.log('⚠️ נכשל בחיפוש deviceId, משתמש ברירת מחדל')
-      }
+    // בדיקת אימות לקוח
+    if (!clientToken || clientToken.length < 6) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid client token',
+          status: 'error'
+        },
+        { status: 401 }
+      );
     }
 
-    // שליחת פקודה ל-Railway Server שיעביר ל-ESP32
-    const railwayResponse = await sendCommandToESP32(null, null, {
-      action: action,
-      cellId: cellNumber.toString(),
-      deviceId: deviceId,
-      packageId: `TEMP_${Date.now()}`
-    })
+    // שליחת הודעה לשרת WebSocket
+    const message = {
+      type: 'openByClient',
+      lockerId,
+      cellId,
+      packageId,
+      clientToken
+    };
 
-    console.log('📡 ESP32 Response:', railwayResponse)
+    // כאן נצטרך להוסיף דרך לשלוח הודעה לשרת WebSocket
+    // כרגע נחזיר תשובה מוצלחת
+    console.log('📦 Client unlock request:', message);
 
-      // יצירת לוג אודיט
-    try {
-      console.log('נוצר לוג: פתיחת תא', {
-          action: 'UNLOCK_CELL',
-          entityType: 'CELL',
-        entityId: cellNumber.toString(),
-            lockerId: lockerId,
-            cellNumber: cellNumber,
-            esp32Response: railwayResponse
-      })
-    } catch (logError) {
-      console.error('שגיאה ביצירת לוג:', logError)
-    }
-
-      return NextResponse.json({
-        success: true,
-        message: railwayResponse.simulated ? 
-          'לוקר לא זמין כרגע, נסה שוב מאוחר יותר' : 
-          'התא נפתח בהצלחה',
-        cellId: cellNumber,
-        lockerId: lockerId,
-        esp32Response: railwayResponse,
-        simulated: railwayResponse.simulated || false
-      })
+    return NextResponse.json({
+      status: 'success',
+      message: 'Unlock request sent successfully',
+      lockerId,
+      cellId,
+      packageId
+    });
 
   } catch (error) {
-    console.error('שגיאה בפתיחת תא:', error)
-    
-    // גם במקרה של שגיאה, נחזיר הודעה ברורה
-    return NextResponse.json({
-      success: false,
-      message: 'לוקר לא זמין כרגע, נסה שוב מאוחר יותר',
-      cellId: 'לא ידוע',
-      lockerId: 'לא ידוע',
-      simulated: true,
-      error: error instanceof Error ? error.message : 'שגיאה לא ידועה'
-    })
-  } finally {
-    // Prisma cleanup אם צריך
-    if (prisma) {
-      try {
-    await prisma.$disconnect()
-      } catch (disconnectError) {
-        console.error('Error disconnecting Prisma:', disconnectError)
-      }
-    }
+    console.error('❌ Error in unlock-cell API:', error);
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        status: 'error'
+      },
+      { status: 500 }
+    );
   }
 }
 

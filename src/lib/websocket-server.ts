@@ -35,6 +35,7 @@ interface WebSocketMessage {
   cellId?: string;
   packageId?: string;
   cells?: Record<string, LockerCell>;
+  clientToken?: string;
 }
 
 // קונפיגורציה
@@ -152,6 +153,10 @@ class WebSocketManager {
           
         case 'lock':
           this.handleLockCommand(ws, data);
+          break;
+          
+        case 'openByClient':
+          this.handleClientOpenRequest(ws, data);
           break;
       }
       
@@ -300,6 +305,94 @@ class WebSocketManager {
       } catch (error) {
         this.logEvent('error', `❌ שגיאה בנעילת תא ${data.cellId}`, { error });
       }
+    }
+  }
+
+  /**
+   * בדיקת אימות לקוח
+   */
+  private validateClientToken(packageId: string, clientToken?: string): boolean {
+    // כאן תוכל להוסיף לוגיקה מורכבת יותר לבדיקת הטוקן
+    // לדוגמה: בדיקה מול מסד נתונים, הצלבה עם packageId וכו'
+    
+    // כרגע - בדיקה בסיסית שהטוקן קיים
+    if (!clientToken) {
+      this.logEvent('auth_failed', `❌ טוקן לקוח חסר לחבילה ${packageId}`);
+      return false;
+    }
+    
+    // בדיקה בסיסית - הטוקן צריך להיות באורך סביר
+    if (clientToken.length < 6) {
+      this.logEvent('auth_failed', `❌ טוקן לקוח לא תקין לחבילה ${packageId}`);
+      return false;
+    }
+    
+    this.logEvent('auth_success', `✅ אימות לקוח הצליח לחבילה ${packageId}`);
+    return true;
+  }
+
+  /**
+   * טיפול בבקשה מלקוח לפתיחת תא
+   */
+  private async handleClientOpenRequest(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    if (data.lockerId && data.cellId && data.packageId) {
+      try {
+        // בדיקת אימות לקוח
+        if (!this.validateClientToken(data.packageId, data.clientToken)) {
+          ws.send(JSON.stringify({
+            type: 'unlockResponse',
+            status: 'error',
+            error: 'Invalid client token'
+          }));
+          return;
+        }
+
+        // בדוק אם הלוקר מחובר
+        const success = this.sendToLocker(data.lockerId, {
+          type: 'unlock',
+          cellId: data.cellId,
+          from: 'client',
+          packageId: data.packageId
+        });
+
+        if (success) {
+          this.logEvent('client_unlock', `📦 לקוח פתח תא ${data.cellId} בלוקר ${data.lockerId}`, {
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            packageId: data.packageId
+          });
+
+          // החזר אישור ללקוח (אם זה רלוונטי)
+          ws.send(JSON.stringify({
+            type: 'unlockResponse',
+            status: 'success',
+            lockerId: data.lockerId,
+            cellId: data.cellId
+          }));
+        } else {
+          this.logEvent('client_unlock_failed', `❌ לוקר ${data.lockerId} לא מחובר`);
+          ws.send(JSON.stringify({
+            type: 'unlockResponse',
+            status: 'failed',
+            reason: 'Locker not connected'
+          }));
+        }
+
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה בפתיחת תא ע"י לקוח`, { error });
+        ws.send(JSON.stringify({
+          type: 'unlockResponse',
+          status: 'error',
+          error: error instanceof Error ? error.message : 'שגיאה לא ידועה'
+        }));
+      }
+    } else {
+      this.logEvent('warning', `⚠️ בקשה לא תקינה מלקוח`, data);
+      ws.send(JSON.stringify({
+        type: 'unlockResponse',
+        status: 'error',
+        error: 'Missing lockerId / cellId / packageId'
+      }));
     }
   }
 
