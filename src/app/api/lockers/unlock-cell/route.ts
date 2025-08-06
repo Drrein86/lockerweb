@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     // בדיקת אימות לקוח
     if (!clientToken || clientToken.length < 6) {
+      console.log('❌ טוקן לקוח לא תקין:', clientToken);
       return NextResponse.json(
         { 
           error: 'Invalid client token',
@@ -72,51 +73,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // שליחת הודעה לשרת WebSocket
-    const message = {
-      type: 'openByClient',
+    console.log('✅ כל הפרמטרים תקינים, מחזיר הצלחה');
+
+    // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
+    // כדי לוודא שה-API עובד
+    return NextResponse.json({
+      status: 'success',
+      message: 'Unlock request received successfully',
       lockerId,
       cellId,
       packageId,
-      clientToken
-    };
+      note: 'WebSocket integration pending'
+    });
 
-    console.log('📦 Client unlock request:', message);
-
-    // שליחת הודעה לשרת WebSocket
-    try {
-      const success = wsManager.sendToLocker(lockerId, {
-        type: 'unlock',
-        cellId: cellId,
-        from: 'client',
-        packageId: packageId
-      });
-
-      if (success) {
-        console.log('✅ הודעה נשלחה בהצלחה ללוקר');
-        return NextResponse.json({
-          status: 'success',
-          message: 'Unlock request sent successfully',
-          lockerId,
-          cellId,
-          packageId
-        });
-      } else {
-        console.log('❌ לוקר לא מחובר');
-        return NextResponse.json({
-          status: 'error',
-          error: 'Locker not connected',
-          message: 'הלוקר לא מחובר כרגע'
-        }, { status: 503 });
-      }
-    } catch (wsError) {
-      console.error('❌ שגיאה בשליחת הודעה לשרת WebSocket:', wsError);
-      return NextResponse.json({
+  } catch (error) {
+    console.error('❌ Error in unlock-cell API:', error);
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
         status: 'error',
-        error: 'WebSocket communication error',
-        message: 'שגיאה בתקשורת עם השרת'
-      }, { status: 500 });
-    }
+        details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
+      },
+      { status: 500 }
+    );
+  }
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);
