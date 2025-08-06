@@ -74,17 +74,42 @@ export async function POST(request: NextRequest) {
       clientToken
     };
 
-    // כאן נצטרך להוסיף דרך לשלוח הודעה לשרת WebSocket
-    // כרגע נחזיר תשובה מוצלחת
     console.log('📦 Client unlock request:', message);
 
-    return NextResponse.json({
-      status: 'success',
-      message: 'Unlock request sent successfully',
-      lockerId,
-      cellId,
-      packageId
-    });
+    // שליחת הודעה לשרת WebSocket
+    try {
+      const success = wsManager.sendToLocker(lockerId, {
+        type: 'unlock',
+        cellId: cellId,
+        from: 'client',
+        packageId: packageId
+      });
+
+      if (success) {
+        console.log('✅ הודעה נשלחה בהצלחה ללוקר');
+        return NextResponse.json({
+          status: 'success',
+          message: 'Unlock request sent successfully',
+          lockerId,
+          cellId,
+          packageId
+        });
+      } else {
+        console.log('❌ לוקר לא מחובר');
+        return NextResponse.json({
+          status: 'error',
+          error: 'Locker not connected',
+          message: 'הלוקר לא מחובר כרגע'
+        }, { status: 503 });
+      }
+    } catch (wsError) {
+      console.error('❌ שגיאה בשליחת הודעה לשרת WebSocket:', wsError);
+      return NextResponse.json({
+        status: 'error',
+        error: 'WebSocket communication error',
+        message: 'שגיאה בתקשורת עם השרת'
+      }, { status: 500 });
+    }
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);

@@ -265,7 +265,7 @@ class WebSocketManager {
         this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${data.cellId} בלוקר ${data.lockerId}`);
 
         // שליחת פקודה ללוקר
-        const success = this.sendToLocker(data.lockerId, {
+        const success = this.sendToLockerInternal(data.lockerId, {
           type: 'unlock',
           cellId: data.cellId
         });
@@ -291,7 +291,7 @@ class WebSocketManager {
         this.logEvent('lock_request', `🔒 בקשת נעילה לתא ${data.cellId} בלוקר ${data.lockerId} עם חבילה ${data.packageId}`);
 
         // שליחת פקודה ללוקר
-        const success = this.sendToLocker(data.lockerId, {
+        const success = this.sendToLockerInternal(data.lockerId, {
           type: 'lock',
           cellId: data.cellId,
           packageId: data.packageId
@@ -348,7 +348,7 @@ class WebSocketManager {
         }
 
         // בדוק אם הלוקר מחובר
-        const success = this.sendToLocker(data.lockerId, {
+        const success = this.sendToLockerInternal(data.lockerId, {
           type: 'unlock',
           cellId: data.cellId,
           from: 'client',
@@ -430,7 +430,7 @@ class WebSocketManager {
   /**
    * שליחת הודעה ללוקר ספציפי
    */
-  private sendToLocker(id: string, messageObj: any): boolean {
+  private sendToLockerInternal(id: string, messageObj: any): boolean {
     const conn = this.lockerConnections.get(id);
     if (conn?.readyState === WebSocket.OPEN) {
       conn.send(JSON.stringify(messageObj));
@@ -439,6 +439,13 @@ class WebSocketManager {
       this.logEvent('warning', `🚫 לוקר ${id} לא מחובר`);
       return false;
     }
+  }
+
+  /**
+   * שליחת הודעה ללוקר ספציפי (מתודה ציבורית)
+   */
+  public sendToLocker(id: string, messageObj: any): boolean {
+    return this.sendToLockerInternal(id, messageObj);
   }
 
   /**
