@@ -14,21 +14,26 @@ export default function UnlockDemoPage() {
     setLoading(true);
     setResult(null);
 
+    const requestBody = {
+      lockerId,
+      cellId,
+      packageId,
+      clientToken
+    };
+
+    console.log('📤 שולח בקשה לשרת:', requestBody);
+
     try {
       const response = await fetch('/api/lockers/unlock-cell', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          lockerId,
-          cellId,
-          packageId,
-          clientToken
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+      console.log('📥 תשובה מהשרת:', data);
       setResult(data);
     } catch (error) {
       setResult({

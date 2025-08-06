@@ -40,15 +40,22 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📥 התקבלה בקשה ל-API unlock-cell');
+    
     const body = await request.json();
+    console.log('📦 Body של הבקשה:', body);
+    
     const { lockerId, cellId, packageId, clientToken } = body;
+    console.log('🔍 פרמטרים שחולצו:', { lockerId, cellId, packageId, clientToken });
 
     // בדיקת פרמטרים נדרשים
     if (!lockerId || !cellId || !packageId) {
+      console.log('❌ חסרים פרמטרים נדרשים:', { lockerId, cellId, packageId });
       return NextResponse.json(
         { 
           error: 'Missing required parameters: lockerId, cellId, packageId',
-          status: 'error'
+          status: 'error',
+          received: { lockerId, cellId, packageId }
         },
         { status: 400 }
       );
