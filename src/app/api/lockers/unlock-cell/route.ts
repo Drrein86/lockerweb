@@ -143,17 +143,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-
-  } catch (error) {
-    console.error('❌ Error in unlock-cell API:', error);
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        status: 'error'
-      },
-      { status: 500 }
-    );
-  }
 }
 
 // פונקציה לשליחת פקודה ל-ESP32 דרך Railway WebSocket Server
