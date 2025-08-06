@@ -73,18 +73,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ כל הפרמטרים תקינים, מחזיר הצלחה');
+    console.log('✅ כל הפרמטרים תקינים, מנסה לשלוח לשרת WebSocket');
 
-    // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
-    // כדי לוודא שה-API עובד
-    return NextResponse.json({
-      status: 'success',
-      message: 'Unlock request received successfully',
-      lockerId,
-      cellId,
-      packageId,
-      note: 'WebSocket integration pending'
-    });
+    // שליחת הודעה לשרת WebSocket
+    try {
+      console.log('🔧 מנסה לשלוח הודעה ללוקר:', lockerId);
+      
+      // בדיקה אם wsManager זמין
+      if (!wsManager) {
+        console.log('❌ wsManager לא זמין');
+        return NextResponse.json({
+          status: 'error',
+          error: 'WebSocket manager not available',
+          message: 'שרת WebSocket לא זמין'
+        }, { status: 503 });
+      }
+
+      // בדיקה שהפונקציה קיימת
+      if (typeof wsManager.sendToLocker !== 'function') {
+        console.log('❌ sendToLocker לא זמין');
+        return NextResponse.json({
+          status: 'error',
+          error: 'WebSocket sendToLocker function not available',
+          message: 'פונקציית שליחה לא זמינה'
+        }, { status: 503 });
+      }
+
+      const success = wsManager.sendToLocker(lockerId, {
+        type: 'unlock',
+        cellId: cellId,
+        from: 'client',
+        packageId: packageId
+      });
+
+      if (success) {
+        console.log('✅ הודעה נשלחה בהצלחה ללוקר');
+        return NextResponse.json({
+          status: 'success',
+          message: 'Unlock request sent successfully to locker',
+          lockerId,
+          cellId,
+          packageId
+        });
+      } else {
+        console.log('❌ לוקר לא מחובר');
+        return NextResponse.json({
+          status: 'error',
+          error: 'Locker not connected',
+          message: 'הלוקר לא מחובר כרגע'
+        }, { status: 503 });
+      }
+    } catch (wsError) {
+      console.error('❌ שגיאה בשליחת הודעה לשרת WebSocket:', wsError);
+      return NextResponse.json({
+        status: 'error',
+        error: 'WebSocket communication error',
+        message: 'שגיאה בתקשורת עם השרת'
+      }, { status: 500 });
+    }
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);
