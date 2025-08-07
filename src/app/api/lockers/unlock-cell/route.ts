@@ -75,18 +75,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ כל הפרמטרים תקינים, מחזיר הצלחה');
+    console.log('✅ כל הפרמטרים תקינים, שולח לשרת Railway');
 
-    // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
-    // כדי לוודא שה-API עובד
-    return NextResponse.json({
-      status: 'success',
-      message: 'Unlock request received successfully',
-      lockerId,
-      cellId,
-      packageId,
-      note: 'WebSocket integration pending - server is working'
-    });
+    // שליחת פקודה לשרת Railway
+    const command = {
+      deviceId: lockerId,
+      cellId: cellId,
+      packageId: packageId
+    };
+
+    const result = await sendCommandToESP32(null, null, command);
+    
+    if (result.success) {
+      return NextResponse.json({
+        status: 'success',
+        message: result.message,
+        lockerId,
+        cellId,
+        packageId,
+        simulated: result.simulated,
+        railwayResponse: result.railwayResponse
+      });
+    } else {
+      return NextResponse.json({
+        status: 'error',
+        message: result.message,
+        error: result.originalError || result.error,
+        simulated: result.simulated
+      }, { status: 500 });
+    }
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);
