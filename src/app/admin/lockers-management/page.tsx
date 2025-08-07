@@ -424,8 +424,9 @@ export default function LockersManagementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lockerId: dbLockerId,
-          cellNumber: parseInt(cellId),
-          action: 'unlock'
+          cellId: cellId,
+          packageId: `ADMIN-${Date.now()}`, // מזהה ייחודי לפתיחה על ידי מנהל
+          clientToken: 'ADMIN-TOKEN' // טוקן מנהל
         })
       })
       
@@ -665,8 +666,9 @@ export default function LockersManagementPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lockerId: lockerId,
-            cellNumber: cellId,
-            action: 'unlock'
+            cellId: cellId,
+            packageId: `ADMIN-${Date.now()}`,
+            clientToken: 'ADMIN-TOKEN'
           })
         })
       } else {

@@ -82,9 +82,10 @@ function CellVerificationContent() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          lockerId: parseInt(lockerId),
-          cellNumber: parseInt(cellNumber),
-          action: 'unlock'
+          lockerId: lockerId,
+          cellId: cellNumber,
+          packageId: `COURIER-${Date.now()}`,
+          clientToken: 'COURIER-TOKEN'
         })
       })
 
