@@ -453,7 +453,7 @@ export default function LockersManagementPage() {
       const result = await response.json()
       console.log(`📋 תוצאה מפורטת:`, result)
       
-      if (response.ok && result.status === 'success') {
+      if (response.ok && (result.status === 'success' || result.message === 'Unlock request sent via Railway')) {
         let message = `תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`
         
         if (result.simulated) {
