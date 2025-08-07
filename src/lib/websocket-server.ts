@@ -158,6 +158,26 @@ class WebSocketManager {
         case 'openByClient':
           this.handleClientOpenRequest(ws, data);
           break;
+          
+        case 'ping':
+          // טיפול בפינג - החזרת פונג עם אותו ID אם קיים
+          const pongResponse = {
+            type: 'pong',
+            ...(data.id && { id: data.id })
+          };
+          ws.send(JSON.stringify(pongResponse));
+          this.logEvent('ping', `🏓 פינג התקבל מ-${ws.lockerId || 'unknown'}`, { id: data.id });
+          console.log(`📨 התקבלה הודעת WebSocket: type=${data.type}${data.id ? `, id=${data.id}` : ''}`);
+          break;
+          
+        case 'pong':
+          // טיפול בפונג - לוג בלבד
+          if (data.id) {
+            console.log(`🏓 פונג התקבל עם ID: ${data.id}`);
+          } else {
+            console.log(`🏓 פונג התקבל ללא ID (תקין)`);
+          }
+          break;
       }
       
     } catch (error) {

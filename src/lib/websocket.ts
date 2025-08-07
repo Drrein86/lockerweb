@@ -24,7 +24,9 @@ function startPingInterval() {
 
   pingInterval = setInterval(() => {
     if (hardwareWebSocket?.readyState === WebSocket.OPEN) {
-      hardwareWebSocket.send(JSON.stringify({ type: 'ping' }))
+      const pingMessage = { type: 'ping', id: 'web-admin' }
+      hardwareWebSocket.send(JSON.stringify(pingMessage))
+      console.log('📤 נשלח פינג לRailway:', pingMessage)
       
       // בדיקה אם קיבלנו pong בזמן סביר
       if (Date.now() - lastPongTime > PING_INTERVAL * 2) {
@@ -99,6 +101,11 @@ function connectToHardwareServer() {
         // טיפול ב-pong
         if (data.type === 'pong') {
           lastPongTime = Date.now()
+          if (data.id) {
+            console.log(`🏓 התקבל pong מ-Railway עם ID: ${data.id}`)
+          } else {
+            console.log(`🏓 התקבל pong מ-Railway ללא ID (תקין)`)
+          }
           return
         }
         

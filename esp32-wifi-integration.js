@@ -58,6 +58,24 @@ class ESP32Controller {
       try {
         const data = JSON.parse(message);
         console.log(`📨 הודעה התקבלה מלוקר ${lockerId}:`, data);
+        
+        // טיפול בסוגי הודעות
+        switch (data.type) {
+          case 'pong':
+            if (data.id) {
+              console.log(`🏓 התקבל pong מ-${lockerId} עם ID: ${data.id}`);
+            } else {
+              console.log(`🏓 התקבל pong מ-${lockerId} ללא ID (תקין)`);
+            }
+            break;
+          
+          case 'cellStatus':
+            console.log(`📊 עדכון סטטוס תא ${data.cellId} בלוקר ${lockerId}:`, data);
+            break;
+          
+          default:
+            console.log(`📨 התקבלה הודעה מלוקר ${lockerId}:`, data);
+        }
       } catch (error) {
         console.error(`❌ שגיאה בפענוח הודעה מלוקר ${lockerId}:`, error);
       }
@@ -167,8 +185,8 @@ class ESP32Controller {
       
       for (const [lockerId, connection] of this.lockerConnections) {
         if (connection.ws.readyState === WebSocket.OPEN) {
-          connection.ws.send(JSON.stringify({ type: 'ping' }));
-          console.log(`📶 לוקר ${lockerId} מחובר ותקין`);
+          connection.ws.send(JSON.stringify({ type: 'ping', id: lockerId }));
+          console.log(`📤 נשלח פינג ל${lockerId}: {"type":"ping","id":"${lockerId}"}`);
         } else {
           console.log(`📶 לוקר ${lockerId} לא מגיב`);
           connection.status = 'disconnected';

@@ -113,7 +113,9 @@ export default function AdminLockersPage() {
           // התחלת פינג תקופתי
           pingInterval = setInterval(() => {
             if (ws?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'ping' }));
+              const pingMessage = { type: 'ping', id: 'admin-lockers' }
+              ws.send(JSON.stringify(pingMessage));
+              console.log('📤 נשלח פינג לRailway:', pingMessage);
             }
           }, 30000);
         };
@@ -235,7 +237,11 @@ export default function AdminLockersPage() {
 
               case 'pong':
                 // טיפול ב-pong (מענה ל-ping)
-                console.log('🏓 pong התקבל מהשרת');
+                if (data.id) {
+                  console.log(`🏓 pong התקבל מהשרת עם ID: ${data.id}`);
+                } else {
+                  console.log('🏓 pong התקבל מהשרת ללא ID (תקין)');
+                }
                 break;
 
               default:

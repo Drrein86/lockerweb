@@ -84,7 +84,9 @@ export default function LockersManagementPage() {
           // התחלת פינג תקופתי
           pingInterval = setInterval(() => {
             if (ws?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'ping' }))
+              const pingMessage = { type: 'ping', id: 'admin-panel' }
+              ws.send(JSON.stringify(pingMessage))
+              console.log('📤 נשלח פינג לRailway:', pingMessage)
             }
           }, 30000)
         }
@@ -158,7 +160,11 @@ export default function LockersManagementPage() {
 
               case 'pong':
                 // תגובה להודעת ping - לא צריך לעשות כלום מיוחד
-                console.log('🏓 pong התקבל מהשרת')
+                if (data.id) {
+                  console.log(`🏓 pong התקבל מהשרת עם ID: ${data.id}`)
+                } else {
+                  console.log('🏓 pong התקבל מהשרת ללא ID (תקין)')
+                }
                 break
 
               case 'authSuccess':

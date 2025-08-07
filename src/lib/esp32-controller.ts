@@ -309,8 +309,8 @@ class ESP32Controller {
 
         // שליחת ping
         if (connection.ws.readyState === WebSocket.OPEN) {
-          connection.ws.send(JSON.stringify({ type: 'ping' }));
-          this.log(`📶 לוקר ${lockerId} תקין`);
+          connection.ws.send(JSON.stringify({ type: 'ping', id: lockerId }));
+          this.log(`📤 נשלח פינג ל${lockerId}: {"type":"ping","id":"${lockerId}"}`);
         } else {
           this.log(`📶 לוקר ${lockerId} לא מגיב`);
           connection.status = 'disconnected';
@@ -417,7 +417,12 @@ class ESP32Controller {
         // טיפול בסוגי הודעות
         switch (data.type) {
           case 'pong':
-            this.log(`🏓 התקבל pong מ-${lockerId}`);
+            // בדיקה אם הפונג מכיל ID או לא
+            if (data.id) {
+              this.log(`🏓 התקבל pong מ-${lockerId} עם ID: ${data.id}`);
+            } else {
+              this.log(`🏓 התקבל pong מ-${lockerId} ללא ID (תקין)`);
+            }
             break;
           
           case 'cellStatus':

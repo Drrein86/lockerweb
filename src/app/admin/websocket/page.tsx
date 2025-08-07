@@ -92,7 +92,12 @@ export default function WebSocketPage() {
         
         // טיפול ב-ping
         if (data.type === 'ping') {
-          wsRef.current?.send(JSON.stringify({ type: 'pong' }))
+          const pongResponse = {
+            type: 'pong',
+            ...(data.id && { id: data.id })
+          }
+          wsRef.current?.send(JSON.stringify(pongResponse))
+          console.log(`🏓 פונג נשלח לRailway:`, pongResponse)
           return
         }
         
