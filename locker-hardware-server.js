@@ -501,7 +501,13 @@ wss.on('connection', (ws, req) => {
       // טיפול בפקודות אחרות
       switch (data.type) {
         case 'ping':
-          ws.send(JSON.stringify({ type: 'pong' }));
+          // טיפול בפינג - החזרת פונג עם אותו ID אם קיים
+          const pongResponse = {
+            type: 'pong',
+            ...(data.id && { id: data.id })
+          };
+          ws.send(JSON.stringify(pongResponse));
+          console.log(`🏓 פינג התקבל מ-${lockerId || 'unknown'}, נשלח פונג:`, pongResponse);
           break;
 
         case 'unlock':
