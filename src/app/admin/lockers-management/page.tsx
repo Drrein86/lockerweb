@@ -418,19 +418,28 @@ export default function LockersManagementPage() {
         throw new Error('לא ניתן למצוא או ליצור לוקר במסד הנתונים')
       }
       
+      console.log(`🔓 מנסה לפתוח תא ${cellId} בלוקר ${lockerId} (DB ID: ${dbLockerId})`)
+      
+      const requestBody = {
+        lockerId: dbLockerId,
+        cellId: cellId,
+        packageId: `ADMIN-${Date.now()}`, // מזהה ייחודי לפתיחה על ידי מנהל
+        clientToken: 'ADMIN-TOKEN' // טוקן מנהל
+      }
+      
+      console.log(`📤 שולח בקשה לפתיחת תא:`, requestBody)
+      
       // שימוש באותו API כמו לוקרי DB
       const response = await fetch('/api/lockers/unlock-cell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lockerId: dbLockerId,
-          cellId: cellId,
-          packageId: `ADMIN-${Date.now()}`, // מזהה ייחודי לפתיחה על ידי מנהל
-          clientToken: 'ADMIN-TOKEN' // טוקן מנהל
-        })
+        body: JSON.stringify(requestBody)
       })
       
+      console.log(`📥 תגובה מהשרת:`, response.status, response.statusText)
+      
       const result = await response.json()
+      console.log(`📋 תוצאה מפורטת:`, result)
       
       if (result.success) {
         let message = `תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`

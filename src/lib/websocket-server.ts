@@ -33,9 +33,12 @@ interface WebSocketMessage {
   secret?: string;
   lockerId?: string;
   cellId?: string;
+  cell?: string;
   packageId?: string;
   cells?: Record<string, LockerCell>;
   clientToken?: string;
+  status?: string;
+  reason?: string;
 }
 
 // קונפיגורציה
@@ -44,7 +47,7 @@ const CONFIG = {
   USE_SSL: process.env.USE_SSL === 'true',
   SSL_KEY: process.env.SSL_KEY_PATH,
   SSL_CERT: process.env.SSL_CERT_PATH,
-  ADMIN_SECRET: process.env.ADMIN_SECRET || 'default_secret',
+  ADMIN_SECRET: process.env.ADMIN_SECRET || '86428642',
   HEARTBEAT_INTERVAL: 30000,
   STATUS_BROADCAST_INTERVAL: 30000,
   ESP32_MONITORING_INTERVAL: 60000,
@@ -159,6 +162,19 @@ class WebSocketManager {
           this.handleClientOpenRequest(ws, data);
           break;
           
+        case 'openSuccess':
+        case 'openFailed':
+          this.handleOpenResponse(ws, data);
+          break;
+          
+        case 'cellClosed':
+          this.handleCellClosed(ws, data);
+          break;
+          
+        case 'failedToUnlock':
+          this.handleFailedToUnlock(ws, data);
+          break;
+          
         case 'ping':
           // טיפול בפינג - החזרת פונג עם אותו ID אם קיים
           const pongResponse = {
@@ -166,7 +182,8 @@ class WebSocketManager {
             ...(data.id && { id: data.id })
           };
           ws.send(JSON.stringify(pongResponse));
-          this.logEvent('ping', `🏓 פינג התקבל מ-${ws.lockerId || 'unknown'}`, { id: data.id });
+          const clientId = ws.lockerId || (ws.isAdmin ? 'admin-panel' : 'unknown');
+          this.logEvent('ping', `🏓 פינג התקבל מ-${clientId}`, { id: data.id });
           console.log(`📨 התקבלה הודעת WebSocket: type=${data.type}${data.id ? `, id=${data.id}` : ''}`);
           break;
           
@@ -220,6 +237,13 @@ class WebSocketManager {
    * טיפול בזיהוי ממשק ניהול
    */
   private handleAdminIdentification(ws: LockerConnection, data: WebSocketMessage): void {
+    console.log('🔍 בדיקת זיהוי מנהל:', {
+      client: data.client,
+      secret: data.secret,
+      expectedSecret: CONFIG.ADMIN_SECRET,
+      isMatch: data.client === 'web-admin' && data.secret === CONFIG.ADMIN_SECRET
+    });
+    
     if (data.client === 'web-admin' && data.secret === CONFIG.ADMIN_SECRET) {
       ws.isAdmin = true;
       this.adminConnections.add(ws);
@@ -239,6 +263,11 @@ class WebSocketManager {
       
       ws.send(JSON.stringify(message));
     } else {
+      console.log('❌ זיהוי מנהל נכשל:', {
+        client: data.client,
+        secret: data.secret,
+        expectedSecret: CONFIG.ADMIN_SECRET
+      });
       this.logEvent('warning', '⚠️ ניסיון זיהוי ממשק ניהול נכשל');
       ws.close();
     }
@@ -352,6 +381,111 @@ class WebSocketManager {
   }
 
   /**
+   * טיפול בהודעת כישלון פתיחה מהלוקר
+   */
+  private async handleFailedToUnlock(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    try {
+      const lockerId = data.id;
+      const cell = data.cell;
+      const reason = data.reason;
+
+      this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${cell} בלוקר ${lockerId}`, {
+        lockerId,
+        cell,
+        reason
+      });
+
+      // שליחת עדכון למנהלים
+      this.broadcastToAdmins({
+        type: 'cellOperationResult',
+        lockerId,
+        cell,
+        operation: 'unlock',
+        success: false,
+        reason,
+        timestamp: Date.now()
+      });
+
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעיבוד הודעת כישלון פתיחה`, { error });
+    }
+  }
+
+  /**
+   * טיפול בהודעת סגירת תא מהלוקר
+   */
+  private async handleCellClosed(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    try {
+      const lockerId = data.id;
+      const cell = data.cell;
+      const status = data.status;
+
+      this.logEvent('cell_closed', `🔒 תא ${cell} בלוקר ${lockerId} ${status === 'closed' ? 'נסגר' : 'נפתח'}`, {
+        lockerId,
+        cell,
+        status
+      });
+
+      // עדכון סטטוס התא במטמון המקומי
+      if (ws.cells && cell) {
+        ws.cells[cell] = {
+          locked: status === 'closed',
+          opened: status === 'open',
+          hasPackage: false,
+          lastUpdate: new Date()
+        };
+      }
+
+      // שליחת עדכון למנהלים
+      this.broadcastToAdmins({
+        type: 'cellStatusUpdate',
+        lockerId,
+        cell,
+        status,
+        timestamp: Date.now()
+      });
+
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעיבוד הודעת סגירת תא`, { error });
+    }
+  }
+
+  /**
+   * טיפול בתגובת פתיחה מהלוקר
+   */
+  private async handleOpenResponse(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    try {
+      const isSuccess = data.type === 'openSuccess';
+      const lockerId = data.lockerId;
+      const cellId = data.cellId;
+      const packageId = data.packageId;
+      const clientToken = data.clientToken;
+
+      this.logEvent('open_response', `📦 תגובת פתיחה מהלוקר ${lockerId}`, {
+        success: isSuccess,
+        lockerId,
+        cellId,
+        packageId,
+        clientToken
+      });
+
+      // שליחת עדכון למנהלים
+      this.broadcastToAdmins({
+        type: 'cellOperationResult',
+        lockerId,
+        cellId,
+        operation: 'open',
+        success: isSuccess,
+        packageId,
+        timestamp: Date.now()
+      });
+
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעיבוד תגובת פתיחה`, { error });
+    }
+  }
+
+  /**
    * טיפול בבקשה מלקוח לפתיחת תא
    */
   private async handleClientOpenRequest(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
@@ -369,10 +503,11 @@ class WebSocketManager {
 
         // בדוק אם הלוקר מחובר
         const success = this.sendToLockerInternal(data.lockerId, {
-          type: 'unlock',
+          type: 'openByClient',
+          lockerId: data.lockerId,
           cellId: data.cellId,
-          from: 'client',
-          packageId: data.packageId
+          packageId: data.packageId,
+          clientToken: data.clientToken
         });
 
         if (success) {

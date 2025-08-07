@@ -87,14 +87,17 @@ export async function POST(request: NextRequest) {
 
     // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
     // כדי לוודא שה-API עובד
-    return NextResponse.json({
+    const response = {
       status: 'success',
       message: 'Unlock request received successfully',
       lockerId,
       cellId,
       packageId,
       note: 'WebSocket integration pending - server is working'
-    });
+    };
+    
+    console.log(`📤 מחזיר תגובה:`, response);
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);

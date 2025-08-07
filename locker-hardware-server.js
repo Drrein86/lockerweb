@@ -512,12 +512,34 @@ wss.on('connection', (ws, req) => {
 
         case 'unlock':
           if (isAdmin) {
-            const success = await unlockCell(data.lockerId, data.cellId);
-            ws.send(JSON.stringify({
-              type: 'unlockResponse',
-              success,
-              cellId: data.cellId
-            }));
+            console.log(`🔓 מנהל מבקש לפתוח תא ${data.cellId} בלוקר ${data.lockerId}`);
+            
+            // שליחת הודעת openByClient לארדואינו
+            const success = sendToLocker(data.lockerId, {
+              type: 'openByClient',
+              lockerId: data.lockerId,
+              cellId: data.cellId,
+              packageId: data.packageId || `ADMIN-${Date.now()}`,
+              clientToken: data.clientToken || 'ADMIN-TOKEN'
+            });
+            
+            if (success) {
+              console.log(`📤 נשלחה הודעת openByClient לארדואינו ${data.lockerId}`);
+              ws.send(JSON.stringify({
+                type: 'unlockResponse',
+                success: true,
+                cellId: data.cellId,
+                message: 'הודעת פתיחה נשלחה לארדואינו'
+              }));
+            } else {
+              console.log(`❌ לא ניתן לשלוח הודעת openByClient לארדואינו ${data.lockerId}`);
+              ws.send(JSON.stringify({
+                type: 'unlockResponse',
+                success: false,
+                cellId: data.cellId,
+                message: 'ארדואינו לא מחובר'
+              }));
+            }
           }
           break;
 

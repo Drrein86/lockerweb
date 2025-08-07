@@ -1,650 +1,541 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WebSocketsClient.h>
 #include <ArduinoJson.h>
-#include <EEPROM.h>
-#include <HTTPClient.h>
+#include <WebSocketsClient.h>
+#include <Preferences.h>
+#include <Wire.h>
+#include <PCF8574.h>
 
-// הגדרות WiFi
-const char* ssid = "WIFI_NAME";       // החלף עם שם הרשת שלך
-const char* password = "WIFI_PASSWORD"; // החלף עם הסיסמה שלך
+#define WIFI_STATUS_LED 18
+#define WS_STATUS_LED 19
+#define CELL_A1_STATUS_PIN 20   // משוב תא A1 - מחובר ל-GPIO2
+
+volatile bool receivedCloseConfirmation = false;
+
+// 🛜 הגדרות WiFi
+const char* password = "0508882403";
+String targetPrefix = "Elior 5g";
 
 // 🌐 הגדרות WebSocket - שרת החומרה ב-Railway
 const char* websocket_host = "lockerweb-production.up.railway.app";
 const int websocket_port = 443;
 const char* websocket_path = "/";
 
-// 🌐 הגדרות רישום במערכת הראשית - Vercel
-const char* main_app_host = "lockerweb-alpha.vercel.app";
-const char* register_endpoint = "/api/lockers/register";
-
-// הגדרות EEPROM
-#define EEPROM_SIZE 512
-#define LOCKER_ID_ADDR 0
-#define LOCKER_ID_LENGTH 10
-
-// הגדרות לוקר
-struct Cell {
-  int lockPin;
-  int sensorPin;
-  bool isLocked;
-  bool hasPackage;
-};
-
-Cell cells[5] = {
-  {2, 12, false, false},  // תא 1
-  {4, 13, false, false},  // תא 2
-  {5, 14, false, false},  // תא 3
-  {18, 25, false, false}, // תא 4
-  {19, 26, false, false}  // תא 5
-};
-
-// פינים לחיישני דלת (Reed switches או מגנטיים)
-const int SENSOR_PINS[] = {12, 13, 14, 25, 26}; // חיישנים עבור כל תא
-
-// מצבי התאים
-struct CellState {
-  bool locked;
-  bool opened;
-  String packageId;
-  unsigned long lastActivity;
-};
-
-CellState cellStates[5];
-
-// שרת Web
-WebServer server(80);
-
-// WebSocket client
 WebSocketsClient webSocket;
-bool wsConnected = false;
-unsigned long lastWsReconnectAttempt = 0;
-const unsigned long WS_RECONNECT_INTERVAL = 5000; // 5 שניות
+WebServer server(80);
+Preferences prefs;
 
-unsigned long lastMainAppRegister = 0;
-const unsigned long MAIN_APP_REGISTER_INTERVAL = 300000; // 5 דקות
+String bestSSID = "";
+String deviceId = "";
+const int cellPin = RGB_BUILTIN;
 
-// LED סטטוס
-const int STATUS_LED = 2;
+// 🧠 מרחיב פינים I2C
+PCF8574 expander(0x20, &Wire);
+PCF8574 expander2(0x21, &Wire);
 
-char lockerId[LOCKER_ID_LENGTH + 1];  // +1 עבור תו סיום המחרוזת
+// יצירת מזהה קבוע
+String generateFixedDeviceId() {
+  if (prefs.begin("locker", true)) {
+    String savedId = prefs.getString("deviceId", "");
+    prefs.end();
+    if (savedId != "") return savedId;
+  }
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  
-  Serial.println("🚀 מתחיל ESP32 Smart Locker...");
-  
-  // אתחול פינים
-  initializePins();
-  
-  // התחברות לWiFi
-  connectToWiFi();
-  
-  // התחברות לשרת WebSocket
-  connectToWebSocket();
-  
-  // הגדרת נתיבי שרת
-  setupServerRoutes();
-  
-  // התחלת השרת
-  server.begin();
-  Serial.println("✅ שרת HTTP פועל");
-  Serial.print("🌐 כתובת IP: ");
-  Serial.println(WiFi.localIP());
-  
-  // אתחול מצבי תאים
-  initializeCellStates();
-  
-  // טעינת מזהה הלוקר
-  loadLockerId();
-  Serial.println("מזהה הלוקר: " + String(lockerId));
-  
-  // רישום באפליקציה הראשית
-  delay(2000); // המתנה כדי לוודא שהכל מוכן
-  registerInMainApp();
-  
-  Serial.println("✅ ESP32 Smart Locker מוכן לשימוש!");
+  uint64_t chipId = ESP.getEfuseMac();
+  int uniqueNumber = chipId % 1000;
+  char idBuffer[10];
+  sprintf(idBuffer, "LOC%03d", uniqueNumber);
+  String newId = String(idBuffer);
+
+  if (prefs.begin("locker", false)) {
+    prefs.putString("deviceId", newId);
+    prefs.end();
+  }
+  return newId;
 }
 
-void loop() {
-  // בדיקת חיבור WiFi
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("❌ חיבור WiFi נותק - מנסה להתחבר מחדש");
-    connectToWiFi();
+void handleLocker() {
+  if (server.method() != HTTP_POST) {
+    server.send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+    return;
   }
-  
-  // טיפול בWebSocket
-  webSocket.loop();
-  
-  // טיפול בבקשות HTTP
-  server.handleClient();
-  
-  // רישום מחדש באפליקציה הראשית מדי 5 דקות
-  if (millis() - lastMainAppRegister > MAIN_APP_REGISTER_INTERVAL) {
-    registerInMainApp();
-    lastMainAppRegister = millis();
+
+  if (!server.hasArg("plain")) {
+    server.send(400, "application/json", "{\"error\":\"Missing body\"}");
+    return;
   }
-  
-  // עדכון LED סטטוס
-  updateStatusLED();
-  
-  delay(100);
+
+  String body = server.arg("plain");
+  Serial.println("📨 פקודה התקבלה: " + body);
+
+  DynamicJsonDocument doc(512);
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server.send(400, "application/json", "{\"error\":\"Bad JSON\"}");
+    return;
+  }
+
+  String action = doc["action"];
+  String cell = doc["cell"];
+
+  if (action == "unlock") {
+    if (cell == "") {
+      server.send(400, "application/json", "{\"error\":\"Missing cellId\"}");
+      return;
+    }
+
+    bool success = unlockCell(cell);
+
+    DynamicJsonDocument response(512);
+    response["success"] = success;
+    response["message"] = success ? "תא נפתח בהצלחה" : "שגיאה בפתיחת תא";
+    response["deviceId"] = deviceId;
+    response["cell"] = cell;
+
+    String jsonString;
+    serializeJson(response, jsonString);
+    server.send(200, "application/json", jsonString);
+  }
+
+  else if (action == "ping") {
+    DynamicJsonDocument response(256);
+    response["pong"] = true;
+    response["deviceId"] = deviceId;
+    response["status"] = "online";
+
+    String jsonString;
+    serializeJson(response, jsonString);
+    server.send(200, "application/json", jsonString);
+  }
+
+  else {
+    server.send(400, "application/json", "{\"error\":\"Unknown action\"}");
+  }
 }
 
-void initializePins() {
-  // הגדרת פיני ממסרים כיציאות
-  for (int i = 0; i < 5; i++) {
-    pinMode(cells[i].lockPin, OUTPUT);
-    digitalWrite(cells[i].lockPin, LOW); // ממסרים כבויים (נעול)
+// אירועי WebSocket
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+  Serial.printf("📥 התקבלה הודעת WebSocket: type=%d\n", type);
+
+  switch (type) {
+    case WStype_CONNECTED: {
+      Serial.printf("✅ WebSocket התחבר לשרת החומרה: %s\n", websocket_host);
+      digitalWrite(WS_STATUS_LED, LOW);
+
+      DynamicJsonDocument doc(512);
+      doc["type"] = "register";
+      doc["id"] = deviceId;
+      doc["ip"] = WiFi.localIP().toString();
+
+      JsonObject cells = doc.createNestedObject("cells");
+      JsonObject cellA1 = cells.createNestedObject("A1");
+      cellA1["locked"] = true;
+
+      String output;
+      serializeJson(doc, output);
+      webSocket.sendTXT(output);
+      Serial.printf("[%lu] נשלח רישום לשרת\n", millis());
+      Serial.printf("📤 נשלח רישום לRailway: %s\n", output.c_str());
+      break;
+    }
+
+    case WStype_TEXT: {
+      Serial.printf("[%lu] 📨 התקבל מRailway: %s\n", millis(), payload);
+
+      DynamicJsonDocument doc(512);
+      DeserializationError err = deserializeJson(doc, payload);
+      if (err) {
+        Serial.println("⚠️ שגיאה בפענוח JSON");
+        return;
+      }
+
+      String msgType = doc["type"];
+      String targetId = doc["id"];
+
+      if (msgType == "openByClient") {
+        String lockerId = doc["lockerId"];
+        String cellId = doc["cellId"];
+        String packageId = doc["packageId"];
+        String clientToken = doc["clientToken"];
+
+        // בדיקת התאמה למזהה הלוקר המקומי
+        if (lockerId != deviceId) {
+          Serial.printf("⚠️ openByClient התעלמות: lockerId לא תואם (%s != %s)\n", lockerId.c_str(), deviceId.c_str());
+          return;
+        }
+
+        if (cellId == "") {
+          Serial.println("⚠️ openByClient התקבלה ללא cellId");
+          return;
+        }
+
+        // פתח את התא
+        bool success = unlockCell(cellId);
+
+        // שליחת תשובה לשרת עם תוצאה
+        DynamicJsonDocument res(256);
+        res["type"] = success ? "openSuccess" : "openFailed";
+        res["lockerId"] = deviceId;
+        res["cellId"] = cellId;
+        res["packageId"] = packageId;
+        res["clientToken"] = clientToken;
+        res["status"] = success ? "opened" : "failed";
+
+        String resStr;
+        serializeJson(res, resStr);
+        webSocket.sendTXT(resStr);
+
+        Serial.printf("[%lu] 📤 נשלחה תשובת %s עבור פתיחה ע\"י לקוח: %s\n", millis(), success ? "הצלחה" : "כישלון", resStr.c_str());
+      }
+
+      else if (msgType == "unlock") {
+        String cell = doc["cell"];
+        if (cell != "") {
+          bool success = unlockCell(cell);
+          Serial.printf("[%lu] 🔓 פתחתי תא %s עבור %s - %s\n", millis(), cell.c_str(), targetId.c_str(), success ? "הצלחה" : "כישלון");
+        } else {
+          Serial.printf("[%lu] ⚠️ חסר cell בהודעת unlock\n", millis());
+        }
+      }
+
+      else if (msgType == "pong") {
+        if (targetId == deviceId) {
+          Serial.printf("[%lu] 🟢 פונג אמיתי התקבל מהשרת עבור %s\n", millis(), targetId.c_str());
+        } else {
+          Serial.printf("[%lu] ⚠️ פונג התקבל אך ID לא תואם: %s\n", millis(), targetId.c_str());
+        }
+      }
+
+      else if (msgType == "confirmClose") {
+        String cell = doc["cell"];
+        Serial.printf("📥 התקבלה הודעת confirmClose: id=%s, cell=%s\n", 
+                      targetId.c_str(), cell.c_str());
+
+        if (targetId == deviceId && cell == "A1") {
+          receivedCloseConfirmation = true;
+          Serial.printf("[%lu] ✅ אישור סגירה התקבל והתקבל אישור עבור %s\n", millis(), cell.c_str());
+        } else {
+          Serial.println("⚠️ התעלמות מהודעת confirmClose: ID או cell לא תואמים");
+        }
+      }
+
+      else if (msgType == "failedToUnlock" && targetId == deviceId) {
+        String cell = doc["cell"];
+        String reason = doc["reason"];
+        Serial.printf("[%lu] ❌ כישלון בפתיחת תא %s. סיבה: %s\n", millis(), cell.c_str(), reason.c_str());
+      }
+
+      else {
+        Serial.printf("[%lu] 📨 הודעה לא מוכרת: %s\n", millis(), msgType.c_str());
+      }
+
+      break;
+    }
+
+    case WStype_DISCONNECTED:
+      Serial.println("❌ WebSocket נותק מRailway");
+      digitalWrite(WS_STATUS_LED, HIGH);
+      break;
+
+    case WStype_ERROR:
+      Serial.printf("❌ שגיאת WebSocket: %s\n", payload);
+      digitalWrite(WS_STATUS_LED, HIGH);
+      break;
   }
-  
-  // הגדרת פיני חיישנים כקלטים עם pull-up
-  for (int i = 0; i < 5; i++) {
-    pinMode(cells[i].sensorPin, INPUT_PULLUP);
-  }
-  
-  // LED סטטוס
-  pinMode(STATUS_LED, OUTPUT);
-  
-  Serial.println("📌 פינים אותחלו");
 }
 
+void writePin(int pinNumber, int value) {
+  if (pinNumber < 8) {
+    Serial.printf("🖊 כתיבה ל־expander (0x20) פין %d ערך %d\n", pinNumber, value);
+    expander.write(pinNumber, value);
+  } else {
+    Serial.printf("🖊 כתיבה ל־expander2 (0x21) פין %d ערך %d\n", pinNumber - 8, value);
+    expander2.write(pinNumber - 8, value);
+  }
+}
+
+// התחברות WiFi
 void connectToWiFi() {
-  WiFi.begin(ssid, password);
-  Serial.print("🔌 מתחבר לWiFi");
+  Serial.println("🔍 סורק רשתות WiFi...");
+  int n = WiFi.scanNetworks();
+  int bestRSSI = -999;
   
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    Serial.printf("[%d] '%s' | RSSI: %d\n", i + 1, ssid.c_str(), WiFi.RSSI(i));
+    if (ssid.startsWith(targetPrefix) && WiFi.RSSI(i) > bestRSSI) {
+      bestSSID = ssid;
+      bestRSSI = WiFi.RSSI(i);
+    }
+  }
+
+  if (bestSSID == "") {
+    Serial.println("❌ לא נמצאה רשת מתאימה");
+    writePin(0, HIGH);
+    return;
+  }
+
+  Serial.printf("🔗 מתחבר ל-%s\n", bestSSID.c_str());
+  WiFi.begin(bestSSID.c_str(), password);
+
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
     attempts++;
   }
-  
+
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println();
-    Serial.println("✅ WiFi מחובר!");
-    Serial.print("📍 כתובת IP: ");
-    Serial.println(WiFi.localIP());
+    Serial.printf("\n✅ WiFi מחובר! IP: %s\n", WiFi.localIP().toString().c_str());
+    digitalWrite(WIFI_STATUS_LED, LOW);
   } else {
-    Serial.println();
-    Serial.println("❌ שגיאה בחיבור WiFi!");
+    Serial.println("\n❌ WiFi נכשל");
+    digitalWrite(WIFI_STATUS_LED, HIGH);
   }
 }
 
-void connectToWebSocket() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  
-  Serial.println("🔌 מתחבר לשרת WebSocket...");
-  
-  webSocket.begin(websocket_host, websocket_port, websocket_path);
-  webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(5000);
-  
-  lastWsReconnectAttempt = millis();
+bool isCellClosed(int cellNumber) {
+  if (cellNumber != 1) {
+    Serial.printf("⚠️ משוב זמין רק עבור A1, התבקש תא A%d\n", cellNumber);
+    return true; // אין משוב לשאר התאים, נניח שסגור
+  }
+
+  int value = digitalRead(CELL_A1_STATUS_PIN);
+  Serial.printf("👁 A1(GPIO %d) = %d → %s\n", CELL_A1_STATUS_PIN, value, value == LOW ? "🔒 סגור" : "🔓 פתוח");
+  return value == LOW; // 0V = סגור
 }
 
-// 📡 רישום באפליקציה הראשית
-void registerInMainApp() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  
-  HTTPClient http;
-  String url = String("https://") + main_app_host + register_endpoint;
-  
-  Serial.println("📡 נרשם באפליקציה הראשית: " + url);
-  
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-  
-  // יצירת JSON לרישום
-  DynamicJsonDocument doc(1024);
-  doc["id"] = lockerId;
-  doc["ip"] = WiFi.localIP().toString();
-  doc["deviceId"] = lockerId;
-  doc["status"] = "ONLINE";
-  
-  // הוספת נתוני תאים
-  JsonObject cells = doc.createNestedObject("cells");
-  cells["A1"]["size"] = "SMALL";
-  cells["A1"]["locked"] = true;
-  cells["A2"]["size"] = "MEDIUM"; 
-  cells["A2"]["locked"] = true;
-  cells["A3"]["size"] = "LARGE";
-  cells["A3"]["locked"] = true;
-  
-  String jsonString;
-  serializeJson(doc, jsonString);
-  
-  int httpResponseCode = http.POST(jsonString);
-  
-  if (httpResponseCode > 0) {
-    String response = http.getString();
-    Serial.println("✅ תגובה מהאפליקציה: " + response);
-  } else {
-    Serial.println("❌ שגיאה ברישום באפליקציה: " + String(httpResponseCode));
-  }
-  
-  http.end();
-}
+bool unlockCell(String cell) {
+  int pin = -1;
+  int cellNumber = -1;
 
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-  switch(type) {
-    case WStype_DISCONNECTED:
-      Serial.println("❌ WebSocket מנותק");
-      wsConnected = false;
-      break;
-      
-    case WStype_CONNECTED:
-      Serial.println("✅ WebSocket מחובר");
-      wsConnected = true;
-      
-      // שליחת הודעת register
-      DynamicJsonDocument doc(256);
-      doc["type"] = "register";
-      doc["id"] = lockerId;
-      doc["ip"] = WiFi.localIP().toString();
-      doc["status"] = "online";
-      
-      String jsonString;
-      serializeJson(doc, jsonString);
-      webSocket.sendTXT(jsonString);
-      Serial.println("📡 נשלחה הודעת register");
-      break;
-      
-    case WStype_TEXT:
-      handleWebSocketMessage(String((char*)payload));
-      break;
-      
-    default:
-      break;
+  if (cell.startsWith("A")) {
+    cellNumber = cell.substring(1).toInt();
+    if (cellNumber >= 1 && cellNumber <= 16) {
+      pin = cellNumber - 1;
+    }
   }
-}
 
-void handleWebSocketMessage(String message) {
-  DynamicJsonDocument doc(512);
-  DeserializationError error = deserializeJson(doc, message);
-  
-  if (error) {
-    Serial.println("❌ שגיאה בפענוח JSON");
-    return;
-  }
-  
-  String type = doc["type"];
-  String requestId = doc["requestId"]; // שמירת מזהה הבקשה
-  
-  if (type == "unlock") {
-    // תמיכה בשני פורמטים: 'cellId' ו-'cell'
-    String cellId = doc["cellId"];
-    if (cellId == "" || cellId == "null") {
-      cellId = doc["cell"];
-    }
-    
-    if (cellId != "" && cellId != "null") {
-      Serial.println("🔓 מקבל פקודת פתיחה לתא: " + cellId);
-      bool success = unlockCell(cellId);
-      
-      // שליחת תגובה חזרה לשרת
-      DynamicJsonDocument response(256);
-      response["type"] = "unlockResponse";
-      response["cellId"] = cellId;
-      response["success"] = success;
-      response["lockerId"] = lockerId;
-      if (requestId != "" && requestId != "null") {
-        response["requestId"] = requestId; // החזרת מזהה הבקשה
-      }
-      
-      String responseString;
-      serializeJson(response, responseString);
-      webSocket.sendTXT(responseString);
-      Serial.println("📤 נשלחה תגובה: " + responseString);
-    } else {
-      Serial.println("❌ לא נמצא מזהה תא בהודעת פתיחה");
-    }
-  } 
-  else if (type == "lock") {
-    String cellId = doc["cellId"];
-    if (cellId == "" || cellId == "null") {
-      cellId = doc["cell"];
-    }
-    String packageId = doc["packageId"];
-    
-    if (cellId != "" && cellId != "null") {
-      Serial.println("🔒 מקבל פקודת נעילה לתא: " + cellId);
-      bool success = lockCell(cellId, packageId);
-      
-      // שליחת תגובה חזרה לשרת
-      DynamicJsonDocument response(256);
-      response["type"] = "lockResponse";
-      response["cellId"] = cellId;
-      response["success"] = success;
-      response["lockerId"] = lockerId;
-      if (requestId != "" && requestId != "null") {
-        response["requestId"] = requestId; // החזרת מזהה הבקשה
-      }
-      
-      String responseString;
-      serializeJson(response, responseString);
-      webSocket.sendTXT(responseString);
-      Serial.println("📤 נשלחה תגובה: " + responseString);
-    } else {
-      Serial.println("❌ לא נמצא מזהה תא בהודעת נעילה");
-    }
-  }
-  else if (type == "identified" || type == "registerSuccess") {
-    Serial.println("✅ לוקר זוהה בשרת: " + String((char*)doc["message"]));
-  }
-  else {
-    Serial.println("❓ הודעה לא מזוהה: " + type);
-  }
-}
-
-void setupServerRoutes() {
-  // נתיב ראשי - מידע על המערכת
-  server.on("/", HTTP_GET, []() {
-    String html = buildStatusHTML();
-    server.send(200, "text/html; charset=utf-8", html);
-  });
-  
-  // נתיב לקבלת פקודות
-  server.on("/locker", HTTP_POST, handleLockerCommand);
-  
-  // נתיב סטטוס JSON
-  server.on("/status", HTTP_GET, []() {
-    String json = buildStatusJSON();
-    server.send(200, "application/json; charset=utf-8", json);
-  });
-  
-  // טיפול ב-CORS
-  server.enableCORS(true);
-}
-
-void handleLockerCommand() {
-  if (server.hasArg("plain")) {
-    String body = server.arg("plain");
-    Serial.println("📨 פקודה התקבלה: " + body);
-    
-    // פענוח JSON
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, body);
-    
-    String action = doc["action"];
-    String cellId = doc["cellId"];
-    String packageId = doc["packageId"];
-    
-    bool success = false;
-    String message = "";
-    
-    if (action == "unlock") {
-      success = unlockCell(cellId);
-      message = success ? "תא נפתח בהצלחה" : "שגיאה בפתיחת תא";
-    } 
-    else if (action == "lock") {
-      success = lockCell(cellId, packageId);
-      message = success ? "תא ננעל בהצלחה" : "שגיאה בנעילת תא";
-    }
-    else if (action == "checkCell") {
-      int cellIndex = getCellIndex(cellId);
-      if (cellIndex >= 0) {
-        bool isClosed = digitalRead(cells[cellIndex].sensorPin) == HIGH;
-        success = true;
-        
-        // יצירת תגובה מיוחדת לבדיקת סגירה
-        DynamicJsonDocument response(512);
-        response["success"] = true;
-        response["cellId"] = cellId;
-        response["cellClosed"] = isClosed;
-        response["locked"] = cellStates[cellIndex].locked;
-        response["timestamp"] = millis();
-        
-        String jsonString;
-        serializeJson(response, jsonString);
-        server.send(200, "application/json; charset=utf-8", jsonString);
-        return;
-      } else {
-        success = false;
-        message = "תא לא נמצא";
-      }
-    }
-    else if (action == "ping") {
-      success = true;
-      message = "ESP32 פעיל ומחובר";
-    }
-    else {
-      message = "פעולה לא מוכרת";
-    }
-    
-    // שליחת תגובה
-    DynamicJsonDocument response(512);
-    response["success"] = success;
-    response["message"] = message;
-    response["lockerId"] = lockerId;
-    response["cellId"] = cellId;
-    response["timestamp"] = millis();
-    
-    String jsonString;
-    serializeJson(response, jsonString);
-    
-    server.send(200, "application/json; charset=utf-8", jsonString);
-    
-    Serial.println("📤 תגובה נשלחה: " + message);
-  } else {
-    server.send(400, "application/json", "{\"success\":false,\"message\":\"חסר גוף בקשה\"}");
-  }
-}
-
-bool unlockCell(String cellId) {
-  int cellIndex = getCellIndex(cellId);
-  if (cellIndex < 0) {
-    Serial.println("❌ תא לא נמצא: " + cellId);
+  if (pin == -1) {
+    Serial.printf("⚠️ מזהה תא לא תקין: %s\n", cell.c_str());
     return false;
   }
-  
-  // הפעלת ממסר לפתיחה (3 שניות)
-  digitalWrite(cells[cellIndex].lockPin, HIGH);
-  Serial.println("🔓 פותח תא " + cellId);
-  
-  delay(3000); // פתיחה למשך 3 שניות
-  
-  digitalWrite(cells[cellIndex].lockPin, LOW);
-  
-  // עדכון מצב
-  cellStates[cellIndex].locked = false;
-  cellStates[cellIndex].opened = true;
-  cellStates[cellIndex].lastActivity = millis();
-  
-  Serial.println("✅ תא " + cellId + " נפתח בהצלחה");
-  return true;
-}
 
-bool lockCell(String cellId, String packageId) {
-  int cellIndex = getCellIndex(cellId);
-  if (cellIndex < 0) {
-    Serial.println("❌ תא לא נמצא: " + cellId);
+  // פתיחת התא
+  writePin(pin, LOW);
+  delay(1500);
+  writePin(pin, HIGH);
+  Serial.printf("✅ תא %s נפתח (פין %d)\n", cell.c_str(), pin);
+
+  // רק ל־A1 יש משוב
+  if (cell != "A1") return true;
+
+  delay(1500); // המתנה קצרה
+
+  // בדיקה: האם התא באמת נפתח
+  bool opened = !isCellClosed(1); // true = פתוח
+  if (!opened) {
+    Serial.println("❌ התא לא נפתח בכלל. שליחת הודעת כישלון...");
+
+    DynamicJsonDocument failDoc(256);
+    failDoc["type"] = "failedToUnlock";
+    failDoc["id"] = deviceId;
+    failDoc["cell"] = cell;
+    failDoc["reason"] = "did_not_open";
+
+    String failMsg;
+    serializeJson(failDoc, failMsg);
+    webSocket.sendTXT(failMsg);
+    Serial.printf("📤 נשלחה הודעת כישלון לשרת: %s\n", failMsg.c_str());
+
     return false;
   }
-  
-  // עדכון מצב לנעול
-  cellStates[cellIndex].locked = true;
-  cellStates[cellIndex].opened = false;
-  cellStates[cellIndex].packageId = packageId;
-  cellStates[cellIndex].lastActivity = millis();
-  
-  Serial.println("🔒 תא " + cellId + " ננעל עם חבילה " + packageId);
+
+  // התחלת לולאה: המתנה לסגירה + אישור מהשרת
+  Serial.println("🕒 ממתין לסגירת תא A1 ואישור מהשרת...");
+  receivedCloseConfirmation = false;
+
+  while (true) {
+    bool closed = isCellClosed(1);
+
+    DynamicJsonDocument doc(256);
+    doc["type"] = "cellClosed";
+    doc["id"] = deviceId;
+    doc["cell"] = cell;
+    doc["status"] = closed ? "closed" : "open";
+
+    String msg;
+    serializeJson(doc, msg);
+    webSocket.sendTXT(msg);
+    Serial.printf("📤 נשלח סטטוס: %s\n", msg.c_str());
+
+    if (closed /*&& receivedCloseConfirmation*/) {
+      Serial.println("✅  A1 נסגר ואושר ע״י המשוב של מנעול תא");
+      break;
+    }
+
+    delay(500);
+  }
+
   return true;
 }
 
-int getCellIndex(String cellId) {
-  for (int i = 0; i < 5; i++) {
-    if (String(i + 1) == cellId) {
-      return i;
-    }
-  }
-  return -1;
+void debugPrintAllCellsStatus() {
+  int v = digitalRead(CELL_A1_STATUS_PIN);
+  Serial.printf("A1: %s\n", (v == LOW) ? "🔒 סגור" : "🔓 פתוח");
 }
 
-void checkDoorSensors() {
-  static unsigned long lastCheck = 0;
-  if (millis() - lastCheck < 500) return; // בדיקה כל 500ms
-  lastCheck = millis();
-  
-  for (int i = 0; i < 5; i++) {
-    bool currentState = digitalRead(cells[i].sensorPin) == HIGH; // HIGH = סגור
-    
-    // זיהוי שינוי מצב
-    if (cellStates[i].opened && currentState) {
-      Serial.println("🚪 תא " + String(i + 1) + " נסגר");
-      cellStates[i].opened = false;
-      cellStates[i].lastActivity = millis();
-    }
-    else if (!cellStates[i].opened && !currentState) {
-      Serial.println("🚪 תא " + String(i + 1) + " נפתח");
-      cellStates[i].opened = true;
-      cellStates[i].lastActivity = millis();
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // הגדרת נוריות סטטוס
+  pinMode(WIFI_STATUS_LED, OUTPUT);
+  pinMode(WS_STATUS_LED, OUTPUT);
+  pinMode(CELL_A1_STATUS_PIN, INPUT_PULLUP);
+  digitalWrite(WIFI_STATUS_LED, HIGH);
+  digitalWrite(WS_STATUS_LED, HIGH);
+
+  // הגדרת ערוצי I2C
+  Wire.begin(4, 5);   // ערוץ ראשי
+
+  Serial.println("🔍 סורק רכיבי I2C...");
+  bool expanderFound = false;
+
+  for (byte address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf("✅ נמצא רכיב I2C בכתובת: 0x%02X\n", address);
+      if (address == 0x20) expanderFound = true; // לדוגמה
     }
   }
-}
 
-void updateStatusLED() {
-  static unsigned long lastBlink = 0;
-  static bool ledState = false;
-  
+  if (!expanderFound) {
+    Serial.println("❌ מרחיב PCF8574 בכתובת 0x20 לא נמצא. עצירה.");
+    while (true);
+  }
+
+  // אתחול המרחיבים
+  expander.begin();         // פלט 0x20 (לדוגמה)
+  expander2.begin();        // פלט 0x21
+
+  Serial.println("🟢 כל מרחיבי ה־PCF8574 הופעלו בהצלחה");
+
+  Serial.println("📦 מיפוי מרחיבי PCF:");
+  Serial.println("• 0x20 → פלט (expander)");
+  Serial.println("• 0x21 → פלט (expander2)");
+ 
+  // אתחול כל הפינים כפלט HIGH (כיבוי מנעולים)
+  for (int i = 0; i < 8; i++) {
+    expander.write(i, HIGH);
+    expander2.write(i, HIGH);
+  }
+
+  // נורית מצב תא
+  pinMode(cellPin, OUTPUT);
+  digitalWrite(cellPin, LOW);
+
+  // מזהה קבוע
+  deviceId = generateFixedDeviceId();
+  Serial.printf("📛 מזהה ESP32: %s\n", deviceId.c_str());
+
+  // WiFi
+  connectToWiFi();
+
   if (WiFi.status() == WL_CONNECTED) {
-    // WiFi מחובר - LED קבוע
-    digitalWrite(STATUS_LED, HIGH);
-  } else {
-    // WiFi לא מחובר - LED מהבהב
-    if (millis() - lastBlink > 500) {
-      ledState = !ledState;
-      digitalWrite(STATUS_LED, ledState);
-      lastBlink = millis();
+    // הגדרת HTTP
+    server.on("/locker", handleLocker);
+    server.begin();
+    Serial.println("🟢 HTTP server פעיל על פורט 80");
+
+    // WebSocket
+    webSocket.beginSSL(websocket_host, websocket_port, websocket_path);
+    webSocket.onEvent(webSocketEvent);
+    webSocket.setReconnectInterval(5000);
+
+    Serial.printf("🔄 מתחבר לשרת החומרה: WSS://%s:%d%s\n", 
+                  websocket_host, websocket_port, websocket_path);
+  }
+}
+
+void loop() {
+  server.handleClient(); // ⭐ חשוב! מטפל בבקשות HTTP
+  webSocket.loop();
+
+  // התחברות מחדש ל־WebSocket אם נותק
+  if (!webSocket.isConnected()) {
+    static unsigned long lastReconnectAttemptWS = 0;
+    const unsigned long reconnectIntervalWS = 10000; // כל 10 שניות ניסיון
+
+    unsigned long now = millis();
+    if (now - lastReconnectAttemptWS > reconnectIntervalWS) {
+      Serial.println("🔁 מנסה להתחבר מחדש ל־WebSocket...");
+      webSocket.beginSSL(websocket_host, websocket_port, websocket_path);
+      lastReconnectAttemptWS = now;
     }
   }
-}
 
-void initializeCellStates() {
-  for (int i = 0; i < 5; i++) {
-    cellStates[i].locked = true;
-    cellStates[i].opened = false;
-    cellStates[i].packageId = "";
-    cellStates[i].lastActivity = millis();
-  }
-  
-  Serial.println("🔄 מצבי תאים אותחלו");
-}
+  // פינג כל 10 שניות
+  static unsigned long lastPingTime = 0;
+  const unsigned long pingInterval = 10000;
 
-String buildStatusJSON() {
-  DynamicJsonDocument doc(2048);
-  
-  doc["lockerId"] = lockerId;
-  doc["status"] = "active";
-  doc["wifiConnected"] = (WiFi.status() == WL_CONNECTED);
-  doc["ipAddress"] = WiFi.localIP().toString();
-  doc["uptime"] = millis();
-  doc["timestamp"] = millis();
-  
-  JsonObject cells = doc.createNestedObject("cells");
-  
-  for (int i = 0; i < 5; i++) {
-    JsonObject cell = cells.createNestedObject(String(i + 1));
-    cell["locked"] = cellStates[i].locked;
-    cell["opened"] = cellStates[i].opened;
-    cell["packageId"] = cellStates[i].packageId;
-    cell["lastActivity"] = cellStates[i].lastActivity;
-    cell["sensorState"] = digitalRead(cells[i].sensorPin);
-  }
-  
-  String jsonString;
-  serializeJson(doc, jsonString);
-  return jsonString;
-}
+  if (webSocket.isConnected()) {
+    unsigned long now = millis();
+    if (now - lastPingTime > pingInterval) {
+      DynamicJsonDocument pingDoc(128);
+      pingDoc["type"] = "ping";
+      pingDoc["id"] = deviceId;
 
-String buildStatusHTML() {
-  String html = "<!DOCTYPE html><html>";
-  html += "<head><meta charset='utf-8'><title>ESP32 Smart Locker</title>";
-  html += "<style>body{font-family:Arial;margin:20px;direction:rtl;}</style></head>";
-  html += "<body><h1>🔒 ESP32 Smart Locker</h1>";
-  html += "<h2>מזהה לוקר: " + String(lockerId) + "</h2>";
-  html += "<p>WiFi: " + String(WiFi.status() == WL_CONNECTED ? "מחובר ✅" : "לא מחובר ❌") + "</p>";
-  html += "<p>כתובת IP: " + WiFi.localIP().toString() + "</p>";
-  html += "<p>זמן פעילות: " + String(millis()/1000) + " שניות</p>";
-  
-  html += "<h3>סטטוס תאים:</h3><table border='1'>";
-  html += "<tr><th>תא</th><th>נעול</th><th>פתוח</th><th>חבילה</th><th>חיישן</th></tr>";
-  
-  for (int i = 0; i < 5; i++) {
-    html += "<tr>";
-    html += "<td>" + String(i + 1) + "</td>";
-    html += "<td>" + String(cellStates[i].locked ? "כן" : "לא") + "</td>";
-    html += "<td>" + String(cellStates[i].opened ? "כן" : "לא") + "</td>";
-    html += "<td>" + cellStates[i].packageId + "</td>";
-    html += "<td>" + String(digitalRead(cells[i].sensorPin)) + "</td>";
-    html += "</tr>";
-  }
-  
-  html += "</table>";
-  html += "<br><a href='/status'>JSON Status</a>";
-  html += "</body></html>";
-  
-  return html;
-}
+      String pingJson;
+      serializeJson(pingDoc, pingJson);
+      webSocket.sendTXT(pingJson);
 
-// פונקציה לטעינת מזהה הלוקר מה-EEPROM
-void loadLockerId() {
-  EEPROM.begin(EEPROM_SIZE);
-  for (int i = 0; i < LOCKER_ID_LENGTH; i++) {
-    lockerId[i] = EEPROM.read(LOCKER_ID_ADDR + i);
+      lastPingTime = now;
+      Serial.printf("[%lu] 📤 נשלח פינג לRailway: %s\n", millis(), pingJson.c_str());
+    }
   }
-  lockerId[LOCKER_ID_LENGTH] = '\0';  // הוספת תו סיום
-  EEPROM.end();
-  
-  // אם המזהה ריק או לא תקין, ניצור מזהה ברירת מחדל מה-MAC address
-  if (strlen(lockerId) < 3 || !isValidLockerId(lockerId)) {
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    snprintf(lockerId, LOCKER_ID_LENGTH + 1, "LOC%02X%02X%02X", mac[3], mac[4], mac[5]);
-    saveLockerId();
-  }
-}
 
-// פונקציה לשמירת מזהה הלוקר ב-EEPROM
-void saveLockerId() {
-  EEPROM.begin(EEPROM_SIZE);
-  for (int i = 0; i < LOCKER_ID_LENGTH; i++) {
-    EEPROM.write(LOCKER_ID_ADDR + i, lockerId[i]);
-  }
-  EEPROM.commit();
-  EEPROM.end();
-}
+  // ניטור WebSocket וניהול הנורה
+  static bool lastWebSocketState = false;
+  bool currentWebSocketState = webSocket.isConnected();
 
-// בדיקת תקינות מזהה הלוקר
-bool isValidLockerId(const char* id) {
-  if (strlen(id) < 3) return false;
-  if (strncmp(id, "LOC", 3) != 0) return false;
-  for (int i = 3; i < strlen(id); i++) {
-    if (!isalnum(id[i])) return false;
+  if (currentWebSocketState != lastWebSocketState) {
+    if (currentWebSocketState) {
+      Serial.println("🟢 WebSocket התחבר מחדש לRailway!");
+      digitalWrite(WS_STATUS_LED, LOW);
+    } else {
+      Serial.println("🔴 WebSocket נותק מRailway!");
+      digitalWrite(WS_STATUS_LED, HIGH);
+    }
+    lastWebSocketState = currentWebSocketState;
   }
-  return true;
-}
 
-// פונקציה לעדכון מזהה הלוקר דרך סריאל
-void handleSerialCommands() {
-  if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-    
-    if (cmd.startsWith("setid ")) {
-      String newId = cmd.substring(6);
-      if (newId.length() <= LOCKER_ID_LENGTH && isValidLockerId(newId.c_str())) {
-        strncpy(lockerId, newId.c_str(), LOCKER_ID_LENGTH);
-        saveLockerId();
-        Serial.println("מזהה הלוקר עודכן ל: " + String(lockerId));
-        
-        // התחברות מחדש לשרת עם המזהה החדש
-        webSocket.disconnect();
-        connectToWebSocket();
-      } else {
-        Serial.println("שגיאה: מזהה לא תקין. השתמש בפורמט LOCxxxxx");
-      }
+  // ניטור מצב WiFi
+  static bool lastWiFiConnected = false;
+  bool currentWiFiConnected = (WiFi.status() == WL_CONNECTED);
+
+  if (currentWiFiConnected != lastWiFiConnected) {
+    if (currentWiFiConnected) {
+      Serial.println("📶 WiFi התחבר");
+      digitalWrite(WIFI_STATUS_LED, LOW);
+      
+    } else {
+      Serial.println("📴 WiFi התנתק");
+      digitalWrite(WIFI_STATUS_LED, HIGH);
+    }
+    lastWiFiConnected = currentWiFiConnected;
+  }
+
+  // ניסיון חיבור מחדש ל-WiFi כל 15 שניות
+  static unsigned long lastReconnectAttempt = 0;
+  const unsigned long reconnectInterval = 15000;
+
+  if (WiFi.status() != WL_CONNECTED) {
+    unsigned long now = millis();
+    if (now - lastReconnectAttempt > reconnectInterval) {
+      Serial.println("🔁 מנסה להתחבר מחדש ל-WiFi...");
+      WiFi.begin(bestSSID.c_str(), password);
+      lastReconnectAttempt = now;
     }
   }
 } 
