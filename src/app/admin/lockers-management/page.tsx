@@ -418,10 +418,22 @@ export default function LockersManagementPage() {
         throw new Error('לא ניתן למצוא או ליצור לוקר במסד הנתונים')
       }
       
+      // בדיקה אם הלוקר מחובר
+      const liveLocker = liveLockers[lockerId]
+      if (!liveLocker) {
+        alert(`הלוקר ${lockerId} לא נמצא ברשימת הלוקרים המחוברים. אנא ודא שה-ESP32 מחובר לשרת WebSocket.`)
+        return
+      }
+      
+      if (!liveLocker.isOnline) {
+        alert(`הלוקר ${lockerId} לא מחובר לשרת WebSocket. אנא ודא שה-ESP32 מחובר ופעיל.`)
+        return
+      }
+      
       console.log(`🔓 מנסה לפתוח תא ${cellId} בלוקר ${lockerId} (DB ID: ${dbLockerId})`)
       
       const requestBody = {
-        lockerId: dbLockerId,
+        lockerId: lockerId, // שימוש במזהה הלוקר המקורי (מחרוזת)
         cellId: cellId,
         packageId: `ADMIN-${Date.now()}`, // מזהה ייחודי לפתיחה על ידי מנהל
         clientToken: 'ADMIN-TOKEN' // טוקן מנהל
@@ -441,7 +453,7 @@ export default function LockersManagementPage() {
       const result = await response.json()
       console.log(`📋 תוצאה מפורטת:`, result)
       
-      if (result.success) {
+      if (response.ok && result.status === 'success') {
         let message = `תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`
         
         if (result.simulated) {
@@ -467,7 +479,18 @@ export default function LockersManagementPage() {
           }
         }))
       } else {
-        alert('שגיאה: ' + (result.error || result.message || 'שגיאה לא ידועה'))
+        let errorMessage = 'שגיאה לא ידועה'
+        
+        if (response.status === 503) {
+          errorMessage = 'הלוקר לא מחובר לשרת WebSocket. אנא ודא שה-ESP32 מחובר ופעיל.'
+        } else if (result.error) {
+          errorMessage = result.error
+        } else if (result.message) {
+          errorMessage = result.message
+        }
+        
+        alert(`שגיאה בפתיחת תא: ${errorMessage}`)
+        console.error(`❌ שגיאה בפתיחת תא:`, result)
       }
     } catch (error) {
       console.error('שגיאה בפתיחת תא:', error)
@@ -754,31 +777,56 @@ export default function LockersManagementPage() {
           </div>
         </div>
 
-        {/* הודעה כשאין לוקרים חיים */}
-        {Object.keys(liveLockers).length === 0 && (
-          <div className="mb-6 sm:mb-8">
-            <div className="bg-blue-500/10 backdrop-blur-md rounded-lg p-6 border border-blue-400/30 text-center">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-xl font-bold text-blue-400 mb-2">מחפש לוקרים חיים...</h3>
-              <p className="text-white/70 mb-4">
-                המערכת מחפשת לוקרים אמיתיים המחוברים לשרת החומרה בזמן אמת.
-              </p>
-              <div className="flex items-center justify-center gap-2 text-sm text-white/60 mb-2">
-                <div className={`w-2 h-2 rounded-full ${
+        {/* הודעה על מצב חיבור */}
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-blue-500/10 backdrop-blur-md rounded-lg p-6 border border-blue-400/30">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-blue-400">סטטוס חיבור לשרת החומרה</h3>
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${
                   wsStatus === 'מחובר' ? 'bg-green-400 animate-pulse' : 
                   wsStatus === 'מתחבר' ? 'bg-yellow-400 animate-pulse' : 
                   'bg-red-400'
                 }`}></div>
-                <span>סטטוס חיבור לשרת החומרה: {wsStatus}</span>
+                <span className="text-sm text-white/70">{wsStatus}</span>
               </div>
-              {wsStatus !== 'מחובר' && (
-                <p className="text-orange-300 text-sm">
-                  💡 וודא שהשרת החומרה פועל על ws://localhost:3003
-                </p>
-              )}
             </div>
+            
+            {Object.keys(liveLockers).length === 0 ? (
+              <div className="text-center">
+                <div className="text-4xl mb-4">🔍</div>
+                <h4 className="text-lg font-bold text-blue-400 mb-2">מחפש לוקרים חיים...</h4>
+                <p className="text-white/70 mb-4">
+                  המערכת מחפשת לוקרים אמיתיים המחוברים לשרת החומרה בזמן אמת.
+                </p>
+                {wsStatus !== 'מחובר' && (
+                  <p className="text-orange-300 text-sm">
+                    💡 וודא שהשרת החומרה פועל על ws://localhost:3003
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <h4 className="text-lg font-bold text-green-400 mb-2">לוקרים מחוברים:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Object.entries(liveLockers).map(([lockerId, locker]) => (
+                    <div key={lockerId} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-white">{lockerId}</span>
+                        <div className={`w-2 h-2 rounded-full ${
+                          locker.isOnline ? 'bg-green-400' : 'bg-red-400'
+                        }`}></div>
+                      </div>
+                      <p className="text-xs text-white/60 mt-1">
+                        {locker.isOnline ? 'מחובר' : 'לא מחובר'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* סטטוס WebSocket */}
         <div className="mb-6">
