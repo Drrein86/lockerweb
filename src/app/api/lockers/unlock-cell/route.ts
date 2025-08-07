@@ -85,8 +85,19 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ כל הפרמטרים תקינים, מנסה לשלוח לשרת WebSocket');
 
+    // בדיקה אם שרת WebSocket פועל
+    console.log('🔍 בדיקת מצב שרת WebSocket...');
+    
     // שליחת פקודה לשרת WebSocket
     try {
+      console.log(`📤 שולח פקודה ללוקר ${lockerId}:`, {
+        type: 'openByClient',
+        lockerId,
+        cellId,
+        packageId,
+        clientToken
+      });
+      
       const result = await wsManager.sendToLockerWithResponse(lockerId, {
         type: 'openByClient',
         lockerId: lockerId,
@@ -94,6 +105,8 @@ export async function POST(request: NextRequest) {
         packageId: packageId,
         clientToken: clientToken
       });
+
+      console.log(`📥 תשובה משרת WebSocket:`, result);
 
       if (result.success) {
         console.log(`✅ פקודת פתיחה נשלחה ללוקר ${lockerId}`);
@@ -117,7 +130,8 @@ export async function POST(request: NextRequest) {
           lockerId,
           cellId,
           packageId,
-          simulated: true
+          simulated: true,
+          details: result.message
         };
         
         console.log(`📤 מחזיר תגובת שגיאה:`, response);
@@ -132,7 +146,8 @@ export async function POST(request: NextRequest) {
         lockerId,
         cellId,
         packageId,
-        simulated: true
+        simulated: true,
+        details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
       };
       
       console.log(`📤 מחזיר תגובת שגיאה:`, response);

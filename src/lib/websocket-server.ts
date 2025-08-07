@@ -588,11 +588,30 @@ class WebSocketManager {
    */
   private sendToLockerInternal(id: string, messageObj: any): boolean {
     const conn = this.lockerConnections.get(id);
+    
+    this.logEvent('send_attempt', `📤 ניסיון שליחה ללוקר ${id}`, {
+      lockerId: id,
+      messageType: messageObj.type,
+      hasConnection: !!conn,
+      connectionState: conn?.readyState,
+      totalConnections: this.lockerConnections.size,
+      connectedLockers: Array.from(this.lockerConnections.keys())
+    });
+    
     if (conn?.readyState === WebSocket.OPEN) {
       conn.send(JSON.stringify(messageObj));
+      this.logEvent('send_success', `✅ הודעה נשלחה ללוקר ${id}`, {
+        lockerId: id,
+        messageType: messageObj.type
+      });
       return true;
     } else {
-      this.logEvent('warning', `🚫 לוקר ${id} לא מחובר`);
+      this.logEvent('send_failed', `🚫 לוקר ${id} לא מחובר`, {
+        lockerId: id,
+        hasConnection: !!conn,
+        connectionState: conn?.readyState,
+        availableLockers: Array.from(this.lockerConnections.keys())
+      });
       return false;
     }
   }
@@ -608,13 +627,37 @@ class WebSocketManager {
    * שליחת הודעה ללוקר עם המתנה לתגובה
    */
   public async sendToLockerWithResponse(id: string, messageObj: any, timeout: number = 10000): Promise<any> {
+    this.logEvent('send_with_response', `📤 ניסיון שליחה עם תגובה ללוקר ${id}`, {
+      lockerId: id,
+      messageType: messageObj.type,
+      totalConnections: this.lockerConnections.size,
+      availableLockers: Array.from(this.lockerConnections.keys())
+    });
+    
     const connection = this.lockerConnections.get(id);
-    if (!connection || connection.readyState !== WebSocket.OPEN) {
-      return { success: false, message: 'Locker not connected' };
+    if (!connection) {
+      this.logEvent('send_failed_no_connection', `🚫 לוקר ${id} לא נמצא ברשימת החיבורים`, {
+        lockerId: id,
+        availableLockers: Array.from(this.lockerConnections.keys())
+      });
+      return { success: false, message: 'Locker not found in connections' };
+    }
+    
+    if (connection.readyState !== WebSocket.OPEN) {
+      this.logEvent('send_failed_not_open', `🚫 לוקר ${id} לא מחובר (סטטוס: ${connection.readyState})`, {
+        lockerId: id,
+        connectionState: connection.readyState
+      });
+      return { success: false, message: `Locker not connected (state: ${connection.readyState})` };
     }
 
     // שליחת ההודעה
     connection.send(JSON.stringify(messageObj));
+    
+    this.logEvent('send_success_with_response', `✅ הודעה נשלחה ללוקר ${id}`, {
+      lockerId: id,
+      messageType: messageObj.type
+    });
     
     // כרגע נחזיר הצלחה בלי לחכות לתגובה
     // TODO: להוסיף מערכת המתנה לתגובה
@@ -644,12 +687,26 @@ class WebSocketManager {
   private getLockerStates(): Record<string, any> {
     const states: Record<string, any> = {};
     
+    this.logEvent('status_check', `📊 בדיקת סטטוס לוקרים`, {
+      totalConnections: this.lockerConnections.size,
+      connectedLockers: Array.from(this.lockerConnections.keys())
+    });
+    
     for (const [id, ws] of this.lockerConnections) {
+      const isOnline = ws.readyState === WebSocket.OPEN;
       states[id] = {
-        isOnline: ws.readyState === WebSocket.OPEN,
+        isOnline,
         lastSeen: ws.lastSeen || new Date(),
-        cells: ws.cells || {}
+        cells: ws.cells || {},
+        connectionState: ws.readyState
       };
+      
+      this.logEvent('locker_status', `📡 סטטוס לוקר ${id}`, {
+        lockerId: id,
+        isOnline,
+        connectionState: ws.readyState,
+        lastSeen: ws.lastSeen
+      });
     }
     
     return states;
@@ -723,8 +780,13 @@ class WebSocketManager {
       this.logEvent('server_start', `🚀 שרת הלוקרים פועל על פורט ${CONFIG.PORT}`, {
         port: CONFIG.PORT,
         ssl: CONFIG.USE_SSL,
-        esp32_devices: CONFIG.ESP32_DEVICES
+        esp32_devices: CONFIG.ESP32_DEVICES,
+        allowed_locker_ids: CONFIG.ALLOWED_LOCKER_IDS
       });
+      
+      console.log(`🚀 שרת WebSocket פועל על פורט ${CONFIG.PORT}`);
+      console.log(`📡 לוקרים מורשים: ${CONFIG.ALLOWED_LOCKER_IDS.join(', ')}`);
+      console.log(`🔧 מצב SSL: ${CONFIG.USE_SSL ? 'פעיל' : 'לא פעיל'}`);
     });
 
     // טיפול בסגירה נאותה
@@ -799,6 +861,18 @@ class WebSocketManager {
 
 // יצירת מופע יחיד של המחלקה
 const wsManager = new WebSocketManager();
+
+// הפעלה אוטומטית של השרת
+if (typeof window === 'undefined') {
+  // רק בצד השרת
+  console.log('🚀 מפעיל שרת WebSocket אוטומטית...');
+  try {
+    wsManager.start();
+    console.log('✅ שרת WebSocket הופעל בהצלחה');
+  } catch (error) {
+    console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
+  }
+}
 
 // ייצוא לשימוש במודולים אחרים
 export default wsManager; 
