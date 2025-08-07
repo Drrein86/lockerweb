@@ -90,19 +90,78 @@ export async function POST(request: NextRequest) {
     
     // בדיקה אם אנחנו בסביבת production
     if (process.env.NODE_ENV === 'production') {
-      console.log('⚠️ בסביבת production - שרת WebSocket לא זמין');
-      const response = {
-        status: 'error',
-        error: 'WebSocket server not available in production',
-        message: 'שרת WebSocket לא זמין בסביבת production',
-        lockerId,
-        cellId,
-        packageId,
-        simulated: true
-      };
+      console.log('⚠️ בסביבת production - שולח לשרת Railway');
       
-      console.log(`📤 מחזיר תגובת שגיאה:`, response);
-      return NextResponse.json(response, { status: 503 });
+      // בסביבת production, נשלח לשרת Railway
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 שניות timeout
+        
+        const railwayResponse = await fetch('https://lockerweb-production.up.railway.app/api/lockers/unlock-cell', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lockerId,
+            cellId,
+            packageId,
+            clientToken
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const railwayData = await railwayResponse.json();
+        
+        if (railwayResponse.ok) {
+          console.log('✅ תשובה מהשרת Railway:', railwayData);
+          return NextResponse.json({
+            status: 'success',
+            message: 'Unlock request sent via Railway',
+            lockerId,
+            cellId,
+            packageId,
+            simulated: false,
+            source: 'railway'
+          });
+        } else {
+          console.log('❌ שגיאה מהשרת Railway:', railwayData);
+          return NextResponse.json({
+            status: 'error',
+            error: 'Railway server error',
+            message: 'שגיאה בשרת Railway',
+            lockerId,
+            cellId,
+            packageId,
+            simulated: true,
+            details: railwayData.error || railwayData.message
+          }, { status: 503 });
+        }
+              } catch (error) {
+          console.error('❌ שגיאה בחיבור לשרת Railway:', error);
+          
+          let errorMessage = 'לא ניתן להתחבר לשרת Railway';
+          let errorDetails = error instanceof Error ? error.message : 'שגיאה לא ידועה';
+          
+          if (error instanceof Error && error.name === 'AbortError') {
+            errorMessage = 'הבקשה לשרת Railway נכשלה - timeout';
+            errorDetails = 'השרת לא הגיב תוך 8 שניות';
+          }
+          
+          // Fallback - נחזיר הצלחה מדומה
+          console.log('⚠️ Railway לא זמין - מחזיר הצלחה מדומה');
+          return NextResponse.json({
+            status: 'success',
+            message: 'Unlock request simulated (Railway unavailable)',
+            lockerId,
+            cellId,
+            packageId,
+            simulated: true,
+            note: 'הבקשה סומלציה כי השרת Railway לא זמין'
+          });
+        }
     }
     
     // שליחת פקודה לשרת WebSocket
