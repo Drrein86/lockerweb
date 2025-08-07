@@ -102,8 +102,8 @@ void handleLocker() {
     response["pong"] = true;
     response["deviceId"] = deviceId;
     response["status"] = "online";
-
-    String jsonString;
+  
+  String jsonString;
     serializeJson(response, jsonString);
     server.send(200, "application/json", jsonString);
   }
@@ -137,7 +137,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       Serial.printf("[%lu] נשלח רישום לשרת\n", millis());
       Serial.printf("📤 נשלח רישום לRailway: %s\n", output.c_str());
       break;
-    }
+  }
 
     case WStype_TEXT: {
       Serial.printf("[%lu] 📨 התקבל מRailway: %s\n", millis(), payload);
@@ -161,17 +161,17 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
         // בדיקת התאמה למזהה הלוקר המקומי
         if (lockerId != deviceId) {
           Serial.printf("⚠️ openByClient התעלמות: lockerId לא תואם (%s != %s)\n", lockerId.c_str(), deviceId.c_str());
-          return;
-        }
-
+    return;
+  }
+  
         if (cellId == "") {
           Serial.println("⚠️ openByClient התקבלה ללא cellId");
           return;
         }
 
         // פתח את התא
-        bool success = unlockCell(cellId);
-
+      bool success = unlockCell(cellId);
+      
         // שליחת תשובה לשרת עם תוצאה
         DynamicJsonDocument res(256);
         res["type"] = success ? "openSuccess" : "openFailed";
@@ -201,7 +201,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       else if (msgType == "pong") {
         if (targetId == deviceId) {
           Serial.printf("[%lu] 🟢 פונג אמיתי התקבל מהשרת עבור %s\n", millis(), targetId.c_str());
-        } else {
+    } else {
           Serial.printf("[%lu] ⚠️ פונג התקבל אך ID לא תואם: %s\n", millis(), targetId.c_str());
         }
       }
@@ -272,7 +272,7 @@ void connectToWiFi() {
   if (bestSSID == "") {
     Serial.println("❌ לא נמצאה רשת מתאימה");
     writePin(0, HIGH);
-    return;
+        return;
   }
 
   Serial.printf("🔗 מתחבר ל-%s\n", bestSSID.c_str());
@@ -320,7 +320,7 @@ bool unlockCell(String cell) {
     Serial.printf("⚠️ מזהה תא לא תקין: %s\n", cell.c_str());
     return false;
   }
-
+  
   // פתיחת התא
   writePin(pin, LOW);
   delay(1500);
@@ -350,7 +350,7 @@ bool unlockCell(String cell) {
 
     return false;
   }
-
+  
   // התחלת לולאה: המתנה לסגירה + אישור מהשרת
   Serial.println("🕒 ממתין לסגירת תא A1 ואישור מהשרת...");
   receivedCloseConfirmation = false;
@@ -441,7 +441,7 @@ void setup() {
 
   // WiFi
   connectToWiFi();
-
+  
   if (WiFi.status() == WL_CONNECTED) {
     // הגדרת HTTP
     server.on("/locker", handleLocker);

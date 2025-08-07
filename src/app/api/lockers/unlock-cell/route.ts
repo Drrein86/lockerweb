@@ -88,6 +88,23 @@ export async function POST(request: NextRequest) {
     // בדיקה אם שרת WebSocket פועל
     console.log('🔍 בדיקת מצב שרת WebSocket...');
     
+    // בדיקה אם אנחנו בסביבת production
+    if (process.env.NODE_ENV === 'production') {
+      console.log('⚠️ בסביבת production - שרת WebSocket לא זמין');
+      const response = {
+        status: 'error',
+        error: 'WebSocket server not available in production',
+        message: 'שרת WebSocket לא זמין בסביבת production',
+        lockerId,
+        cellId,
+        packageId,
+        simulated: true
+      };
+      
+      console.log(`📤 מחזיר תגובת שגיאה:`, response);
+      return NextResponse.json(response, { status: 503 });
+    }
+    
     // שליחת פקודה לשרת WebSocket
     try {
       console.log(`📤 שולח פקודה ללוקר ${lockerId}:`, {
