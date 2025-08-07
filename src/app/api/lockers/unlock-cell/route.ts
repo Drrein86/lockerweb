@@ -83,21 +83,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ כל הפרמטרים תקינים, מחזיר הצלחה');
+    console.log('✅ כל הפרמטרים תקינים, מנסה לשלוח לשרת WebSocket');
 
-    // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
-    // כדי לוודא שה-API עובד
-    const response = {
-      status: 'success',
-      message: 'Unlock request received successfully',
-      lockerId,
-      cellId,
-      packageId,
-      note: 'WebSocket integration pending - server is working'
-    };
-    
-    console.log(`📤 מחזיר תגובה:`, response);
-    return NextResponse.json(response);
+    // שליחת פקודה לשרת WebSocket
+    try {
+      const result = await wsManager.sendToLockerWithResponse(lockerId, {
+        type: 'openByClient',
+        lockerId: lockerId,
+        cellId: cellId,
+        packageId: packageId,
+        clientToken: clientToken
+      });
+
+      if (result.success) {
+        console.log(`✅ פקודת פתיחה נשלחה ללוקר ${lockerId}`);
+        const response = {
+          status: 'success',
+          message: 'Unlock request sent successfully',
+          lockerId,
+          cellId,
+          packageId,
+          simulated: false
+        };
+        
+        console.log(`📤 מחזיר תגובה:`, response);
+        return NextResponse.json(response);
+      } else {
+        console.log(`❌ לוקר ${lockerId} לא מחובר לשרת WebSocket`);
+        const response = {
+          status: 'error',
+          error: 'Locker not connected',
+          message: 'הלוקר לא מחובר למערכת כרגע',
+          lockerId,
+          cellId,
+          packageId,
+          simulated: true
+        };
+        
+        console.log(`📤 מחזיר תגובת שגיאה:`, response);
+        return NextResponse.json(response, { status: 503 });
+      }
+    } catch (error) {
+      console.error('❌ שגיאה בשליחת פקודה ללוקר:', error);
+      const response = {
+        status: 'error',
+        error: 'Internal server error',
+        message: 'שגיאה פנימית בשרת',
+        lockerId,
+        cellId,
+        packageId,
+        simulated: true
+      };
+      
+      console.log(`📤 מחזיר תגובת שגיאה:`, response);
+      return NextResponse.json(response, { status: 500 });
+    }
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);

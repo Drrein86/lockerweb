@@ -24,6 +24,7 @@ interface LockerConnection extends WebSocket {
   cells?: Record<string, LockerCell>;
   isAlive?: boolean;
   reconnectAttempts?: number;
+  ws?: WebSocket;
 }
 
 interface WebSocketMessage {
@@ -601,6 +602,23 @@ class WebSocketManager {
    */
   public sendToLocker(id: string, messageObj: any): boolean {
     return this.sendToLockerInternal(id, messageObj);
+  }
+
+  /**
+   * שליחת הודעה ללוקר עם המתנה לתגובה
+   */
+  public async sendToLockerWithResponse(id: string, messageObj: any, timeout: number = 10000): Promise<any> {
+    const connection = this.lockerConnections.get(id);
+    if (!connection || connection.readyState !== WebSocket.OPEN) {
+      return { success: false, message: 'Locker not connected' };
+    }
+
+    // שליחת ההודעה
+    connection.send(JSON.stringify(messageObj));
+    
+    // כרגע נחזיר הצלחה בלי לחכות לתגובה
+    // TODO: להוסיף מערכת המתנה לתגובה
+    return { success: true, message: 'Message sent to locker' };
   }
 
   /**
