@@ -49,6 +49,14 @@ export async function POST(request: NextRequest) {
     
     const { lockerId, cellId, packageId, clientToken } = body;
     console.log('🔍 פרמטרים שחולצו:', { lockerId, cellId, packageId, clientToken });
+    
+    // לוג מפורט יותר לבדיקת טיפוסי הנתונים
+    console.log('🔍 טיפוסי נתונים:', {
+      lockerId: typeof lockerId,
+      cellId: typeof cellId,
+      packageId: typeof packageId,
+      clientToken: typeof clientToken
+    });
 
     // בדיקת פרמטרים נדרשים
     if (!lockerId || !cellId || !packageId) {
@@ -75,35 +83,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ כל הפרמטרים תקינים, שולח לשרת Railway');
+    console.log('✅ כל הפרמטרים תקינים, מחזיר הצלחה');
 
-    // שליחת פקודה לשרת Railway
-    const command = {
-      deviceId: lockerId,
-      cellId: cellId,
-      packageId: packageId
-    };
-
-    const result = await sendCommandToESP32(null, null, command);
-    
-    if (result.success) {
-      return NextResponse.json({
-        status: 'success',
-        message: result.message,
-        lockerId,
-        cellId,
-        packageId,
-        simulated: result.simulated,
-        railwayResponse: result.railwayResponse
-      });
-    } else {
-      return NextResponse.json({
-        status: 'error',
-        message: result.message,
-        error: result.originalError || result.error,
-        simulated: result.simulated
-      }, { status: 500 });
-    }
+    // כרגע נחזיר הצלחה בלי לנסות לשלוח לשרת WebSocket
+    // כדי לוודא שה-API עובד
+    return NextResponse.json({
+      status: 'success',
+      message: 'Unlock request received successfully',
+      lockerId,
+      cellId,
+      packageId,
+      note: 'WebSocket integration pending - server is working'
+    });
 
   } catch (error) {
     console.error('❌ Error in unlock-cell API:', error);
@@ -121,6 +112,8 @@ export async function POST(request: NextRequest) {
 // פונקציה לשליחת פקודה ל-ESP32 דרך Railway WebSocket Server
 async function sendCommandToESP32(ip: string | null, port: number | null, command: any) {
   try {
+    console.log('🔧 התחלת sendCommandToESP32 עם command:', command);
+    
     // במקום לשלוח ישירות ל-ESP32, נשלח ל-Railway WebSocket Server
     const railwayUrl = 'https://lockerweb-production.up.railway.app'
     
@@ -131,24 +124,36 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
     const timeoutId = setTimeout(() => controller.abort(), 5000)
     
     try {
+      const requestBody = {
+        type: 'unlock',
+        id: command.deviceId || 'LOC632', // מזהה הלוקר
+        cell: command.cellId // מספר התא
+      };
+      
+      console.log('📤 שולח לשרת Railway:', requestBody);
+      
       // שליחת בקשה ל-Railway Server שישלח WebSocket message ל-ESP32
       const response = await fetch(`${railwayUrl}/api/unlock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          type: 'unlock',
-          id: command.deviceId || 'LOC632', // מזהה הלוקר
-          cell: command.cellId // מספר התא
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       })
 
       clearTimeout(timeoutId)
 
+      console.log('📥 תגובה מהשרת Railway:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text();
+        console.log('❌ שגיאה מהשרת Railway:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
       }
 
       const data = await response.json()
@@ -163,6 +168,12 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
 
     } catch (fetchError) {
       clearTimeout(timeoutId)
+      
+      console.log('❌ שגיאה בחיבור ל-Railway Server:', {
+        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+        message: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        stack: fetchError instanceof Error ? fetchError.stack : undefined
+      });
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.log('⏰ Timeout - נופל לסימולציה')
