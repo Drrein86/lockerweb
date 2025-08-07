@@ -862,17 +862,7 @@ class WebSocketManager {
 // יצירת מופע יחיד של המחלקה
 const wsManager = new WebSocketManager();
 
-// הפעלה אוטומטית של השרת
-if (typeof window === 'undefined') {
-  // רק בצד השרת
-  console.log('🚀 מפעיל שרת WebSocket אוטומטית...');
-  try {
-    wsManager.start();
-    console.log('✅ שרת WebSocket הופעל בהצלחה');
-  } catch (error) {
-    console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
-  }
-}
+// שים לב: אין הפעלה אוטומטית כאן כדי לא לשבור build בסביבות Serverless (כמו Vercel)
 
 // ייצוא לשימוש במודולים אחרים
 export default wsManager; 

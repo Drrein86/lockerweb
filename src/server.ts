@@ -1,12 +1,12 @@
+// קובץ הפעלה אופציונלי להרצה לוקלית בלבד (לא נטען במהלך build ב-Vercel)
 import wsManager from './lib/websocket-server';
 
-console.log('🚀 מתחיל שרת WebSocket...');
-
-// הפעלת השרת
-try {
-  wsManager.start();
-  console.log('✅ שרת WebSocket הופעל בהצלחה');
-} catch (error) {
-  console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
-  process.exit(1);
-} 
+if (process.env.NODE_ENV !== 'production') {
+  console.log('🚀 מתחיל שרת WebSocket (development only)...');
+  try {
+    wsManager.start();
+    console.log('✅ שרת WebSocket הופעל בהצלחה');
+  } catch (error) {
+    console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
+  }
+}
