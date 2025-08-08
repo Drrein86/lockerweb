@@ -224,6 +224,7 @@ export default function LockersManagementPage() {
 
   const loadLockers = async () => {
     console.log('📊 מתחיל לטעון לוקרים...')
+    console.log('📊 נקרא מ:', new Error().stack?.split('\n')[2] || 'לא ידוע')
     setError('')
     const startTime = Date.now()
     try {
@@ -693,12 +694,20 @@ export default function LockersManagementPage() {
 
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
     console.log('🎮 controlCell נקרא:', { cellId, lockerId, action })
+    console.log('🔍 טיפוסי פרמטרים:', {
+      cellId: typeof cellId,
+      lockerId: typeof lockerId,
+      action: typeof action
+    })
     
     // בדיקת תקינות הפרמטרים
     if (!cellId || !lockerId) {
+      console.error('❌ חסרים פרמטרים:', { cellId, lockerId })
       alert('❌ שגיאה: חסרים פרטי תא או לוקר')
       return
     }
+    
+    console.log('✅ פרמטרים תקינים, ממשיך...')
 
     const controlKey = `${cellId}-${action}`
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
@@ -708,30 +717,45 @@ export default function LockersManagementPage() {
       
       if (action === 'open') {
         console.log('🔓 שולח בקשה לפתיחת תא:', { lockerId, cellId })
+        console.log('📤 URL:', '/api/lockers/unlock-cell')
+        console.log('📤 Method:', 'POST')
+        
+        const requestBody = {
+          lockerId: lockerId,
+          cellId: cellId,
+          packageId: `ADMIN-${Date.now()}`,
+          clientToken: 'ADMIN-TOKEN'
+        }
+        console.log('📤 Request Body:', requestBody)
+        
         // עבור פתיחת תאים, נשתמש ב-API המיוחד שתומך בסימולציה
         response = await fetch('/api/lockers/unlock-cell', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            lockerId: lockerId,
-            cellId: cellId,
-            packageId: `ADMIN-${Date.now()}`,
-            clientToken: 'ADMIN-TOKEN'
-          })
+          body: JSON.stringify(requestBody)
         })
         console.log('📡 תגובה מפתיחת תא:', response.status, response.statusText)
+        console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()))
       } else {
         console.log('🔒 שולח בקשה לסגירת תא:', { lockerId, cellId })
-        response = await fetch('/api/admin/cell-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        console.log('📤 URL:', '/api/admin/cell-control')
+        console.log('📤 Method:', 'POST')
+        
+        const requestBody = {
           cellId,
           lockerId,
           action,
           userId: 'admin'
+        }
+        console.log('📤 Request Body:', requestBody)
+        
+        response = await fetch('/api/admin/cell-control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
         })
-      })
+        console.log('📡 תגובה מסגירת תא:', response.status, response.statusText)
+        console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()))
       }
 
       if (!response.ok) {
@@ -741,12 +765,21 @@ export default function LockersManagementPage() {
 
       data = await response.json()
       console.log('📋 נתוני תגובה:', data)
+      console.log('📋 מבנה התגובה:', {
+        hasSuccess: 'success' in data,
+        hasError: 'error' in data,
+        hasMessage: 'message' in data,
+        hasSimulated: 'simulated' in data,
+        keys: Object.keys(data)
+      })
       
       if (data.success) {
         const actionText = action === 'open' ? 'התא נפתח' : 'התא נסגר'
         console.log(`✅ ${actionText} בהצלחה!`)
+        console.log('🔄 קורא ל-loadLockers לעדכון הנתונים...')
         alert(`✅ ${actionText} בהצלחה!`)
         await loadLockers()
+        console.log('✅ loadLockers הושלם')
       } else {
         console.error('❌ שגיאה בתגובה:', data)
         if (data.simulated) {
@@ -766,6 +799,7 @@ export default function LockersManagementPage() {
     } finally {
       setControlLoading(prev => ({ ...prev, [controlKey]: false }))
       console.log('🏁 controlCell הסתיים')
+      console.log('🏁 מצב loading:', controlKey, 'הוסר')
     }
   }
 
@@ -1121,15 +1155,27 @@ export default function LockersManagementPage() {
                             onClick={() => {
                               const cellNumber = cell.cellNumber || cell.id
                               const lockerId = locker.id
-                              console.log('🔓 כפתור "פתח תא" נלחץ:', { cellNumber, lockerId, lockerName: locker.name })
+                              console.log('🔓 כפתור "פתח תא" נלחץ:', { 
+                                cellNumber, 
+                                lockerId, 
+                                lockerName: locker.name,
+                                cellName: cell.name,
+                                cellStatus: cell.status,
+                                lockerStatus: locker.status
+                              })
+                              
                               if (!cellNumber || !lockerId) {
+                                console.error('❌ חסרים פרמטרים:', { cellNumber, lockerId })
                                 alert('❌ שגיאה: חסרים פרטי תא או לוקר')
                                 return
                               }
+                              
+                              console.log('✅ פרמטרים תקינים, קורא ל-controlCell')
                               controlCell(cellNumber, lockerId, 'open')
                             }}
                             disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
                             className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
+                            title={`סטטוס: ${controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'טוען...' : 'מוכן'} | לוקר: ${locker.status}`}
                           >
                             {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
                           </button>
