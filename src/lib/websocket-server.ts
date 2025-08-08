@@ -207,41 +207,30 @@ class WebSocketManager {
    * טיפול ברישום לוקר חדש
    */
   private async handleLockerRegistration(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
-    if (!data.id) {
-      this.logEvent('warning', '⚠️ ניסיון רישום ללא deviceId');
-      return;
-    }
-
-    try {
-      // עדכון או יצירת לוקר ב-DB
-      // במצב Mock - רק לוג הרישום
-      const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
-      const clientPort = (ws as any)._socket?.remotePort || 0;
-
-      // אם ה-ID לא ברשימת המורשים, נרשום אזהרה אך נאפשר רישום כדי לא לחסום בפרוד/דב
-      if (!CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
-        this.logEvent('not_in_allowlist', `ℹ️ ${data.id} לא נמצא ברשימת ALLOWED_LOCKER_IDS, מאפשר רישום בכל זאת`, {
+    if (data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
+      try {
+        // עדכון או יצירת לוקר ב-DB
+        // במצב Mock - רק לוג הרישום
+        const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+        const clientPort = (ws as any)._socket?.remotePort || 0;
+        
+        this.logEvent('register_mock', `📝 נרשם לוקר ${data.id}`, {
           lockerId: data.id,
-          allowed: CONFIG.ALLOWED_LOCKER_IDS
+          ip: clientIP,
+          port: clientPort,
+          status: 'ONLINE'
         });
-      }
-      
-      this.logEvent('register_mock', `📝 נרשם לוקר ${data.id}`, {
-        lockerId: data.id,
-        ip: clientIP,
-        port: clientPort,
-        status: 'ONLINE'
-      });
 
-      ws.lockerId = data.id;
-      ws.lastSeen = new Date();
-      ws.cells = data.cells || {};
-      
-      this.lockerConnections.set(data.id, ws);
-      this.logEvent('register', `📡 נרשם לוקר ${data.id}`);
-      this.broadcastStatus();
-    } catch (error) {
-      this.logEvent('error', `❌ שגיאה ברישום לוקר ${data.id}`, { error });
+        ws.lockerId = data.id;
+        ws.lastSeen = new Date();
+        ws.cells = data.cells || {};
+        
+        this.lockerConnections.set(data.id, ws);
+        this.logEvent('register', `📡 נרשם לוקר ${data.id}`);
+        this.broadcastStatus();
+      } catch (error) {
+        this.logEvent('error', `❌ שגיאה ברישום לוקר ${data.id}`, { error });
+      }
     }
   }
 
@@ -456,6 +445,21 @@ class WebSocketManager {
         status,
         timestamp: Date.now()
       });
+
+      // שליחת אישור סגירה ל-ESP32
+      if (status === 'closed') {
+        const confirmMessage = {
+          type: 'confirmClose',
+          id: lockerId,
+          cell: cell
+        };
+        
+        ws.send(JSON.stringify(confirmMessage));
+        this.logEvent('confirm_close', `✅ נשלח אישור סגירה לתא ${cell} בלוקר ${lockerId}`, {
+          lockerId,
+          cell
+        });
+      }
 
     } catch (error) {
       this.logEvent('error', `❌ שגיאה בעיבוד הודעת סגירת תא`, { error });

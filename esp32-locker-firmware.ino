@@ -102,8 +102,8 @@ void handleLocker() {
     response["pong"] = true;
     response["deviceId"] = deviceId;
     response["status"] = "online";
-  
-  String jsonString;
+
+    String jsonString;
     serializeJson(response, jsonString);
     server.send(200, "application/json", jsonString);
   }
@@ -161,17 +161,17 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
         // בדיקת התאמה למזהה הלוקר המקומי
         if (lockerId != deviceId) {
           Serial.printf("⚠️ openByClient התעלמות: lockerId לא תואם (%s != %s)\n", lockerId.c_str(), deviceId.c_str());
-    return;
-  }
-  
+          return;
+        }
+        
         if (cellId == "") {
           Serial.println("⚠️ openByClient התקבלה ללא cellId");
           return;
         }
 
         // פתח את התא
-      bool success = unlockCell(cellId);
-      
+        bool success = unlockCell(cellId);
+        
         // שליחת תשובה לשרת עם תוצאה
         DynamicJsonDocument res(256);
         res["type"] = success ? "openSuccess" : "openFailed";
@@ -201,7 +201,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       else if (msgType == "pong") {
         if (targetId == deviceId) {
           Serial.printf("[%lu] 🟢 פונג אמיתי התקבל מהשרת עבור %s\n", millis(), targetId.c_str());
-    } else {
+        } else {
           Serial.printf("[%lu] ⚠️ פונג התקבל אך ID לא תואם: %s\n", millis(), targetId.c_str());
         }
       }
@@ -272,7 +272,7 @@ void connectToWiFi() {
   if (bestSSID == "") {
     Serial.println("❌ לא נמצאה רשת מתאימה");
     writePin(0, HIGH);
-        return;
+    return;
   }
 
   Serial.printf("🔗 מתחבר ל-%s\n", bestSSID.c_str());
@@ -351,31 +351,17 @@ bool unlockCell(String cell) {
     return false;
   }
   
-  // התחלת לולאה: המתנה לסגירה + אישור מהשרת
-  Serial.println("🕒 ממתין לסגירת תא A1 ואישור מהשרת...");
-  receivedCloseConfirmation = false;
+  // שליחת סטטוס התחלתי לשרת
+  DynamicJsonDocument doc(256);
+  doc["type"] = "cellClosed";
+  doc["id"] = deviceId;
+  doc["cell"] = cell;
+  doc["status"] = "open";
 
-  while (true) {
-    bool closed = isCellClosed(1);
-
-    DynamicJsonDocument doc(256);
-    doc["type"] = "cellClosed";
-    doc["id"] = deviceId;
-    doc["cell"] = cell;
-    doc["status"] = closed ? "closed" : "open";
-
-    String msg;
-    serializeJson(doc, msg);
-    webSocket.sendTXT(msg);
-    Serial.printf("📤 נשלח סטטוס: %s\n", msg.c_str());
-
-    if (closed /*&& receivedCloseConfirmation*/) {
-      Serial.println("✅  A1 נסגר ואושר ע״י המשוב של מנעול תא");
-      break;
-    }
-
-    delay(500);
-  }
+  String msg;
+  serializeJson(doc, msg);
+  webSocket.sendTXT(msg);
+  Serial.printf("📤 נשלח סטטוס פתיחה לשרת: %s\n", msg.c_str());
 
   return true;
 }
@@ -441,7 +427,7 @@ void setup() {
 
   // WiFi
   connectToWiFi();
-  
+
   if (WiFi.status() == WL_CONNECTED) {
     // הגדרת HTTP
     server.on("/locker", handleLocker);

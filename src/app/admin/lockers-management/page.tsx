@@ -298,7 +298,7 @@ export default function LockersManagementPage() {
         alert('לוקר נשמר בהצלחה!')
       } else {
         console.error('❌ שגיאה ב-API:', data.error)
-        alert('שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
+        alert('❌ שגיאה: ' + (data.error || 'שגיאה לא ידועה'))
       }
     } catch (error) {
       console.error('❌ שגיאה בשמירת לוקר:', error)
@@ -453,7 +453,7 @@ export default function LockersManagementPage() {
       const result = await response.json()
       console.log(`📋 תוצאה מפורטת:`, result)
       
-      if (response.ok && (result.status === 'success' || result.message === 'Unlock request sent via Railway')) {
+      if (response.ok && result.status === 'success') {
         let message = `תא ${cellId} נפתח בהצלחה בלוקר ${lockerId}`
         
         if (result.simulated) {

@@ -117,9 +117,10 @@ export async function POST(request: NextRequest) {
         
         if (railwayResponse.ok) {
           console.log('✅ תשובה מהשרת Railway:', railwayData);
+          console.log('✅ בקשה נשלחה בהצלחה לשרת Railway');
           return NextResponse.json({
             status: 'success',
-            message: 'Unlock request sent via Railway',
+            message: '✅ בקשה נשלחה בהצלחה לשרת Railway',
             lockerId,
             cellId,
             packageId,
@@ -128,10 +129,11 @@ export async function POST(request: NextRequest) {
           });
         } else {
           console.log('❌ שגיאה מהשרת Railway:', railwayData);
+          console.log('❌ שגיאה מהשרת Railway:', railwayData);
           return NextResponse.json({
             status: 'error',
             error: 'Railway server error',
-            message: 'שגיאה בשרת Railway',
+            message: '❌ שגיאה בשרת Railway',
             lockerId,
             cellId,
             packageId,
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
         }
               } catch (error) {
           console.error('❌ שגיאה בחיבור לשרת Railway:', error);
+      console.log('❌ לא ניתן להתחבר לשרת Railway');
           
           let errorMessage = 'לא ניתן להתחבר לשרת Railway';
           let errorDetails = error instanceof Error ? error.message : 'שגיאה לא ידועה';
@@ -152,9 +155,10 @@ export async function POST(request: NextRequest) {
           
           // Fallback - נחזיר הצלחה מדומה
           console.log('⚠️ Railway לא זמין - מחזיר הצלחה מדומה');
+          console.log('✅ סימולציה - הבקשה עברה בהצלחה (Railway לא זמין)');
           return NextResponse.json({
             status: 'success',
-            message: 'Unlock request simulated (Railway unavailable)',
+            message: '✅ סימולציה - הבקשה עברה בהצלחה (Railway לא זמין)',
             lockerId,
             cellId,
             packageId,
@@ -186,9 +190,10 @@ export async function POST(request: NextRequest) {
 
       if (result.success) {
         console.log(`✅ פקודת פתיחה נשלחה ללוקר ${lockerId}`);
+        console.log(`✅ הבקשה עברה בהצלחה`);
         const response = {
           status: 'success',
-          message: 'Unlock request sent successfully',
+          message: '✅ הבקשה עברה בהצלחה',
           lockerId,
           cellId,
           packageId,
@@ -197,28 +202,28 @@ export async function POST(request: NextRequest) {
         
         console.log(`📤 מחזיר תגובה:`, response);
         return NextResponse.json(response);
-      } else {
-        console.log(`❌ לוקר ${lockerId} לא מחובר לשרת WebSocket`);
-        const response = {
-          status: 'error',
-          error: 'Locker not connected',
-          message: 'הלוקר לא מחובר למערכת כרגע',
-          lockerId,
-          cellId,
-          packageId,
-          simulated: true,
-          details: result.message
-        };
-        
-        console.log(`📤 מחזיר תגובת שגיאה:`, response);
-        return NextResponse.json(response, { status: 503 });
-      }
+              } else {
+          console.log(`❌ לוקר ${lockerId} לא מחובר לשרת WebSocket`);
+          const response = {
+            status: 'error',
+            error: 'Locker not connected',
+            message: '❌ הלוקר לא מחובר למערכת כרגע',
+            lockerId,
+            cellId,
+            packageId,
+            simulated: true,
+            details: result.message
+          };
+          
+          console.log(`📤 מחזיר תגובת שגיאה:`, response);
+          return NextResponse.json(response, { status: 503 });
+        }
     } catch (error) {
       console.error('❌ שגיאה בשליחת פקודה ללוקר:', error);
       const response = {
         status: 'error',
         error: 'Internal server error',
-        message: 'שגיאה פנימית בשרת',
+        message: '❌ שגיאה פנימית בשרת',
         lockerId,
         cellId,
         packageId,
@@ -231,11 +236,12 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('❌ Error in unlock-cell API:', error);
+    console.error('❌ שגיאה ב-API unlock-cell:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',
         status: 'error',
+        message: '❌ שגיאה פנימית ב-API',
         details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
       },
       { status: 500 }
@@ -293,9 +299,10 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
       const data = await response.json()
       console.log('✅ Railway Server הגיב בהצלחה:', data)
       
+      console.log('✅ התא נפתח בהצלחה דרך Railway');
       return {
         success: true,
-        message: 'התא נפתח בהצלחה דרך Railway',
+        message: '✅ התא נפתח בהצלחה דרך Railway',
         simulated: false,
         railwayResponse: data
       }
@@ -316,21 +323,23 @@ async function sendCommandToESP32(ip: string | null, port: number | null, comman
       }
       
       // Fallback לסימולציה
+      console.log('❌ לוקר לא זמין כרגע');
       return { 
         success: false, 
-        message: 'לוקר לא זמין כרגע',
+        message: '❌ לוקר לא זמין כרגע',
         simulated: true,
         originalError: fetchError instanceof Error ? fetchError.message : String(fetchError)
       }
     }
 
   } catch (error) {
-    console.error('שגיאה כללית בחיבור ל-Railway:', error)
+    console.error('❌ שגיאה כללית בחיבור ל-Railway:', error)
     
     // גם במקרה של שגיאה כללית, נחזיר הודעה ברורה
+    console.log('❌ לוקר לא זמין כרגע (שגיאה כללית)');
     return { 
       success: false, 
-      message: 'לוקר לא זמין כרגע',
+      message: '❌ לוקר לא זמין כרגע (שגיאה כללית)',
       simulated: true,
       error: error instanceof Error ? error.message : String(error)
     }

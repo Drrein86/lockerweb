@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       error: 'Internal server error',
       status: 'error',
+      message: '❌ שגיאה ב-WebSocket API',
       details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
     }, { status: 500 });
   }
