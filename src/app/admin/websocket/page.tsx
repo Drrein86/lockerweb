@@ -67,6 +67,14 @@ export default function WebSocketPage() {
     wsRef.current.onopen = () => {
       console.log('✅ WebSocket connected')
       setWsConnected(true)
+      
+      // שליחת הודעת זיהוי
+      wsRef.current?.send(JSON.stringify({
+        type: 'identify',
+        client: 'web-admin',
+        secret: '86428642'
+      }))
+      
       // בקשת סטטוס ראשונית
       wsRef.current?.send(JSON.stringify({
         type: 'getStatus'
@@ -89,6 +97,7 @@ export default function WebSocketPage() {
       console.log('📩 WebSocket message:', event.data)
       try {
         const data = JSON.parse(event.data)
+        console.log('📨 הודעה מפוענחת:', data)
         
         // טיפול ב-ping
         if (data.type === 'ping') {
@@ -102,6 +111,14 @@ export default function WebSocketPage() {
         }
         
         if (data.type === 'status') {
+          console.log('📊 התקבל סטטוס:', data)
+          setWsStatus(data)
+          setLastUpdate(new Date())
+          setLoading(false)
+        }
+        
+        if (data.type === 'statusResponse') {
+          console.log('📊 התקבל סטטוס מפורט:', data)
           setWsStatus(data)
           setLastUpdate(new Date())
           setLoading(false)
@@ -139,11 +156,15 @@ export default function WebSocketPage() {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         throw new Error('WebSocket לא מחובר')
       }
-      wsRef.current.send(JSON.stringify({
+      
+      const unlockMessage = {
         type: 'openCell',
         lockerId,
         cellCode: cellId
-      }))
+      }
+      
+      console.log('🔓 שולח בקשת פתיחת תא:', unlockMessage)
+      wsRef.current.send(JSON.stringify(unlockMessage))
       // נחכה לתשובה מהשרת
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -152,9 +173,12 @@ export default function WebSocketPage() {
         const messageHandler = (event: MessageEvent) => {
           try {
             const data = JSON.parse(event.data)
+            console.log('📩 התקבלה תשובה מהשרת:', data)
+            
             if (data.type === 'openCellResponse' && data.lockerId === lockerId && data.cellCode === cellId) {
               clearTimeout(timeout)
               wsRef.current?.removeEventListener('message', messageHandler)
+              console.log('✅ תשובה תקינה התקבלה')
               resolve(data)
             }
           } catch (error) {
