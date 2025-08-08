@@ -712,12 +712,29 @@ class WebSocketManager {
    * טיפול בתגובת פתיחה מהלוקר
    */
   private async handleOpenResponse(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    console.log('📦 התקבלה תגובת פתיחה מהלוקר:', {
+      type: data.type,
+      lockerId: data.lockerId,
+      cellId: data.cellId,
+      packageId: data.packageId,
+      timestamp: new Date().toISOString(),
+      source: 'Railway'
+    });
+    
     try {
       const isSuccess = data.type === 'openSuccess';
       const lockerId = data.lockerId;
       const cellId = data.cellId;
       const packageId = data.packageId;
       const clientToken = data.clientToken;
+
+      console.log('🔍 עיבוד תגובת פתיחה:', {
+        isSuccess,
+        lockerId,
+        cellId,
+        packageId,
+        hasClientToken: !!clientToken
+      });
 
       this.logEvent('open_response', `📦 תגובת פתיחה מהלוקר ${lockerId}`, {
         success: isSuccess,
@@ -753,7 +770,9 @@ class WebSocketManager {
       hasPackageId: !!data.packageId,
       lockerId: data.lockerId,
       cellId: data.cellId,
-      packageId: data.packageId
+      packageId: data.packageId,
+      timestamp: new Date().toISOString(),
+      source: 'Railway'
     });
     
     if (data.lockerId && data.cellId && data.packageId) {
@@ -788,6 +807,11 @@ class WebSocketManager {
           clientToken: data.clientToken
         };
         console.log('📤 הודעת openByClient:', unlockMessage);
+        console.log('🔍 בדיקת חיבורי לוקרים:', {
+          totalConnections: this.lockerConnections.size,
+          lockerExists: this.lockerConnections.has(data.lockerId),
+          connectedLockers: Array.from(this.lockerConnections.keys())
+        });
         const success = this.sendToLockerInternal(data.lockerId, unlockMessage);
 
         if (success) {
