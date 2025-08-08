@@ -151,8 +151,15 @@ export default function WebSocketPage() {
 
   const unlockCell = async (lockerId: string, cellId: string) => {
     const actionKey = `${lockerId}-${cellId}`
+    console.log('🔓 התחלת פונקציית unlockCell:', { lockerId, cellId, actionKey })
     setActionLoading(actionKey)
     try {
+      console.log('🔍 בדיקת חיבור WebSocket:', {
+        hasWsRef: !!wsRef.current,
+        readyState: wsRef.current?.readyState,
+        isOpen: wsRef.current?.readyState === WebSocket.OPEN
+      })
+      
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         throw new Error('WebSocket לא מחובר')
       }

@@ -158,6 +158,7 @@ class WebSocketManager {
         id: data.id,
         lockerId: data.lockerId,
         cellId: data.cellId,
+        cellCode: data.cellCode,
         client: data.client,
         timestamp: new Date().toISOString(),
         clientType: ws.isAdmin ? 'admin' : (ws.lockerId ? 'locker' : 'unknown'),
@@ -193,10 +194,27 @@ class WebSocketManager {
           console.log('🔓 פרטי הבקשה:', {
             lockerId: data.lockerId,
             cellId: data.cellId || data.cellCode,
+            cellCode: data.cellCode,
             isAdmin: ws.isAdmin,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            hasLockerId: !!data.lockerId,
+            hasCellId: !!(data.cellId || data.cellCode)
           });
-          this.handleUnlockCommand(ws, data);
+          
+          // אם זה ממנהל, נטפל כ-unlock רגיל
+          if (ws.isAdmin) {
+            this.handleUnlockCommand(ws, data);
+                  } else {
+          // אם זה מלקוח, נטפל כ-openByClient
+          console.log('📦 מטפל בבקשת פתיחה מלקוח');
+          this.handleClientOpenRequest(ws, {
+            ...data,
+            type: 'openByClient',
+            cellId: data.cellId || data.cellCode,
+            packageId: data.packageId || `CLIENT-${Date.now()}`,
+            clientToken: data.clientToken || 'CLIENT-TOKEN'
+          });
+        }
           break;
           
         case 'lock':
@@ -206,6 +224,12 @@ class WebSocketManager {
           
         case 'openByClient':
           console.log('📦 עיבוד בקשת פתיחה מלקוח');
+          console.log('📦 פרטי הבקשה:', {
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            packageId: data.packageId,
+            clientToken: data.clientToken
+          });
           this.handleClientOpenRequest(ws, data);
           break;
           
@@ -447,62 +471,94 @@ class WebSocketManager {
       isAdmin: ws.isAdmin,
       lockerId: data.lockerId,
       cellId: cellId,
+      cellCode: data.cellCode,
+      hasLockerId: !!data.lockerId,
+      hasCellId: !!(cellId || data.cellCode),
       timestamp: new Date().toISOString()
     });
 
-    if (ws.isAdmin && data.lockerId && cellId) {
+    if (ws.isAdmin && data.lockerId && (cellId || data.cellCode)) {
+      console.log('✅ תנאי פתיחת תא תקין - ממשיך');
+    } else {
+      console.log('❌ תנאי פתיחת תא לא תקין:', {
+        isAdmin: ws.isAdmin,
+        hasLockerId: !!data.lockerId,
+        hasCellId: !!(cellId || data.cellCode)
+      });
+    }
+    
+    if (ws.isAdmin && data.lockerId && (cellId || data.cellCode)) {
       try {
         // במצב Mock - בדיקה בסיסית
-        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${cellId} בלוקר ${data.lockerId}`, {
+        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${cellId || data.cellCode} בלוקר ${data.lockerId}`, {
           lockerId: data.lockerId,
-          cellId: cellId,
+          cellId: cellId || data.cellCode,
           timestamp: new Date().toISOString(),
           adminIP: (ws as any)._socket?.remoteAddress || 'unknown'
         });
 
-        console.log(`📤 שולח פקודת פתיחה ללוקר ${data.lockerId} לתא ${cellId}`);
+        console.log(`📤 שולח פקודת פתיחה ללוקר ${data.lockerId} לתא ${cellId || data.cellCode}`);
 
         // שליחת פקודה ללוקר
         const success = this.sendToLockerInternal(data.lockerId, {
           type: 'unlock',
-          cellId: cellId
+          cellId: cellId || data.cellCode
         });
 
         if (success) {
-          this.logEvent('unlock_success', `✅ נפתח תא ${cellId} בלוקר ${data.lockerId}`, {
+          this.logEvent('unlock_success', `✅ נפתח תא ${cellId || data.cellCode} בלוקר ${data.lockerId}`, {
             lockerId: data.lockerId,
-            cellId: cellId,
+            cellId: cellId || data.cellCode,
             timestamp: new Date().toISOString()
           });
-          console.log(`✅ פתיחת תא ${cellId} בלוקר ${data.lockerId} הצליחה`);
-        } else {
-          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${cellId} - לוקר לא מחובר`, {
+          console.log(`✅ פתיחת תא ${cellId || data.cellCode} בלוקר ${data.lockerId} הצליחה`);
+          
+          // שליחת תגובה למנהל
+          ws.send(JSON.stringify({
+            type: 'unlockResponse',
+            status: 'success',
             lockerId: data.lockerId,
-            cellId: cellId,
+            cellId: cellId || data.cellCode,
+            message: `תא ${cellId || data.cellCode} נפתח בהצלחה`
+          }));
+        } else {
+          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${cellId || data.cellCode} - לוקר לא מחובר`, {
+            lockerId: data.lockerId,
+            cellId: cellId || data.cellCode,
             timestamp: new Date().toISOString(),
             availableLockers: Array.from(this.lockerConnections.keys())
           });
-          console.log(`❌ כישלון בפתיחת תא ${cellId} - לוקר ${data.lockerId} לא מחובר`);
+          console.log(`❌ כישלון בפתיחת תא ${cellId || data.cellCode} - לוקר ${data.lockerId} לא מחובר`);
+          
+          // שליחת תגובת שגיאה למנהל
+          ws.send(JSON.stringify({
+            type: 'unlockResponse',
+            status: 'failed',
+            lockerId: data.lockerId,
+            cellId: cellId || data.cellCode,
+            message: 'הלוקר לא מחובר למערכת'
+          }));
         }
               } catch (error) {
-          this.logEvent('error', `❌ שגיאה בפתיחת תא ${cellId}`, { 
+          this.logEvent('error', `❌ שגיאה בפתיחת תא ${cellId || data.cellCode}`, { 
             error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
             lockerId: data.lockerId,
-            cellId: cellId,
+            cellId: cellId || data.cellCode,
             timestamp: new Date().toISOString()
           });
-          console.error(`❌ שגיאה בפתיחת תא ${cellId}:`, error);
+          console.error(`❌ שגיאה בפתיחת תא ${cellId || data.cellCode}:`, error);
         }
       } else {
         console.log('⚠️ בקשה לא תקינה לפתיחת תא:', {
           isAdmin: ws.isAdmin,
           lockerId: data.lockerId,
-          cellId: cellId
+          cellId: cellId,
+          cellCode: data.cellCode
         });
         this.logEvent('unlock_invalid_request', `⚠️ בקשה לא תקינה לפתיחת תא`, {
           isAdmin: ws.isAdmin,
           lockerId: data.lockerId,
-          cellId: cellId,
+          cellId: cellId || data.cellCode,
           timestamp: new Date().toISOString()
         });
       }
@@ -542,18 +598,27 @@ class WebSocketManager {
     // כאן תוכל להוסיף לוגיקה מורכבת יותר לבדיקת הטוקן
     // לדוגמה: בדיקה מול מסד נתונים, הצלבה עם packageId וכו'
     
+    console.log('🔐 בדיקת טוקן לקוח:', {
+      packageId,
+      hasToken: !!clientToken,
+      tokenLength: clientToken?.length || 0
+    });
+    
     // כרגע - בדיקה בסיסית שהטוקן קיים
     if (!clientToken) {
+      console.log('❌ טוקן לקוח חסר');
       this.logEvent('auth_failed', `❌ טוקן לקוח חסר לחבילה ${packageId}`);
       return false;
     }
     
     // בדיקה בסיסית - הטוקן צריך להיות באורך סביר
     if (clientToken.length < 6) {
+      console.log('❌ טוקן לקוח קצר מדי');
       this.logEvent('auth_failed', `❌ טוקן לקוח לא תקין לחבילה ${packageId}`);
       return false;
     }
     
+    console.log('✅ טוקן לקוח תקין');
     this.logEvent('auth_success', `✅ אימות לקוח הצליח לחבילה ${packageId}`);
     return true;
   }
@@ -682,10 +747,27 @@ class WebSocketManager {
    * טיפול בבקשה מלקוח לפתיחת תא
    */
   private async handleClientOpenRequest(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    console.log('🔍 בדיקת בקשה מלקוח לפתיחת תא:', {
+      hasLockerId: !!data.lockerId,
+      hasCellId: !!data.cellId,
+      hasPackageId: !!data.packageId,
+      lockerId: data.lockerId,
+      cellId: data.cellId,
+      packageId: data.packageId
+    });
+    
     if (data.lockerId && data.cellId && data.packageId) {
       try {
         // בדיקת אימות לקוח
-        if (!this.validateClientToken(data.packageId, data.clientToken)) {
+        console.log('🔐 בדיקת אימות לקוח:', {
+          packageId: data.packageId,
+          hasClientToken: !!data.clientToken,
+          clientTokenLength: data.clientToken?.length || 0
+        });
+        
+        const tokenValid = this.validateClientToken(data.packageId, data.clientToken);
+        if (!tokenValid) {
+          console.log('❌ אימות לקוח נכשל');
           ws.send(JSON.stringify({
             type: 'unlockResponse',
             status: 'error',
@@ -693,40 +775,77 @@ class WebSocketManager {
           }));
           return;
         }
+        
+        console.log('✅ אימות לקוח הצליח');
 
         // בדוק אם הלוקר מחובר
-        const success = this.sendToLockerInternal(data.lockerId, {
+        console.log(`📤 שולח פקודת openByClient ללוקר ${data.lockerId} לתא ${data.cellId}`);
+        const unlockMessage = {
           type: 'openByClient',
           lockerId: data.lockerId,
           cellId: data.cellId,
           packageId: data.packageId,
           clientToken: data.clientToken
-        });
+        };
+        console.log('📤 הודעת openByClient:', unlockMessage);
+        const success = this.sendToLockerInternal(data.lockerId, unlockMessage);
 
         if (success) {
+          console.log(`✅ פקודת openByClient נשלחה בהצלחה ללוקר ${data.lockerId}`);
           this.logEvent('client_unlock', `📦 לקוח פתח תא ${data.cellId} בלוקר ${data.lockerId}`, {
             lockerId: data.lockerId,
             cellId: data.cellId,
             packageId: data.packageId
           });
 
-          // החזר אישור ללקוח (אם זה רלוונטי)
-          ws.send(JSON.stringify({
+          // החזר אישור ללקוח
+          const response = {
             type: 'unlockResponse',
             status: 'success',
             lockerId: data.lockerId,
-            cellId: data.cellId
-          }));
+            cellId: data.cellId,
+            message: `תא ${data.cellId} נפתח בהצלחה`
+          };
+          console.log('📤 מחזיר תגובה ללקוח:', response);
+          ws.send(JSON.stringify(response));
+          
+          // שליחת עדכון למנהלים
+          this.broadcastToAdmins({
+            type: 'cellOperationResult',
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            operation: 'open',
+            success: true,
+            packageId: data.packageId,
+            timestamp: Date.now()
+          });
         } else {
+          console.log(`❌ לוקר ${data.lockerId} לא מחובר - לא ניתן לשלוח פקודת openByClient`);
           this.logEvent('client_unlock_failed', `❌ לוקר ${data.lockerId} לא מחובר`);
-          ws.send(JSON.stringify({
+          const errorResponse = {
             type: 'unlockResponse',
             status: 'failed',
-            reason: 'Locker not connected'
-          }));
+            reason: 'Locker not connected',
+            message: 'הלוקר לא מחובר למערכת'
+          };
+          console.log('📤 מחזיר תגובת שגיאה ללקוח:', errorResponse);
+          ws.send(JSON.stringify(errorResponse));
+          
+          // שליחת עדכון שגיאה למנהלים
+          this.broadcastToAdmins({
+            type: 'cellOperationResult',
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            operation: 'open',
+            success: false,
+            packageId: data.packageId,
+            error: 'Locker not connected',
+            timestamp: Date.now()
+          });
         }
 
       } catch (error) {
+        console.error('❌ שגיאה בפתיחת תא ע"י לקוח:', error);
         this.logEvent('error', `❌ שגיאה בפתיחת תא ע"י לקוח`, { error });
         ws.send(JSON.stringify({
           type: 'unlockResponse',
@@ -734,14 +853,15 @@ class WebSocketManager {
           error: error instanceof Error ? error.message : 'שגיאה לא ידועה'
         }));
       }
-    } else {
-      this.logEvent('warning', `⚠️ בקשה לא תקינה מלקוח`, data);
-      ws.send(JSON.stringify({
-        type: 'unlockResponse',
-        status: 'error',
-        error: 'Missing lockerId / cellId / packageId'
-      }));
-    }
+          } else {
+        console.log('⚠️ בקשה לא תקינה מלקוח - חסרים פרמטרים');
+        this.logEvent('warning', `⚠️ בקשה לא תקינה מלקוח`, data);
+        ws.send(JSON.stringify({
+          type: 'unlockResponse',
+          status: 'error',
+          error: 'Missing lockerId / cellId / packageId'
+        }));
+      }
   }
 
   /**
