@@ -55,7 +55,17 @@ export default function LockersManagementPage() {
 
   useEffect(() => {
     console.log('🔄 useEffect triggered - loading lockers...')
+    const timer = setTimeout(() => {
+      console.log('⏰ Timer: 5 seconds passed, checking if component is stuck...')
+      if (loading) {
+        console.warn('⚠️ Component might be stuck in loading state')
+        setError('הדף נתקע במצב טעינה - נסה לרענן')
+      }
+    }, 5000)
+    
     loadLockers()
+    
+    return () => clearTimeout(timer)
   }, [])
 
   // WebSocket Connection לשרת החומרה
@@ -226,10 +236,19 @@ export default function LockersManagementPage() {
     console.log('📊 מתחיל לטעון לוקרים...')
     setError('')
     const startTime = Date.now()
+    
+    // בדיקה שהפונקציה לא נתקעת
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout - API לא מגיב תוך 10 שניות')), 10000)
+    })
+    
     try {
       setLoading(true)
       console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
-      const response = await fetch('/api/admin/lockers-management')
+      
+      const fetchPromise = fetch('/api/admin/lockers-management')
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response
+      
       console.log('📡 תגובה מהשרת:', response.status, response.statusText)
       
       if (!response.ok) {
@@ -766,18 +785,22 @@ export default function LockersManagementPage() {
     )
   }
 
-  console.log('🎨 Rendering LockersManagementPage with:', {
+  console.log('🎨 Rendering LockersManagementPage:', {
     loading,
     lockersCount: lockers.length,
     liveLockersCount: Object.keys(liveLockers).length,
     wsStatus,
-    error,
-    timestamp: new Date().toISOString()
+    hasError: !!error,
+    loadTime
   })
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-6">
+        {/* בדיקה שהדף נטען */}
+        <div className="mb-4 p-2 bg-green-500/10 border border-green-400/30 rounded text-xs text-green-300">
+          ✅ הדף נטען בהצלחה - זמן: {new Date().toLocaleTimeString('he-IL')}
+        </div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
           <div className="w-full sm:w-auto">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">🔧 ניהול לוקרים</h1>
@@ -848,6 +871,9 @@ export default function LockersManagementPage() {
             WebSocket: {wsStatus} | 
             זמן טעינה: {loadTime || 'לא נמדד'} | 
             שגיאות: {error ? error.substring(0, 50) + '...' : 'אין'}
+          </div>
+          <div className="text-xs text-yellow-400 mt-2">
+            🎯 מטרה: להציג {lockers.length > 0 ? 'לוקרים ותאים' : 'הודעת "אין לוקרים"'}
           </div>
         </div>
 
@@ -1010,6 +1036,11 @@ export default function LockersManagementPage() {
         )}
 
         <div className="space-y-6">
+          {/* בדיקה שהרינדור עובד */}
+          <div className="text-xs text-white/50 mb-2">
+            🔄 רינדור: {lockers.length} לוקרים מוכנים להצגה
+          </div>
+          
           {lockers.map((locker, index) => (
             <div key={locker.id || `locker_${index}`} className="bg-white/10 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-white/20 shadow-xl hover:bg-white/15 transition-all">
               {/* פרטי לוקר */}
@@ -1089,21 +1120,6 @@ export default function LockersManagementPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => {
-                              const cellNumber = cell.cellNumber || cell.id
-                              const lockerId = locker.id
-                              if (!cellNumber || !lockerId) {
-                                alert('❌ שגיאה: חסרים פרטי תא או לוקר')
-                                return
-                              }
-                              controlCell(cellNumber, lockerId, 'open')
-                            }}
-                            disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
-                            className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
-                          >
-                            {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
-                          </button>
                           <div className="flex gap-1">
                             <button
                               onClick={() => {
