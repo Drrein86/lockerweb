@@ -90,82 +90,66 @@ export async function POST(request: NextRequest) {
     
     // בדיקה אם אנחנו בסביבת production
     if (process.env.NODE_ENV === 'production') {
-      console.log('⚠️ בסביבת production - שולח לשרת Railway');
+      console.log('⚠️ בסביבת production - שולח לשרת WebSocket ישירות');
       
-      // בסביבת production, נשלח לשרת Railway
+      // בסביבת production, נשלח ישירות לשרת WebSocket
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 שניות timeout
+        console.log(`📤 שולח פקודה ללוקר ${lockerId} דרך WebSocket:`, {
+          type: 'openByClient',
+          lockerId,
+          cellId,
+          packageId,
+          clientToken
+        });
         
-        const railwayResponse = await fetch('https://lockerweb-production.up.railway.app/api/lockers/unlock-cell', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            lockerId,
-            cellId,
-            packageId,
-            clientToken
-          }),
-          signal: controller.signal
+        const result = await wsManager.sendToLockerWithResponse(lockerId, {
+          type: 'openByClient',
+          lockerId: lockerId,
+          cellId: cellId,
+          packageId: packageId,
+          clientToken: clientToken
         });
 
-        clearTimeout(timeoutId);
+        console.log(`📥 תשובה משרת WebSocket:`, result);
 
-        const railwayData = await railwayResponse.json();
-        
-        if (railwayResponse.ok) {
-          console.log('✅ תשובה מהשרת Railway:', railwayData);
-          console.log('✅ בקשה נשלחה בהצלחה לשרת Railway');
+        if (result.success) {
+          console.log(`✅ פקודת פתיחה נשלחה ללוקר ${lockerId}`);
+          console.log(`✅ הבקשה עברה בהצלחה`);
           return NextResponse.json({
             status: 'success',
-            message: '✅ בקשה נשלחה בהצלחה לשרת Railway',
+            message: '✅ הבקשה עברה בהצלחה',
             lockerId,
             cellId,
             packageId,
             simulated: false,
-            source: 'railway'
+            source: 'websocket'
           });
         } else {
-          console.log('❌ שגיאה מהשרת Railway:', railwayData);
-          console.log('❌ שגיאה מהשרת Railway:', railwayData);
+          console.log(`❌ לוקר ${lockerId} לא מחובר לשרת WebSocket`);
           return NextResponse.json({
             status: 'error',
-            error: 'Railway server error',
-            message: '❌ שגיאה בשרת Railway',
+            error: 'Locker not connected',
+            message: '❌ הלוקר לא מחובר למערכת כרגע',
             lockerId,
             cellId,
             packageId,
             simulated: true,
-            details: railwayData.error || railwayData.message
+            details: result.message
           }, { status: 503 });
         }
-              } catch (error) {
-          console.error('❌ שגיאה בחיבור לשרת Railway:', error);
-      console.log('❌ לא ניתן להתחבר לשרת Railway');
-          
-          let errorMessage = 'לא ניתן להתחבר לשרת Railway';
-          let errorDetails = error instanceof Error ? error.message : 'שגיאה לא ידועה';
-          
-          if (error instanceof Error && error.name === 'AbortError') {
-            errorMessage = 'הבקשה לשרת Railway נכשלה - timeout';
-            errorDetails = 'השרת לא הגיב תוך 8 שניות';
-          }
-          
-          // Fallback - נחזיר הצלחה מדומה
-          console.log('⚠️ Railway לא זמין - מחזיר הצלחה מדומה');
-          console.log('✅ סימולציה - הבקשה עברה בהצלחה (Railway לא זמין)');
-          return NextResponse.json({
-            status: 'success',
-            message: '✅ סימולציה - הבקשה עברה בהצלחה (Railway לא זמין)',
-            lockerId,
-            cellId,
-            packageId,
-            simulated: true,
-            note: 'הבקשה סומלציה כי השרת Railway לא זמין'
-          });
-        }
+      } catch (error) {
+        console.error('❌ שגיאה בשליחת פקודה ללוקר:', error);
+        return NextResponse.json({
+          status: 'error',
+          error: 'Internal server error',
+          message: '❌ שגיאה פנימית בשרת',
+          lockerId,
+          cellId,
+          packageId,
+          simulated: true,
+          details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
+        }, { status: 500 });
+      }
     }
     
     // שליחת פקודה לשרת WebSocket
