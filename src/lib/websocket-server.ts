@@ -159,7 +159,8 @@ class WebSocketManager {
         cellId: data.cellId,
         client: data.client,
         timestamp: new Date().toISOString(),
-        clientType: ws.isAdmin ? 'admin' : (ws.lockerId ? 'locker' : 'unknown')
+        clientType: ws.isAdmin ? 'admin' : (ws.lockerId ? 'locker' : 'unknown'),
+        messageContent: JSON.stringify(data).substring(0, 200) // רק 200 תווים ראשונים
       });
       
       this.logEvent('message', '📨 התקבלה הודעה', data);
@@ -181,7 +182,13 @@ class WebSocketManager {
           break;
           
         case 'unlock':
-          console.log('🔓 עיבוד בקשת פתיחת תא');
+          console.log('🔓 עיבוד בקשת פתיחת תא - התקבלה הודעת unlock!');
+          console.log('🔓 פרטי הבקשה:', {
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            isAdmin: ws.isAdmin,
+            timestamp: new Date().toISOString()
+          });
           this.handleUnlockCommand(ws, data);
           break;
           
@@ -234,6 +241,7 @@ class WebSocketManager {
           
         default:
           console.log(`⚠️ סוג הודעה לא מוכר: ${data.type}`);
+          console.log(`⚠️ תוכן ההודעה:`, JSON.stringify(data));
           this.logEvent('unknown_message', `⚠️ סוג הודעה לא מוכר: ${data.type}`, data);
           break;
       }
@@ -1152,9 +1160,9 @@ class WebSocketManager {
 // יצירת מופע יחיד של המחלקה
 const wsManager = new WebSocketManager();
 
-// הפעלה אוטומטית של השרת רק בסביבת development
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'development') {
-  // רק בצד השרת ובסביבת development
+// הפעלה אוטומטית של השרת בסביבת development או production
+if (typeof window === 'undefined') {
+  // רק בצד השרת
   console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
     nodeEnv: process.env.NODE_ENV,
     timestamp: new Date().toISOString()
