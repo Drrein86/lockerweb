@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         initiatedBy: userId,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
-        error: commandResult.error || null
+        error: commandResult.error || commandResult.data?.error || null
       }
 
       cellControlHistory.push(controlRecord)
@@ -186,7 +186,8 @@ async function sendCommandToESP32(lockerId: number, cellId: number, action: stri
         data: {
           message: `Cell ${cellId} ${action} command sent successfully via Railway`,
           railwayResponse: data
-        }
+        },
+        error: null
       }
 
     } catch (fetchError) {
@@ -213,7 +214,8 @@ async function sendCommandToESP32(lockerId: number, cellId: number, action: stri
         data: { 
           message: `Cell ${cellId} ${action} command simulated successfully`,
           simulated: true 
-        } 
+        },
+        error: null
       }
     }
 
@@ -229,7 +231,8 @@ async function sendCommandToESP32(lockerId: number, cellId: number, action: stri
       data: { 
         message: `Cell ${cellId} ${action} command simulated successfully`,
         simulated: true 
-      } 
+      },
+      error: null
     }
   }
 }
