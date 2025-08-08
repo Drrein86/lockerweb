@@ -710,6 +710,13 @@ export default function LockersManagementPage() {
     console.log('✅ פרמטרים תקינים, ממשיך...')
 
     const controlKey = `${cellId}-${action}`
+    
+    // בדיקה שהפונקציה לא רצה כבר
+    if (controlLoading[controlKey]) {
+      console.log('⚠️ controlCell כבר רץ עבור:', controlKey)
+      return
+    }
+    
     setControlLoading(prev => ({ ...prev, [controlKey]: true }))
 
     try {
@@ -773,13 +780,27 @@ export default function LockersManagementPage() {
         keys: Object.keys(data)
       })
       
-      if (data.success) {
+      // בדיקה אם התגובה הצליחה (תמיכה בשני פורמטים)
+      const isSuccess = data.success === true || data.status === 'success'
+      console.log('🔍 בדיקת הצלחה:', {
+        dataSuccess: data.success,
+        dataStatus: data.status,
+        isSuccess: isSuccess
+      })
+      
+      if (isSuccess) {
         const actionText = action === 'open' ? 'התא נפתח' : 'התא נסגר'
         console.log(`✅ ${actionText} בהצלחה!`)
         console.log('🔄 קורא ל-loadLockers לעדכון הנתונים...')
         alert(`✅ ${actionText} בהצלחה!`)
-        await loadLockers()
-        console.log('✅ loadLockers הושלם')
+        
+        // בדיקה שלא נקרא פעמיים
+        if (!loading) {
+          await loadLockers()
+          console.log('✅ loadLockers הושלם')
+        } else {
+          console.log('⚠️ loadLockers כבר רץ, לא קורא שוב')
+        }
       } else {
         console.error('❌ שגיאה בתגובה:', data)
         if (data.simulated) {
@@ -1171,6 +1192,21 @@ export default function LockersManagementPage() {
                               }
                               
                               console.log('✅ פרמטרים תקינים, קורא ל-controlCell')
+                              
+                              // בדיקה שהדף לא בטעינה
+                              if (loading) {
+                                console.log('⚠️ הדף בטעינה, לא מבצע פעולה')
+                                alert('⚠️ הדף בטעינה, נסה שוב בעוד רגע')
+                                return
+                              }
+                              
+                              // בדיקה שהלוקר מחובר
+                              if (locker.status !== 'ONLINE') {
+                                console.log('⚠️ הלוקר לא מחובר:', locker.status)
+                                alert('⚠️ הלוקר לא מחובר כרגע, נסה שוב מאוחר יותר')
+                                return
+                              }
+                              
                               controlCell(cellNumber, lockerId, 'open')
                             }}
                             disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
