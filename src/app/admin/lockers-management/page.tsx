@@ -55,17 +55,7 @@ export default function LockersManagementPage() {
 
   useEffect(() => {
     console.log('🔄 useEffect triggered - loading lockers...')
-    const timer = setTimeout(() => {
-      console.log('⏰ Timer: 5 seconds passed, checking if component is stuck...')
-      if (loading) {
-        console.warn('⚠️ Component might be stuck in loading state')
-        setError('הדף נתקע במצב טעינה - נסה לרענן')
-      }
-    }, 5000)
-    
     loadLockers()
-    
-    return () => clearTimeout(timer)
   }, [])
 
   // WebSocket Connection לשרת החומרה
@@ -236,19 +226,10 @@ export default function LockersManagementPage() {
     console.log('📊 מתחיל לטעון לוקרים...')
     setError('')
     const startTime = Date.now()
-    
-    // בדיקה שהפונקציה לא נתקעת
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout - API לא מגיב תוך 10 שניות')), 10000)
-    })
-    
     try {
       setLoading(true)
       console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
-      
-      const fetchPromise = fetch('/api/admin/lockers-management')
-      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response
-      
+      const response = await fetch('/api/admin/lockers-management')
       console.log('📡 תגובה מהשרת:', response.status, response.statusText)
       
       if (!response.ok) {
@@ -711,6 +692,8 @@ export default function LockersManagementPage() {
   }
 
   const controlCell = async (cellId: number, lockerId: number, action: 'open' | 'close') => {
+    console.log('🎮 controlCell נקרא:', { cellId, lockerId, action })
+    
     // בדיקת תקינות הפרמטרים
     if (!cellId || !lockerId) {
       alert('❌ שגיאה: חסרים פרטי תא או לוקר')
@@ -724,6 +707,7 @@ export default function LockersManagementPage() {
       let response, data
       
       if (action === 'open') {
+        console.log('🔓 שולח בקשה לפתיחת תא:', { lockerId, cellId })
         // עבור פתיחת תאים, נשתמש ב-API המיוחד שתומך בסימולציה
         response = await fetch('/api/lockers/unlock-cell', {
           method: 'POST',
@@ -735,7 +719,9 @@ export default function LockersManagementPage() {
             clientToken: 'ADMIN-TOKEN'
           })
         })
+        console.log('📡 תגובה מפתיחת תא:', response.status, response.statusText)
       } else {
+        console.log('🔒 שולח בקשה לסגירת תא:', { lockerId, cellId })
         response = await fetch('/api/admin/cell-control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -749,16 +735,20 @@ export default function LockersManagementPage() {
       }
 
       if (!response.ok) {
+        console.error('❌ HTTP Error:', response.status, response.statusText)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       data = await response.json()
+      console.log('📋 נתוני תגובה:', data)
       
       if (data.success) {
         const actionText = action === 'open' ? 'התא נפתח' : 'התא נסגר'
+        console.log(`✅ ${actionText} בהצלחה!`)
         alert(`✅ ${actionText} בהצלחה!`)
         await loadLockers()
       } else {
+        console.error('❌ שגיאה בתגובה:', data)
         if (data.simulated) {
           alert('⚠️ לוקר לא זמין כרגע, נסה שוב מאוחר יותר')
         } else {
@@ -766,10 +756,16 @@ export default function LockersManagementPage() {
         }
       }
     } catch (error) {
-      console.error('שגיאה בבקרת תא:', error)
+      console.error('❌ שגיאה בבקרת תא:', error)
+      console.error('🔍 פרטי השגיאה:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack'
+      })
       alert('שגיאה בבקרת תא: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
     } finally {
       setControlLoading(prev => ({ ...prev, [controlKey]: false }))
+      console.log('🏁 controlCell הסתיים')
     }
   }
 
@@ -785,22 +781,18 @@ export default function LockersManagementPage() {
     )
   }
 
-  console.log('🎨 Rendering LockersManagementPage:', {
+  console.log('🎨 Rendering LockersManagementPage with:', {
     loading,
     lockersCount: lockers.length,
     liveLockersCount: Object.keys(liveLockers).length,
     wsStatus,
-    hasError: !!error,
-    loadTime
+    error,
+    timestamp: new Date().toISOString()
   })
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-6">
-        {/* בדיקה שהדף נטען */}
-        <div className="mb-4 p-2 bg-green-500/10 border border-green-400/30 rounded text-xs text-green-300">
-          ✅ הדף נטען בהצלחה - זמן: {new Date().toLocaleTimeString('he-IL')}
-        </div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
           <div className="w-full sm:w-auto">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">🔧 ניהול לוקרים</h1>
@@ -871,9 +863,6 @@ export default function LockersManagementPage() {
             WebSocket: {wsStatus} | 
             זמן טעינה: {loadTime || 'לא נמדד'} | 
             שגיאות: {error ? error.substring(0, 50) + '...' : 'אין'}
-          </div>
-          <div className="text-xs text-yellow-400 mt-2">
-            🎯 מטרה: להציג {lockers.length > 0 ? 'לוקרים ותאים' : 'הודעת "אין לוקרים"'}
           </div>
         </div>
 
@@ -956,6 +945,12 @@ export default function LockersManagementPage() {
               <span className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></span>
               לוקרים חיים בזמן אמת ({Object.keys(liveLockers).length})
             </h2>
+            <div className="bg-blue-500/10 rounded-lg p-4 mb-4 border border-blue-400/30">
+              <p className="text-sm text-blue-300">
+                💡 <strong>הסבר:</strong> לוקרים אלה מחוברים לשרת החומרה אך עדיין לא שויכו למערכת. 
+                לחץ על "שייך למערכת" כדי להוסיף אותם למערכת ולאפשר שליטה בתאים.
+              </p>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {Object.values(liveLockers).map((liveLocker: any, index: number) => (
                 <div key={liveLocker.id || `live_${index}`} className="bg-blue-500/10 backdrop-blur-md rounded-lg p-4 sm:p-6 border border-blue-400/30 hover:bg-blue-500/20 transition-all">
@@ -1000,10 +995,10 @@ export default function LockersManagementPage() {
                     </div>
                   </div>
 
-                  {/* תאים של הלוקר החי */}
+                  {/* תאים של הלוקר החי - מידע בלבד */}
                   {liveLocker.cells && Object.keys(liveLocker.cells).length > 0 && (
                     <div className="border-t border-white/10 pt-4">
-                      <h4 className="text-sm font-semibold text-white mb-3">תאים זמינים:</h4>
+                      <h4 className="text-sm font-semibold text-white mb-3">תאים זמינים (לפני שיוך):</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         {Object.entries(liveLocker.cells).map(([cellId, cellData]: [string, any]) => (
                           <div key={`${liveLocker.id}-${cellId}`} className="bg-white/10 rounded-lg p-2 border border-white/20">
@@ -1013,17 +1008,11 @@ export default function LockersManagementPage() {
                                 cellData.locked ? 'bg-red-400' : 'bg-green-400'
                               }`}></div>
                             </div>
-                            <div className="text-xs text-white/60 mb-2">
+                            <div className="text-xs text-white/60">
                               <div>{cellData.locked ? 'נעול' : 'פתוח'}</div>
                               {cellData.hasPackage && <div className="text-orange-300">יש חבילה</div>}
+                              <div className="text-blue-300 mt-1">⏳ ממתין לשיוך</div>
                             </div>
-                            <button
-                              onClick={() => unlockCell(liveLocker.id, cellId)}
-                              disabled={!liveLocker.isOnline || controlLoading[`${liveLocker.id}-${cellId}`]}
-                              className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
-                            >
-                              {controlLoading[`${liveLocker.id}-${cellId}`] ? 'פותח...' : '🔓 פתח'}
-                            </button>
                           </div>
                         ))}
                       </div>
@@ -1035,12 +1024,20 @@ export default function LockersManagementPage() {
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* בדיקה שהרינדור עובד */}
-          <div className="text-xs text-white/50 mb-2">
-            🔄 רינדור: {lockers.length} לוקרים מוכנים להצגה
+        {/* לוקרים במערכת */}
+        <div className="mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <span className="w-3 h-3 bg-white rounded-full"></span>
+            לוקרים במערכת ({lockers.length})
+          </h2>
+          <div className="bg-white/10 rounded-lg p-4 mb-4 border border-white/20">
+            <p className="text-sm text-white/70">
+              💡 <strong>הסבר:</strong> לוקרים אלה שויכו למערכת וניתן לשלוט בתאים שלהם.
+            </p>
           </div>
-          
+        </div>
+        
+        <div className="space-y-6">
           {lockers.map((locker, index) => (
             <div key={locker.id || `locker_${index}`} className="bg-white/10 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-white/20 shadow-xl hover:bg-white/15 transition-all">
               {/* פרטי לוקר */}
@@ -1120,6 +1117,22 @@ export default function LockersManagementPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              const cellNumber = cell.cellNumber || cell.id
+                              const lockerId = locker.id
+                              console.log('🔓 כפתור "פתח תא" נלחץ:', { cellNumber, lockerId, lockerName: locker.name })
+                              if (!cellNumber || !lockerId) {
+                                alert('❌ שגיאה: חסרים פרטי תא או לוקר')
+                                return
+                              }
+                              controlCell(cellNumber, lockerId, 'open')
+                            }}
+                            disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
+                            className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
+                          >
+                            {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
+                          </button>
                           <div className="flex gap-1">
                             <button
                               onClick={() => {
