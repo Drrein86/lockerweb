@@ -43,14 +43,18 @@ export default function LockersManagementPage() {
   const [selectedLiveLocker, setSelectedLiveLocker] = useState<any>(null)
   const [predefinedLockers, setPredefinedLockers] = useState<Locker[]>([])
   const [showCreateNewOption, setShowCreateNewOption] = useState(false)
+  const [error, setError] = useState<string>('')
+  const [loadTime, setLoadTime] = useState<string>('')
   
   // WebSocket Status
   const [wsStatus, setWsStatus] = useState<'מתחבר' | 'מחובר' | 'מנותק' | 'שגיאה'>('מתחבר')
   const [lastMessage, setLastMessage] = useState<string>('')
+  const [ws, setWs] = useState<WebSocket | null>(null)
   
   console.log('🚀 LockersManagementPage נטען')
 
   useEffect(() => {
+    console.log('🔄 useEffect triggered - loading lockers...')
     loadLockers()
   }, [])
 
@@ -220,6 +224,8 @@ export default function LockersManagementPage() {
 
   const loadLockers = async () => {
     console.log('📊 מתחיל לטעון לוקרים...')
+    setError('')
+    const startTime = Date.now()
     try {
       setLoading(true)
       console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
@@ -228,7 +234,9 @@ export default function LockersManagementPage() {
       
       if (!response.ok) {
         console.error('❌ HTTP Error:', response.status, response.statusText)
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = `HTTP error! status: ${response.status}`
+        setError(errorText)
+        throw new Error(errorText)
       }
       
       console.log('📋 מפענח JSON...')
@@ -250,6 +258,7 @@ export default function LockersManagementPage() {
         setLockers(validatedLockers)
       } else {
         console.error('שגיאה בטעינת לוקרים:', data.error)
+        setError(data.error || 'שגיאה לא ידועה בטעינת לוקרים')
         setLockers([])
       }
     } catch (error) {
@@ -259,10 +268,14 @@ export default function LockersManagementPage() {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : 'No stack'
       })
+      setError(error instanceof Error ? error.message : 'שגיאה בטעינת לוקרים')
       setLockers([])
     } finally {
+      const endTime = Date.now()
+      const duration = endTime - startTime
+      setLoadTime(`${duration}ms`)
       setLoading(false)
-      console.log('✅ טעינת לוקרים הושלמה')
+      console.log(`✅ טעינת לוקרים הושלמה תוך ${duration}ms`)
     }
   }
 
@@ -441,7 +454,7 @@ export default function LockersManagementPage() {
       
       console.log(`📤 שולח בקשה לפתיחת תא:`, requestBody)
       
-      // שימוש באותו API כמו לוקרי DB
+      // שימוש ב-API לפתיחת תא
       const response = await fetch('/api/lockers/unlock-cell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -747,10 +760,20 @@ export default function LockersManagementPage() {
         <div className="text-center px-4">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white/80 text-lg">טוען נתונים...</p>
+          <p className="text-white/60 text-sm mt-2">מתחבר לשרת...</p>
         </div>
       </div>
     )
   }
+
+  console.log('🎨 Rendering LockersManagementPage with:', {
+    loading,
+    lockersCount: lockers.length,
+    liveLockersCount: Object.keys(liveLockers).length,
+    wsStatus,
+    error,
+    timestamp: new Date().toISOString()
+  })
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
@@ -759,6 +782,9 @@ export default function LockersManagementPage() {
           <div className="w-full sm:w-auto">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">🔧 ניהול לוקרים</h1>
             <p className="text-white/70 text-sm sm:text-base">ממשק ניהול לוקרים ותאים</p>
+            <div className="text-xs text-white/50 mt-1">
+              סטטוס: {loading ? 'טוען...' : 'מוכן'} | לוקרים: {lockers.length} | זמן: {loadTime || 'לא נמדד'} | שגיאות: {error ? 'כן' : 'לא'}
+            </div>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -774,6 +800,54 @@ export default function LockersManagementPage() {
             >
               🔄 רענן
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true)
+                  const response = await fetch('/api/admin/lockers-management')
+                  const data = await response.json()
+                  console.log('🔍 בדיקה מהירה:', { status: response.status, data })
+                  alert(`API בדיקה:\nסטטוס: ${response.status}\nלוקרים: ${data.lockers?.length || 0}\nהצלחה: ${data.success}`)
+                } catch (err) {
+                  console.error('❌ שגיאה בבדיקה:', err)
+                  alert('שגיאה: ' + (err instanceof Error ? err.message : 'שגיאה לא ידועה'))
+                } finally {
+                  setLoading(false)
+                }
+              }}
+              className="w-full sm:w-auto btn bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base"
+            >
+              🔍 בדוק API
+            </button>
+            <button
+              onClick={() => {
+                console.log('🔍 בדיקת קונסול - מצב נוכחי:', {
+                  loading,
+                  lockersCount: lockers.length,
+                  liveLockersCount: Object.keys(liveLockers).length,
+                  wsStatus,
+                  error,
+                  loadTime,
+                  timestamp: new Date().toISOString()
+                })
+                alert('נבדק בקונסול - פתח את Developer Tools')
+              }}
+              className="w-full sm:w-auto btn bg-green-500/20 hover:bg-green-500/30 text-green-300 px-4 py-2 rounded-lg transition-all duration-300 text-sm sm:text-base"
+            >
+              📊 בדוק קונסול
+            </button>
+          </div>
+        </div>
+
+        {/* מידע דיבוג */}
+        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-400/30 rounded-lg">
+          <div className="text-sm text-yellow-300">
+            <strong>דיבוג:</strong> הדף נטען בהצלחה. 
+            טעינה: {loading ? 'כן' : 'לא'} | 
+            לוקרים: {lockers.length} | 
+            WebSocket: {wsStatus} | 
+            זמן טעינה: {loadTime || 'לא נמדד'} | 
+            שגיאות: {error ? error.substring(0, 50) + '...' : 'אין'}
           </div>
         </div>
 
@@ -1095,6 +1169,20 @@ export default function LockersManagementPage() {
             <p className="text-white/70 mb-6 text-sm sm:text-base max-w-md mx-auto px-4">
               התחל על ידי הוספת לוקר ראשון למערכת או חיבור לוקרים קיימים
             </p>
+            <div className="bg-white/10 rounded-lg p-4 mb-6 max-w-md mx-auto">
+              <h4 className="text-lg font-semibold text-white mb-2">מידע על המצב:</h4>
+              <div className="text-sm text-white/70 space-y-1">
+                <div>סטטוס טעינה: {loading ? 'טוען...' : 'הושלם'}</div>
+                <div>מספר לוקרים: {lockers.length}</div>
+                <div>סטטוס WebSocket: {wsStatus}</div>
+                <div>לוקרים חיים: {Object.keys(liveLockers).length}</div>
+                {error && (
+                  <div className="text-red-400 mt-2 p-2 bg-red-500/10 rounded">
+                    <strong>שגיאה:</strong> {error}
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4">
               <button
                 onClick={() => setShowLockerForm(true)}
@@ -1107,6 +1195,22 @@ export default function LockersManagementPage() {
                 className="w-full sm:w-auto bg-green-500/20 hover:bg-green-500/30 text-green-300 px-6 py-3 rounded-lg font-medium transition-all"
               >
                 🔄 חפש לוקרים מחוברים
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/admin/lockers-management')
+                    const data = await response.json()
+                    console.log('🔍 בדיקה ידנית של API:', data)
+                    alert(`סטטוס: ${response.status}\nלוקרים: ${data.lockers?.length || 0}\nהצלחה: ${data.success}`)
+                  } catch (error) {
+                    console.error('❌ שגיאה בבדיקה ידנית:', error)
+                    alert('שגיאה בבדיקה: ' + (error instanceof Error ? error.message : 'שגיאה לא ידועה'))
+                  }
+                }}
+                className="w-full sm:w-auto bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg font-medium transition-all"
+              >
+                🔍 בדוק API
               </button>
             </div>
           </div>
