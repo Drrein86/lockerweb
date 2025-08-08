@@ -1017,6 +1017,28 @@ class WebSocketManager {
   }
 
   /**
+   * שליחת הודעה ללוקר עם תוצאה מפורטת
+   */
+  public async sendMessageToLocker(id: string, messageObj: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const success = this.sendToLockerInternal(id, messageObj);
+      if (success) {
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          error: `לוקר ${id} לא מחובר או לא זמין` 
+        };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'שגיאה לא ידועה' 
+      };
+    }
+  }
+
+  /**
    * שליחת הודעה ללוקר עם המתנה לתגובה
    */
   public async sendToLockerWithResponse(id: string, messageObj: any, timeout: number = 10000): Promise<any> {
