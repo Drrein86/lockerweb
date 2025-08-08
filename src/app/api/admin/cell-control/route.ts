@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         initiatedBy: userId,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
-        error: commandResult.error || commandResult.data?.error || null
+        error: commandResult.error || null
       }
 
       cellControlHistory.push(controlRecord)
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: `שגיאה בביצוע פקודת ${action}`,
-          details: commandResult.error
+          details: commandResult.error || 'שגיאה לא ידועה'
         }, { status: 500 })
       }
 
