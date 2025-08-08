@@ -118,7 +118,21 @@ class WebSocketManager {
    * טיפול בחיבור חדש
    */
   private handleNewConnection(ws: LockerConnection): void {
-    this.logEvent('connection', '📡 חיבור WebSocket חדש התקבל');
+    const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+    const clientPort = (ws as any)._socket?.remotePort || 0;
+    
+    console.log('🔌 חיבור חדש התקבל:', {
+      clientIP,
+      clientPort,
+      timestamp: new Date().toISOString(),
+      totalConnections: this.wss.clients.size
+    });
+    
+    this.logEvent('connection', '🔌 חיבור חדש התקבל', {
+      clientIP,
+      clientPort,
+      timestamp: new Date().toISOString()
+    });
     
     // הגדרת מצב התחלתי
     ws.isAlive = true;
@@ -136,43 +150,64 @@ class WebSocketManager {
   private handleMessage(ws: LockerConnection, msg: any): void {
     try {
       const data: WebSocketMessage = JSON.parse(msg.toString());
+      
+      // לוג מפורט לכל הודעה
+      console.log('📨 התקבלה הודעה:', {
+        type: data.type,
+        id: data.id,
+        lockerId: data.lockerId,
+        cellId: data.cellId,
+        client: data.client,
+        timestamp: new Date().toISOString(),
+        clientType: ws.isAdmin ? 'admin' : (ws.lockerId ? 'locker' : 'unknown')
+      });
+      
       this.logEvent('message', '📨 התקבלה הודעה', data);
       
       switch (data.type) {
         case 'register':
+          console.log('📝 עיבוד הודעת רישום לוקר');
           this.handleLockerRegistration(ws, data);
           break;
           
         case 'identify':
+          console.log('👤 עיבוד הודעת זיהוי מנהל');
           this.handleAdminIdentification(ws, data);
           break;
           
         case 'statusUpdate':
+          console.log('📊 עיבוד עדכון סטטוס');
           this.handleStatusUpdate(ws, data);
           break;
           
         case 'unlock':
+          console.log('🔓 עיבוד בקשת פתיחת תא');
           this.handleUnlockCommand(ws, data);
           break;
           
         case 'lock':
+          console.log('🔒 עיבוד בקשת נעילת תא');
           this.handleLockCommand(ws, data);
           break;
           
         case 'openByClient':
+          console.log('📦 עיבוד בקשת פתיחה מלקוח');
           this.handleClientOpenRequest(ws, data);
           break;
           
         case 'openSuccess':
         case 'openFailed':
+          console.log('📦 עיבוד תגובת פתיחה מהלוקר');
           this.handleOpenResponse(ws, data);
           break;
           
         case 'cellClosed':
+          console.log('🔒 עיבוד הודעת סגירת תא');
           this.handleCellClosed(ws, data);
           break;
           
         case 'failedToUnlock':
+          console.log('❌ עיבוד הודעת כישלון פתיחה');
           this.handleFailedToUnlock(ws, data);
           break;
           
@@ -196,10 +231,19 @@ class WebSocketManager {
             console.log(`🏓 פונג התקבל ללא ID (תקין)`);
           }
           break;
+          
+        default:
+          console.log(`⚠️ סוג הודעה לא מוכר: ${data.type}`);
+          this.logEvent('unknown_message', `⚠️ סוג הודעה לא מוכר: ${data.type}`, data);
+          break;
       }
       
     } catch (error) {
-      this.logEvent('error', '❌ שגיאה בעיבוד הודעה', { error });
+      console.error('❌ שגיאה בעיבוד הודעה:', error);
+      this.logEvent('error', '❌ שגיאה בעיבוד הודעה', { 
+        error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+        messageContent: msg.toString().substring(0, 200) // רק 200 תווים ראשונים
+      });
     }
   }
 
@@ -207,12 +251,23 @@ class WebSocketManager {
    * טיפול ברישום לוקר חדש
    */
   private async handleLockerRegistration(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+    const clientPort = (ws as any)._socket?.remotePort || 0;
+    
+    console.log('📝 עיבוד רישום לוקר:', {
+      lockerId: data.id,
+      clientIP,
+      clientPort,
+      isAllowed: data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id),
+      allowedLockers: CONFIG.ALLOWED_LOCKER_IDS,
+      cells: data.cells,
+      timestamp: new Date().toISOString()
+    });
+    
     if (data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
       try {
         // עדכון או יצירת לוקר ב-DB
         // במצב Mock - רק לוג הרישום
-        const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
-        const clientPort = (ws as any)._socket?.remotePort || 0;
         
         this.logEvent('register_mock', `📝 נרשם לוקר ${data.id}`, {
           lockerId: data.id,
@@ -226,11 +281,38 @@ class WebSocketManager {
         ws.cells = data.cells || {};
         
         this.lockerConnections.set(data.id, ws);
-        this.logEvent('register', `📡 נרשם לוקר ${data.id}`);
+        
+        console.log(`📡 נרשם לוקר ${data.id} מכתובת ${clientIP}`);
+        this.logEvent('register', `📡 נרשם לוקר ${data.id} מכתובת ${clientIP}`, {
+          lockerId: data.id,
+          clientIP,
+          clientPort,
+          timestamp: new Date().toISOString()
+        });
+        
         this.broadcastStatus();
       } catch (error) {
-        this.logEvent('error', `❌ שגיאה ברישום לוקר ${data.id}`, { error });
+        console.error(`❌ שגיאה ברישום לוקר ${data.id}:`, error);
+        this.logEvent('error', `❌ שגיאה ברישום לוקר ${data.id}`, { 
+          error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+          lockerId: data.id,
+          clientIP,
+          timestamp: new Date().toISOString()
+        });
       }
+    } else {
+      console.log('❌ רישום לוקר נדחה:', {
+        lockerId: data.id,
+        isAllowed: data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id),
+        allowedLockers: CONFIG.ALLOWED_LOCKER_IDS,
+        clientIP,
+        timestamp: new Date().toISOString()
+      });
+      this.logEvent('register_rejected', `❌ רישום לוקר נדחה`, {
+        lockerId: data.id,
+        clientIP,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -238,18 +320,26 @@ class WebSocketManager {
    * טיפול בזיהוי ממשק ניהול
    */
   private handleAdminIdentification(ws: LockerConnection, data: WebSocketMessage): void {
+    const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+    
     console.log('🔍 בדיקת זיהוי מנהל:', {
       client: data.client,
       secret: data.secret,
       expectedSecret: CONFIG.ADMIN_SECRET,
-      isMatch: data.client === 'web-admin' && data.secret === CONFIG.ADMIN_SECRET
+      isMatch: data.client === 'web-admin' && data.secret === CONFIG.ADMIN_SECRET,
+      clientIP,
+      timestamp: new Date().toISOString()
     });
     
     if (data.client === 'web-admin' && data.secret === CONFIG.ADMIN_SECRET) {
       ws.isAdmin = true;
       this.adminConnections.add(ws);
       
-      this.logEvent('admin', '👤 נרשם ממשק ניהול חדש');
+      console.log('✅ ממשק ניהול לוקרים מזוהה התחבר');
+      this.logEvent('admin', '✅ ממשק ניהול לוקרים מזוהה התחבר', {
+        clientIP,
+        timestamp: new Date().toISOString()
+      });
       
       // שליחת סטטוס ראשוני
       const message = {
@@ -267,9 +357,14 @@ class WebSocketManager {
       console.log('❌ זיהוי מנהל נכשל:', {
         client: data.client,
         secret: data.secret,
-        expectedSecret: CONFIG.ADMIN_SECRET
+        expectedSecret: CONFIG.ADMIN_SECRET,
+        clientIP,
+        timestamp: new Date().toISOString()
       });
-      this.logEvent('warning', '⚠️ ניסיון זיהוי ממשק ניהול נכשל');
+      this.logEvent('warning', '⚠️ ניסיון זיהוי ממשק ניהול נכשל', {
+        clientIP,
+        timestamp: new Date().toISOString()
+      });
       ws.close();
     }
   }
@@ -309,10 +404,24 @@ class WebSocketManager {
    * טיפול בפקודת פתיחה
    */
   private async handleUnlockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    console.log('🔍 בדיקת בקשה לפתיחת תא:', {
+      isAdmin: ws.isAdmin,
+      lockerId: data.lockerId,
+      cellId: data.cellId,
+      timestamp: new Date().toISOString()
+    });
+
     if (ws.isAdmin && data.lockerId && data.cellId) {
       try {
         // במצב Mock - בדיקה בסיסית
-        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${data.cellId} בלוקר ${data.lockerId}`);
+        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${data.cellId} בלוקר ${data.lockerId}`, {
+          lockerId: data.lockerId,
+          cellId: data.cellId,
+          timestamp: new Date().toISOString(),
+          adminIP: (ws as any)._socket?.remoteAddress || 'unknown'
+        });
+
+        console.log(`📤 שולח פקודת פתיחה ללוקר ${data.lockerId} לתא ${data.cellId}`);
 
         // שליחת פקודה ללוקר
         const success = this.sendToLockerInternal(data.lockerId, {
@@ -321,13 +430,42 @@ class WebSocketManager {
         });
 
         if (success) {
-        this.logEvent('unlock', `🔓 נפתח תא ${data.cellId} בלוקר ${data.lockerId}`);
+          this.logEvent('unlock_success', `✅ נפתח תא ${data.cellId} בלוקר ${data.lockerId}`, {
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            timestamp: new Date().toISOString()
+          });
+          console.log(`✅ פתיחת תא ${data.cellId} בלוקר ${data.lockerId} הצליחה`);
         } else {
-          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${data.cellId} - לוקר לא מחובר`);
+          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${data.cellId} - לוקר לא מחובר`, {
+            lockerId: data.lockerId,
+            cellId: data.cellId,
+            timestamp: new Date().toISOString(),
+            availableLockers: Array.from(this.lockerConnections.keys())
+          });
+          console.log(`❌ כישלון בפתיחת תא ${data.cellId} - לוקר ${data.lockerId} לא מחובר`);
         }
       } catch (error) {
-        this.logEvent('error', `❌ שגיאה בפתיחת תא ${data.cellId}`, { error });
+        this.logEvent('error', `❌ שגיאה בפתיחת תא ${data.cellId}`, { 
+          error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+          lockerId: data.lockerId,
+          cellId: data.cellId,
+          timestamp: new Date().toISOString()
+        });
+        console.error(`❌ שגיאה בפתיחת תא ${data.cellId}:`, error);
       }
+    } else {
+      console.log('⚠️ בקשה לא תקינה לפתיחת תא:', {
+        isAdmin: ws.isAdmin,
+        lockerId: data.lockerId,
+        cellId: data.cellId
+      });
+      this.logEvent('unlock_invalid_request', `⚠️ בקשה לא תקינה לפתיחת תא`, {
+        isAdmin: ws.isAdmin,
+        lockerId: data.lockerId,
+        cellId: data.cellId,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -571,23 +709,53 @@ class WebSocketManager {
    * טיפול בסגירת חיבור
    */
   private async handleClose(ws: LockerConnection): Promise<void> {
+    const clientIP = (ws as any)._socket?.remoteAddress || 'unknown';
+    const clientPort = (ws as any)._socket?.remotePort || 0;
+    
+    console.log('🔌 ניתוק חיבור:', {
+      isAdmin: ws.isAdmin,
+      lockerId: ws.lockerId,
+      clientIP,
+      clientPort,
+      timestamp: new Date().toISOString(),
+      totalConnections: this.wss.clients.size
+    });
+    
     if (ws.isAdmin) {
       this.adminConnections.delete(ws);
-      this.logEvent('disconnect', '👤 ממשק ניהול התנתק');
+      console.log('👤 ממשק ניהול לוקרים התנתק');
+      this.logEvent('disconnect', '👤 ממשק ניהול לוקרים התנתק', {
+        clientIP,
+        clientPort,
+        timestamp: new Date().toISOString()
+      });
     } else if (ws.lockerId) {
       try {
         // במצב Mock - רק לוג ההתנתקות
-        this.logEvent('locker_disconnect', `📡 לוקר ${ws.lockerId} התנתק`, {
+        console.log(`🔌 נותק לוקר ${ws.lockerId}`);
+        
+        this.logEvent('locker_disconnect', `🔌 נותק לוקר ${ws.lockerId}`, {
           lockerId: ws.lockerId,
-          lastSeen: ws.lastSeen
+          lastSeen: ws.lastSeen,
+          clientIP,
+          clientPort,
+          timestamp: new Date().toISOString()
         });
 
         this.lockerConnections.delete(ws.lockerId);
-        this.logEvent('disconnect', `📡 לוקר ${ws.lockerId} התנתק`);
+        this.logEvent('disconnect', `🔌 נותק לוקר ${ws.lockerId}`);
         this.broadcastStatus();
       } catch (error) {
+        console.error(`❌ שגיאה בעדכון סטטוס לוקר ${ws.lockerId}:`, error);
         this.logEvent('error', `❌ שגיאה בעדכון סטטוס לוקר ${ws.lockerId}`, { error });
       }
+    } else {
+      console.log('🔌 חיבור לא מזוהה התנתק');
+      this.logEvent('disconnect', '🔌 חיבור לא מזוהה התנתק', {
+        clientIP,
+        clientPort,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -604,6 +772,16 @@ class WebSocketManager {
   private sendToLockerInternal(id: string, messageObj: any): boolean {
     const conn = this.lockerConnections.get(id);
     
+    console.log('📤 ניסיון שליחה ללוקר:', {
+      lockerId: id,
+      messageType: messageObj.type,
+      hasConnection: !!conn,
+      connectionState: conn?.readyState,
+      totalConnections: this.lockerConnections.size,
+      connectedLockers: Array.from(this.lockerConnections.keys()),
+      timestamp: new Date().toISOString()
+    });
+    
     this.logEvent('send_attempt', `📤 ניסיון שליחה ללוקר ${id}`, {
       lockerId: id,
       messageType: messageObj.type,
@@ -614,13 +792,30 @@ class WebSocketManager {
     });
     
     if (conn?.readyState === WebSocket.OPEN) {
-      conn.send(JSON.stringify(messageObj));
+      const messageStr = JSON.stringify(messageObj);
+      conn.send(messageStr);
+      
+      console.log('✅ הודעה נשלחה ללוקר:', {
+        lockerId: id,
+        messageType: messageObj.type,
+        messageLength: messageStr.length,
+        timestamp: new Date().toISOString()
+      });
+      
       this.logEvent('send_success', `✅ הודעה נשלחה ללוקר ${id}`, {
         lockerId: id,
         messageType: messageObj.type
       });
       return true;
     } else {
+      console.log('❌ לוקר לא מחובר:', {
+        lockerId: id,
+        hasConnection: !!conn,
+        connectionState: conn?.readyState,
+        availableLockers: Array.from(this.lockerConnections.keys()),
+        timestamp: new Date().toISOString()
+      });
+      
       this.logEvent('send_failed', `🚫 לוקר ${id} לא מחובר`, {
         lockerId: id,
         hasConnection: !!conn,
@@ -689,11 +884,21 @@ class WebSocketManager {
       timestamp: Date.now()
     };
     
+    console.log('📤 שולח עדכון סטטוס למנהלים:', {
+      adminConnections: this.adminConnections.size,
+      messageType: message.type,
+      timestamp: new Date().toISOString()
+    });
+    
+    let sentCount = 0;
     for (const client of this.adminConnections) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(message));
+        sentCount++;
       }
     }
+    
+    console.log(`📤 נשלח עדכון סטטוס ל-${sentCount} מנהלים`);
   }
 
   /**
@@ -701,6 +906,12 @@ class WebSocketManager {
    */
   private getLockerStates(): Record<string, any> {
     const states: Record<string, any> = {};
+    
+    console.log('📊 בדיקת סטטוס לוקרים:', {
+      totalConnections: this.lockerConnections.size,
+      connectedLockers: Array.from(this.lockerConnections.keys()),
+      timestamp: new Date().toISOString()
+    });
     
     this.logEvent('status_check', `📊 בדיקת סטטוס לוקרים`, {
       totalConnections: this.lockerConnections.size,
@@ -715,6 +926,13 @@ class WebSocketManager {
         cells: ws.cells || {},
         connectionState: ws.readyState
       };
+      
+      console.log(`📡 סטטוס לוקר ${id}:`, {
+        isOnline,
+        connectionState: ws.readyState,
+        lastSeen: ws.lastSeen,
+        cellsCount: Object.keys(ws.cells || {}).length
+      });
       
       this.logEvent('locker_status', `📡 סטטוס לוקר ${id}`, {
         lockerId: id,
@@ -733,18 +951,32 @@ class WebSocketManager {
   private startPeriodicTasks(): void {
     // בדיקת חיבורים חיים
     this.heartbeatInterval = setInterval(() => {
+      console.log('💓 בדיקת חיבורים חיים:', {
+        totalClients: this.wss.clients.size,
+        timestamp: new Date().toISOString()
+      });
+      
+      let terminatedCount = 0;
       this.wss.clients.forEach((ws: LockerConnection) => {
         if (!ws.isAlive) {
+          console.log('💔 ניתוק חיבור לא מגיב');
           this.logEvent('heartbeat', '💔 ניתוק חיבור לא מגיב');
-          return ws.terminate();
+          ws.terminate();
+          terminatedCount++;
+        } else {
+          ws.isAlive = false;
+          ws.ping();
         }
-        ws.isAlive = false;
-        ws.ping();
       });
+      
+      if (terminatedCount > 0) {
+        console.log(`💔 נותקו ${terminatedCount} חיבורים לא מגיבים`);
+      }
     }, CONFIG.HEARTBEAT_INTERVAL);
 
     // שליחת עדכוני סטטוס
     this.statusInterval = setInterval(() => {
+      console.log('📊 שליחת עדכון סטטוס אוטומטי');
       this.logEvent('status', '📊 שליחת עדכון סטטוס אוטומטי');
       this.broadcastStatus();
     }, CONFIG.STATUS_BROADCAST_INTERVAL);
@@ -759,31 +991,44 @@ class WebSocketManager {
    * מעקב אחר מכשירי ESP32
    */
   private monitorESP32Devices(): void {
+    console.log('🔍 בודק חיבורי ESP32...');
     this.logEvent('monitoring', '🔍 בדיקת חיבורי ESP32');
     
     const status = esp32Controller.getAllStatus();
     let connectedDevices = 0;
     
+    console.log('📊 סטטוס מכשירי ESP32:', {
+      totalDevices: Object.keys(status).length,
+      devices: Object.keys(status),
+      timestamp: new Date().toISOString()
+    });
+    
     for (const [lockerId, device] of Object.entries(status)) {
       if (device.isOnline) {
         connectedDevices++;
-        this.logEvent('device_status', `📡 לוקר ${lockerId} מחובר`, {
+        console.log(`✅ לוקר ${lockerId} מחובר (${device.ip})`);
+        this.logEvent('device_status', `✅ לוקר ${lockerId} מחובר`, {
           lockerId,
           ip: device.ip,
-          status: 'ONLINE'
+          status: 'ONLINE',
+          timestamp: new Date().toISOString()
         });
       } else {
-        this.logEvent('device_status', `📡 לוקר ${lockerId} לא מגיב`, {
+        console.log(`❌ לוקר ${lockerId} לא מגיב (${device.ip})`);
+        this.logEvent('device_status', `❌ לוקר ${lockerId} לא מגיב`, {
           lockerId,
           ip: device.ip,
-          status: 'offline'
+          status: 'offline',
+          timestamp: new Date().toISOString()
         });
       }
     }
     
+    console.log(`📊 סה"כ לוקרים מחוברים: ${connectedDevices}/${Object.keys(status).length}`);
     this.logEvent('monitoring_summary', '📊 סה"כ לוקרים מחוברים', {
       connectedDevices,
-      totalDevices: Object.keys(status).length
+      totalDevices: Object.keys(status).length,
+      timestamp: new Date().toISOString()
     });
   }
 
@@ -792,6 +1037,14 @@ class WebSocketManager {
    */
   public start(): void {
     this.server.listen(CONFIG.PORT, () => {
+      console.log('🚀 שרת הלוקרים פועל:', {
+        port: CONFIG.PORT,
+        ssl: CONFIG.USE_SSL,
+        esp32_devices: CONFIG.ESP32_DEVICES,
+        allowed_locker_ids: CONFIG.ALLOWED_LOCKER_IDS,
+        timestamp: new Date().toISOString()
+      });
+      
       this.logEvent('server_start', `🚀 שרת הלוקרים פועל על פורט ${CONFIG.PORT}`, {
         port: CONFIG.PORT,
         ssl: CONFIG.USE_SSL,
@@ -806,6 +1059,7 @@ class WebSocketManager {
 
     // טיפול בסגירה נאותה
     process.on('SIGINT', () => {
+      console.log('🛑 קבלת אות SIGINT - סגירת שרת...');
       this.stop();
     });
   }
@@ -814,6 +1068,12 @@ class WebSocketManager {
    * עצירת השרת
    */
   public stop(): void {
+    console.log('🛑 מתחיל סגירת שרת...', {
+      lockerConnections: this.lockerConnections.size,
+      adminConnections: this.adminConnections.size,
+      timestamp: new Date().toISOString()
+    });
+    
     // סגירת חיבורים
     for (const [_, connection] of this.lockerConnections) {
       connection.close();
@@ -842,8 +1102,11 @@ class WebSocketManager {
     // עצירת מעקב ESP32
     esp32Controller.stopPeriodicHealthCheck();
     
+    console.log('✅ ניקוי טיימרים וחיבורים הושלם');
+    
     // סגירת שרת
     this.server.close(() => {
+      console.log('✅ השרת נסגר בהצלחה');
       this.logEvent('server_stop', '✅ השרת נסגר בהצלחה');
       process.exit(0);
     });
@@ -854,23 +1117,35 @@ class WebSocketManager {
    */
   private logEvent(type: string, message: string, data: any = {}): void {
     const timestamp = new Date().toISOString();
-    console.log(JSON.stringify({
+    const logEntry = {
       timestamp,
       type,
       message,
       ...data
-    }));
+    };
+    
+    console.log(JSON.stringify(logEntry));
   }
 
   /**
    * שליחת עדכון למנהלים
    */
   private broadcastToAdmins(message: any): void {
+    console.log('📤 שולח עדכון למנהלים:', {
+      messageType: message.type,
+      adminConnections: this.adminConnections.size,
+      timestamp: new Date().toISOString()
+    });
+    
+    let sentCount = 0;
     for (const client of this.adminConnections) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(message));
+        sentCount++;
       }
     }
+    
+    console.log(`📤 נשלח עדכון ל-${sentCount} מנהלים`);
   }
 }
 
@@ -880,7 +1155,10 @@ const wsManager = new WebSocketManager();
 // הפעלה אוטומטית של השרת רק בסביבת development
 if (typeof window === 'undefined' && process.env.NODE_ENV === 'development') {
   // רק בצד השרת ובסביבת development
-  console.log('🚀 מפעיל שרת WebSocket אוטומטית...');
+  console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
+    nodeEnv: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
   try {
     wsManager.start();
     console.log('✅ שרת WebSocket הופעל בהצלחה');
