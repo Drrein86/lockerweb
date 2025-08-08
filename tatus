@@ -1,0 +1,5 @@
+[33mda875e4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m  הוספת לוגים מפורטים למערכת WebSocket - מעקב אחר בקשות פתיחת תא ב-Railway
+[33m7b93ef2[m Fix Arduino waiting issue
+[33mc0d4989[m Fix WebSocket locker registration and unlock success handling
+[33mef00428[m Add Railway fallback for production - API now forwards requests to Railway server with timeout and fallback
+[33mc623363[m Fix Vercel build error - remove automatic WebSocket server activation in production

@@ -34,6 +34,7 @@ interface WebSocketMessage {
   secret?: string;
   lockerId?: string;
   cellId?: string;
+  cellCode?: string;
   cell?: string;
   packageId?: string;
   cells?: Record<string, LockerCell>;
@@ -181,11 +182,17 @@ class WebSocketManager {
           this.handleStatusUpdate(ws, data);
           break;
           
+        case 'getStatus':
+          console.log('📊 עיבוד בקשת סטטוס');
+          this.handleGetStatus(ws, data);
+          break;
+          
         case 'unlock':
-          console.log('🔓 עיבוד בקשת פתיחת תא - התקבלה הודעת unlock!');
+        case 'openCell':
+          console.log('🔓 עיבוד בקשת פתיחת תא - התקבלה הודעת unlock/openCell!');
           console.log('🔓 פרטי הבקשה:', {
             lockerId: data.lockerId,
-            cellId: data.cellId,
+            cellId: data.cellId || data.cellCode,
             isAdmin: ws.isAdmin,
             timestamp: new Date().toISOString()
           });
@@ -378,6 +385,28 @@ class WebSocketManager {
   }
 
   /**
+   * טיפול בבקשת סטטוס
+   */
+  private handleGetStatus(ws: LockerConnection, data: WebSocketMessage): void {
+    console.log('📊 שליחת סטטוס למנהל:', {
+      adminConnections: this.adminConnections.size,
+      lockerConnections: this.lockerConnections.size,
+      timestamp: new Date().toISOString()
+    });
+    
+    const status = {
+      type: 'statusResponse',
+      success: true,
+      connectedLockers: this.lockerConnections.size,
+      lockers: this.getLockerStates(),
+      serverTime: new Date().toISOString()
+    };
+    
+    ws.send(JSON.stringify(status));
+    console.log('📤 נשלח סטטוס למנהל');
+  }
+
+  /**
    * טיפול בעדכון סטטוס
    */
   private async handleStatusUpdate(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
@@ -412,69 +441,71 @@ class WebSocketManager {
    * טיפול בפקודת פתיחה
    */
   private async handleUnlockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    const cellId = data.cellId || data.cellCode;
+    
     console.log('🔍 בדיקת בקשה לפתיחת תא:', {
       isAdmin: ws.isAdmin,
       lockerId: data.lockerId,
-      cellId: data.cellId,
+      cellId: cellId,
       timestamp: new Date().toISOString()
     });
 
-    if (ws.isAdmin && data.lockerId && data.cellId) {
+    if (ws.isAdmin && data.lockerId && cellId) {
       try {
         // במצב Mock - בדיקה בסיסית
-        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${data.cellId} בלוקר ${data.lockerId}`, {
+        this.logEvent('unlock_request', `🔓 בקשת פתיחה לתא ${cellId} בלוקר ${data.lockerId}`, {
           lockerId: data.lockerId,
-          cellId: data.cellId,
+          cellId: cellId,
           timestamp: new Date().toISOString(),
           adminIP: (ws as any)._socket?.remoteAddress || 'unknown'
         });
 
-        console.log(`📤 שולח פקודת פתיחה ללוקר ${data.lockerId} לתא ${data.cellId}`);
+        console.log(`📤 שולח פקודת פתיחה ללוקר ${data.lockerId} לתא ${cellId}`);
 
         // שליחת פקודה ללוקר
         const success = this.sendToLockerInternal(data.lockerId, {
           type: 'unlock',
-          cellId: data.cellId
+          cellId: cellId
         });
 
         if (success) {
-          this.logEvent('unlock_success', `✅ נפתח תא ${data.cellId} בלוקר ${data.lockerId}`, {
+          this.logEvent('unlock_success', `✅ נפתח תא ${cellId} בלוקר ${data.lockerId}`, {
             lockerId: data.lockerId,
-            cellId: data.cellId,
+            cellId: cellId,
             timestamp: new Date().toISOString()
           });
-          console.log(`✅ פתיחת תא ${data.cellId} בלוקר ${data.lockerId} הצליחה`);
+          console.log(`✅ פתיחת תא ${cellId} בלוקר ${data.lockerId} הצליחה`);
         } else {
-          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${data.cellId} - לוקר לא מחובר`, {
+          this.logEvent('unlock_failed', `❌ כישלון בפתיחת תא ${cellId} - לוקר לא מחובר`, {
             lockerId: data.lockerId,
-            cellId: data.cellId,
+            cellId: cellId,
             timestamp: new Date().toISOString(),
             availableLockers: Array.from(this.lockerConnections.keys())
           });
-          console.log(`❌ כישלון בפתיחת תא ${data.cellId} - לוקר ${data.lockerId} לא מחובר`);
+          console.log(`❌ כישלון בפתיחת תא ${cellId} - לוקר ${data.lockerId} לא מחובר`);
         }
-      } catch (error) {
-        this.logEvent('error', `❌ שגיאה בפתיחת תא ${data.cellId}`, { 
-          error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+              } catch (error) {
+          this.logEvent('error', `❌ שגיאה בפתיחת תא ${cellId}`, { 
+            error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+            lockerId: data.lockerId,
+            cellId: cellId,
+            timestamp: new Date().toISOString()
+          });
+          console.error(`❌ שגיאה בפתיחת תא ${cellId}:`, error);
+        }
+      } else {
+        console.log('⚠️ בקשה לא תקינה לפתיחת תא:', {
+          isAdmin: ws.isAdmin,
           lockerId: data.lockerId,
-          cellId: data.cellId,
+          cellId: cellId
+        });
+        this.logEvent('unlock_invalid_request', `⚠️ בקשה לא תקינה לפתיחת תא`, {
+          isAdmin: ws.isAdmin,
+          lockerId: data.lockerId,
+          cellId: cellId,
           timestamp: new Date().toISOString()
         });
-        console.error(`❌ שגיאה בפתיחת תא ${data.cellId}:`, error);
       }
-    } else {
-      console.log('⚠️ בקשה לא תקינה לפתיחת תא:', {
-        isAdmin: ws.isAdmin,
-        lockerId: data.lockerId,
-        cellId: data.cellId
-      });
-      this.logEvent('unlock_invalid_request', `⚠️ בקשה לא תקינה לפתיחת תא`, {
-        isAdmin: ws.isAdmin,
-        lockerId: data.lockerId,
-        cellId: data.cellId,
-        timestamp: new Date().toISOString()
-      });
-    }
   }
 
   /**
