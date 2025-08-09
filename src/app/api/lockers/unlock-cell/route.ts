@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import wsManager from '@/lib/websocket-server';
 
+/**
+ * המרת מספר תא לשם תא (כמו A1, B2, וכו')
+ * @param cellNumber מספר התא (1-26 עבור A-Z)
+ * @returns שם התא (A1, A2, ..., Z26)
+ */
+function convertCellNumberToName(cellNumber: string | number): string {
+  const num = typeof cellNumber === 'string' ? parseInt(cellNumber) : cellNumber;
+  
+  if (isNaN(num) || num <= 0) {
+    return cellNumber.toString(); // החזר כמו שהגיע אם לא תקין
+  }
+  
+  // לוגיקה פשוטה: A1, A2, ..., A26, B1, B2, וכו'
+  const letterIndex = Math.floor((num - 1) / 26);
+  const numberInRow = ((num - 1) % 26) + 1;
+  const letter = String.fromCharCode(65 + letterIndex); // A=65, B=66, וכו'
+  
+  return `${letter}${numberInRow}`;
+}
+
 // Dynamic import של Prisma כדי לא לשבור את הבניה
 let prisma: any = null
 
@@ -109,7 +129,7 @@ export async function POST(request: NextRequest) {
         const requestBody = {
           type: 'unlock',
           id: lockerId === 1 ? 'LOC632' : `LOC${String(lockerId).padStart(3, '0')}`,
-          cell: cellId
+          cell: convertCellNumberToName(cellId)
         };
         
         console.log('📤 שולח לשרת Railway:', requestBody);
