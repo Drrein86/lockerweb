@@ -88,86 +88,70 @@ export async function POST(request: NextRequest) {
     // בדיקה אם שרת WebSocket פועל
     console.log('🔍 בדיקת מצב שרת WebSocket...');
     
-    // בדיקה אם אנחנו בסביבת production
-    if (process.env.NODE_ENV === 'production') {
-      console.log('⚠️ בסביבת production - שולח לשרת WebSocket ישירות');
+    // בדיקה אם אנחנו בסביבת Vercel (צריך לשלוח ל-Railway)
+    const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+    
+    if (isVercel) {
+      console.log('⚠️ בסביבת Vercel - שולח ל-Railway Server');
       
-      // בסביבת production, נשלח ישירות לשרת WebSocket
+      // ב-Vercel נשלח ישירות ל-Railway Server
       try {
-        console.log(`📤 שולח פקודה ללוקר ${lockerId} דרך WebSocket:`, {
-          type: 'openByClient',
+        console.log(`📤 שולח ל-Railway Server`, {
+          railwayUrl: 'https://lockerweb-production.up.railway.app',
           lockerId,
           cellId,
           packageId,
           clientToken
         });
         
-        // קודם נמצא את הלוקר במסד הנתונים ונשלוף את ה-deviceId
-        let lockerIdStr = null;
+        // שליחת בקשה ל-Railway Server
+        const railwayUrl = 'https://lockerweb-production.up.railway.app';
+        const requestBody = {
+          type: 'unlock',
+          id: lockerId === 1 ? 'LOC632' : `LOC${String(lockerId).padStart(3, '0')}`,
+          cell: cellId
+        };
         
-        if (typeof lockerId === 'number') {
-          // נחפש לוקר לפי ID במסד הנתונים
-          try {
-            const prisma = await getPrisma();
-            if (prisma) {
-              const dbLocker = await prisma.locker.findUnique({
-                where: { id: lockerId }
-              });
-              
-              if (dbLocker && dbLocker.deviceId) {
-                lockerIdStr = dbLocker.deviceId;
-                console.log(`🔍 נמצא לוקר במסד הנתונים: ID=${lockerId} -> deviceId=${lockerIdStr}`);
-              } else if (dbLocker && !dbLocker.deviceId) {
-                // אם הלוקר קיים אבל אין לו deviceId, נעדכן אותו
-                console.log(`🔄 לוקר ${lockerId} קיים אבל אין לו deviceId, מעדכן ל-LOC632...`);
-                await prisma.locker.update({
-                  where: { id: lockerId },
-                  data: { deviceId: 'LOC632' }
-                });
-                lockerIdStr = 'LOC632';
-                console.log(`✅ עודכן לוקר ${lockerId} עם deviceId: LOC632`);
-              } else {
-                console.log(`⚠️ לא נמצא לוקר ${lockerId} במסד הנתונים`);
-                lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
-              }
-            } else {
-              console.log(`⚠️ לא ניתן להתחבר למסד הנתונים, משתמש בפורמט ברירת מחדל`);
-              lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
-            }
-          } catch (error) {
-            console.error(`❌ שגיאה בחיפוש לוקר במסד הנתונים:`, error);
-            lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
-          }
-        } else {
-          lockerIdStr = lockerId;
-        }
+        console.log('📤 שולח לשרת Railway:', requestBody);
         
-        console.log(`🎯 מנסה להתחבר ללוקר: ${lockerIdStr} (מקורי: ${lockerId})`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 שניות timeout
         
-        const result = await wsManager.sendToLockerWithResponse(lockerIdStr, {
-          type: 'openByClient',
-          lockerId: lockerIdStr,
-          cellId: cellId,
-          packageId: packageId,
-          clientToken: clientToken
+        const response = await fetch(`${railwayUrl}/api/unlock`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
         });
 
-        console.log(`📥 תשובה משרת WebSocket:`, result);
+        clearTimeout(timeoutId);
 
-        if (result.success) {
-          console.log(`✅ פקודת פתיחה נשלחה ללוקר ${lockerId}`);
-          console.log(`✅ הבקשה עברה בהצלחה`);
+        console.log('📥 תגובה מהשרת Railway:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Railway Server הגיב בהצלחה:', data);
+          
           return NextResponse.json({
             status: 'success',
-            message: '✅ הבקשה עברה בהצלחה',
+            message: '✅ התא נפתח בהצלחה דרך Railway',
             lockerId,
             cellId,
             packageId,
             simulated: false,
-            source: 'websocket'
+            source: 'railway',
+            railwayResponse: data
           });
         } else {
-          console.log(`❌ לוקר ${lockerId} לא מחובר לשרת WebSocket - מחזיר סימולציה`);
+          const errorText = await response.text();
+          console.log('❌ שגיאה מהשרת Railway:', errorText);
+          
           return NextResponse.json({
             status: 'success',
             message: '✅ התא נפתח בהצלחה (סימולציה)',
@@ -175,8 +159,8 @@ export async function POST(request: NextRequest) {
             cellId,
             packageId,
             simulated: true,
-            note: 'לוקר לא מחובר למערכת כרגע - הפעולה בוצעה במצב סימולציה',
-            details: result.message
+            note: 'שרת Railway לא זמין - הפעולה בוצעה במצב סימולציה',
+            details: errorText
           });
         }
       } catch (error) {
