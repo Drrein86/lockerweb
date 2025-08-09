@@ -8,6 +8,26 @@ import esp32Controller from './esp32-controller';
 // טעינת משתני סביבה
 config();
 
+/**
+ * המרת מספר תא לשם תא (כמו A1, B2, וכו')
+ * @param cellNumber מספר התא (1-26 עבור A-Z)
+ * @returns שם התא (A1, A2, ..., Z26)
+ */
+function convertCellNumberToName(cellNumber: string | number): string {
+  const num = typeof cellNumber === 'string' ? parseInt(cellNumber) : cellNumber;
+  
+  if (isNaN(num) || num <= 0) {
+    return cellNumber.toString(); // החזר כמו שהגיע אם לא תקין
+  }
+  
+  // לוגיקה פשוטה: A1, A2, ..., A26, B1, B2, וכו'
+  const letterIndex = Math.floor((num - 1) / 26);
+  const numberInRow = ((num - 1) % 26) + 1;
+  const letter = String.fromCharCode(65 + letterIndex); // A=65, B=66, וכו'
+  
+  return `${letter}${numberInRow}`;
+}
+
 // טיפוסים
 interface LockerCell {
   locked: boolean;
@@ -955,9 +975,24 @@ class WebSocketManager {
   private sendToLockerInternal(id: string, messageObj: any): boolean {
     const conn = this.lockerConnections.get(id);
     
+    // המרת cellId למספר תא לשם תא לפני השליחה
+    let processedMessage = { ...messageObj };
+    if (processedMessage.cellId && (processedMessage.type === 'unlock' || processedMessage.type === 'lock')) {
+      const originalCellId = processedMessage.cellId;
+      processedMessage.cell = convertCellNumberToName(processedMessage.cellId);
+      
+      console.log('🔄 המרת cellId לשם תא:', {
+        originalCellId,
+        convertedCell: processedMessage.cell,
+        messageType: processedMessage.type
+      });
+    }
+    
     console.log('📤 ניסיון שליחה ללוקר:', {
       lockerId: id,
-      messageType: messageObj.type,
+      messageType: processedMessage.type,
+      cellId: processedMessage.cellId,
+      cell: processedMessage.cell,
       hasConnection: !!conn,
       connectionState: conn?.readyState,
       totalConnections: this.lockerConnections.size,
@@ -967,7 +1002,9 @@ class WebSocketManager {
     
     this.logEvent('send_attempt', `📤 ניסיון שליחה ללוקר ${id}`, {
       lockerId: id,
-      messageType: messageObj.type,
+      messageType: processedMessage.type,
+      cellId: processedMessage.cellId,
+      cell: processedMessage.cell,
       hasConnection: !!conn,
       connectionState: conn?.readyState,
       totalConnections: this.lockerConnections.size,
@@ -975,19 +1012,23 @@ class WebSocketManager {
     });
     
     if (conn?.readyState === WebSocket.OPEN) {
-      const messageStr = JSON.stringify(messageObj);
+      const messageStr = JSON.stringify(processedMessage);
       conn.send(messageStr);
       
       console.log('✅ הודעה נשלחה ללוקר:', {
         lockerId: id,
-        messageType: messageObj.type,
+        messageType: processedMessage.type,
+        cellId: processedMessage.cellId,
+        cell: processedMessage.cell,
         messageLength: messageStr.length,
         timestamp: new Date().toISOString()
       });
       
       this.logEvent('send_success', `✅ הודעה נשלחה ללוקר ${id}`, {
         lockerId: id,
-        messageType: messageObj.type
+        messageType: processedMessage.type,
+        cellId: processedMessage.cellId,
+        cell: processedMessage.cell
       });
       return true;
     } else {
