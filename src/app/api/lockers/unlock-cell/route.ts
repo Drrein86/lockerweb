@@ -102,10 +102,45 @@ export async function POST(request: NextRequest) {
           clientToken
         });
         
-        // המרת lockerId למחרוזת בפורמט הנכון
-        const lockerIdStr = typeof lockerId === 'number' 
-          ? `LOC${String(lockerId).padStart(3, '0')}` 
-          : lockerId;
+        // קודם נמצא את הלוקר במסד הנתונים ונשלוף את ה-deviceId
+        let lockerIdStr = null;
+        
+        if (typeof lockerId === 'number') {
+          // נחפש לוקר לפי ID במסד הנתונים
+          try {
+            const prisma = await getPrisma();
+            if (prisma) {
+              const dbLocker = await prisma.locker.findUnique({
+                where: { id: lockerId }
+              });
+              
+              if (dbLocker && dbLocker.deviceId) {
+                lockerIdStr = dbLocker.deviceId;
+                console.log(`🔍 נמצא לוקר במסד הנתונים: ID=${lockerId} -> deviceId=${lockerIdStr}`);
+              } else if (dbLocker && !dbLocker.deviceId) {
+                // אם הלוקר קיים אבל אין לו deviceId, נעדכן אותו
+                console.log(`🔄 לוקר ${lockerId} קיים אבל אין לו deviceId, מעדכן ל-LOC632...`);
+                await prisma.locker.update({
+                  where: { id: lockerId },
+                  data: { deviceId: 'LOC632' }
+                });
+                lockerIdStr = 'LOC632';
+                console.log(`✅ עודכן לוקר ${lockerId} עם deviceId: LOC632`);
+              } else {
+                console.log(`⚠️ לא נמצא לוקר ${lockerId} במסד הנתונים`);
+                lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+              }
+            } else {
+              console.log(`⚠️ לא ניתן להתחבר למסד הנתונים, משתמש בפורמט ברירת מחדל`);
+              lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+            }
+          } catch (error) {
+            console.error(`❌ שגיאה בחיפוש לוקר במסד הנתונים:`, error);
+            lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+          }
+        } else {
+          lockerIdStr = lockerId;
+        }
         
         console.log(`🎯 מנסה להתחבר ללוקר: ${lockerIdStr} (מקורי: ${lockerId})`);
         
@@ -169,10 +204,45 @@ export async function POST(request: NextRequest) {
         clientToken
       });
       
-      // המרת lockerId למחרוזת בפורמט הנכון
-      const lockerIdStr = typeof lockerId === 'number' 
-        ? `LOC${String(lockerId).padStart(3, '0')}` 
-        : lockerId;
+      // קודם נמצא את הלוקר במסד הנתונים ונשלוף את ה-deviceId
+      let lockerIdStr = null;
+      
+      if (typeof lockerId === 'number') {
+        // נחפש לוקר לפי ID במסד הנתונים
+        try {
+          const prisma = await getPrisma();
+          if (prisma) {
+            const dbLocker = await prisma.locker.findUnique({
+              where: { id: lockerId }
+            });
+            
+            if (dbLocker && dbLocker.deviceId) {
+              lockerIdStr = dbLocker.deviceId;
+              console.log(`🔍 נמצא לוקר במסד הנתונים: ID=${lockerId} -> deviceId=${lockerIdStr}`);
+            } else if (dbLocker && !dbLocker.deviceId) {
+              // אם הלוקר קיים אבל אין לו deviceId, נעדכן אותו
+              console.log(`🔄 לוקר ${lockerId} קיים אבל אין לו deviceId, מעדכן ל-LOC632...`);
+              await prisma.locker.update({
+                where: { id: lockerId },
+                data: { deviceId: 'LOC632' }
+              });
+              lockerIdStr = 'LOC632';
+              console.log(`✅ עודכן לוקר ${lockerId} עם deviceId: LOC632`);
+            } else {
+              console.log(`⚠️ לא נמצא לוקר ${lockerId} במסד הנתונים`);
+              lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+            }
+          } else {
+            console.log(`⚠️ לא ניתן להתחבר למסד הנתונים, משתמש בפורמט ברירת מחדל`);
+            lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+          }
+        } catch (error) {
+          console.error(`❌ שגיאה בחיפוש לוקר במסד הנתונים:`, error);
+          lockerIdStr = `LOC${String(lockerId).padStart(3, '0')}`;
+        }
+      } else {
+        lockerIdStr = lockerId;
+      }
       
       console.log(`🎯 מנסה להתחבר ללוקר: ${lockerIdStr} (מקורי: ${lockerId})`);
       
