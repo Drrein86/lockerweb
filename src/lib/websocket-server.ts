@@ -259,9 +259,20 @@ class WebSocketManager {
           this.handleOpenResponse(ws, data);
           break;
           
+        case 'lockSuccess':
+        case 'lockFailed':
+          console.log('🔒 עיבוד תגובת נעילה מהלוקר');
+          this.handleLockResponse(ws, data);
+          break;
+          
         case 'cellClosed':
           console.log('🔒 עיבוד הודעת סגירת תא');
           this.handleCellClosed(ws, data);
+          break;
+          
+        case 'cellLocked':
+          console.log('🔐 עיבוד הודעת נעילת תא');
+          this.handleCellLocked(ws, data);
           break;
           
         case 'failedToUnlock':
@@ -326,26 +337,44 @@ class WebSocketManager {
     if (data.id && CONFIG.ALLOWED_LOCKER_IDS.includes(data.id)) {
       try {
         // עדכון או יצירת לוקר ב-DB
-        // במצב Mock - רק לוג הרישום
+        await this.saveLockerToDB(data.id, {
+          ip: clientIP,
+          port: clientPort,
+          status: 'ONLINE',
+          cells: data.cells || {},
+          lastSeen: new Date(),
+          isActive: true
+        });
         
-        this.logEvent('register_mock', `📝 נרשם לוקר ${data.id}`, {
+        this.logEvent('register_success', `📝 נרשם לוקר ${data.id} ונשמר ב-DB`, {
           lockerId: data.id,
           ip: clientIP,
           port: clientPort,
-          status: 'ONLINE'
+          status: 'ONLINE',
+          cellsCount: Object.keys(data.cells || {}).length
         });
 
         ws.lockerId = data.id;
         ws.lastSeen = new Date();
         ws.cells = data.cells || {};
         
+        // שמירת פרטי התאים בזיכרון
+        this.updateLockerMemoryStatus(data.id, {
+          isConnected: true,
+          lastConnected: new Date(),
+          cells: data.cells || {},
+          ip: clientIP,
+          status: 'ONLINE'
+        });
+        
         this.lockerConnections.set(data.id, ws);
         
-        console.log(`📡 נרשם לוקר ${data.id} מכתובת ${clientIP}`);
+        console.log(`📡 נרשם לוקר ${data.id} מכתובת ${clientIP} עם ${Object.keys(data.cells || {}).length} תאים`);
         this.logEvent('register', `📡 נרשם לוקר ${data.id} מכתובת ${clientIP}`, {
           lockerId: data.id,
           clientIP,
           clientPort,
+          cellsCount: Object.keys(data.cells || {}).length,
           timestamp: new Date().toISOString()
         });
         
@@ -588,25 +617,112 @@ class WebSocketManager {
    * טיפול בפקודת נעילה
    */
   private async handleLockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
-    if (ws.isAdmin && data.lockerId && data.cellId && data.packageId) {
+    const cellId = data.cellId || data.cellCode;
+    
+    console.log('🔒 בדיקת בקשה לנעילת תא:', {
+      isAdmin: ws.isAdmin,
+      lockerId: data.lockerId,
+      cellId: cellId,
+      packageId: data.packageId,
+      hasLockerId: !!data.lockerId,
+      hasCellId: !!cellId,
+      hasPackageId: !!data.packageId,
+      timestamp: new Date().toISOString()
+    });
+
+    if (ws.isAdmin && data.lockerId && cellId && data.packageId) {
       try {
-        // במצב Mock - בדיקה בסיסית
-        this.logEvent('lock_request', `🔒 בקשת נעילה לתא ${data.cellId} בלוקר ${data.lockerId} עם חבילה ${data.packageId}`);
+        console.log('✅ תנאי נעילת תא תקין - ממשיך');
+        
+        this.logEvent('lock_request', `🔒 בקשת נעילה לתא ${cellId} בלוקר ${data.lockerId} עם חבילה ${data.packageId}`, {
+          lockerId: data.lockerId,
+          cellId: cellId,
+          packageId: data.packageId,
+          timestamp: new Date().toISOString(),
+          adminIP: (ws as any)._socket?.remoteAddress || 'unknown'
+        });
+
+        console.log(`📤 שולח פקודת נעילה ללוקר ${data.lockerId} לתא ${cellId}`);
 
         // שליחת פקודה ללוקר
         const success = this.sendToLockerInternal(data.lockerId, {
           type: 'lock',
-          cellId: data.cellId,
+          cellId: cellId,
           packageId: data.packageId
         });
 
         if (success) {
-        this.logEvent('lock', `🔒 ננעל תא ${data.cellId} בלוקר ${data.lockerId}`);
+          this.logEvent('lock_success', `✅ ננעל תא ${cellId} בלוקר ${data.lockerId}`, {
+            lockerId: data.lockerId,
+            cellId: cellId,
+            packageId: data.packageId,
+            timestamp: new Date().toISOString()
+          });
+          console.log(`✅ נעילת תא ${cellId} בלוקר ${data.lockerId} הצליחה`);
+          
+          // שליחת תגובה למנהל
+          ws.send(JSON.stringify({
+            type: 'lockResponse',
+            status: 'success',
+            lockerId: data.lockerId,
+            cellId: cellId,
+            packageId: data.packageId,
+            message: `תא ${cellId} ננעל בהצלחה עם חבילה ${data.packageId}`
+          }));
         } else {
-          this.logEvent('lock_failed', `❌ כישלון בנעילת תא ${data.cellId} - לוקר לא מחובר`);
+          this.logEvent('lock_failed', `❌ כישלון בנעילת תא ${cellId} - לוקר לא מחובר`, {
+            lockerId: data.lockerId,
+            cellId: cellId,
+            packageId: data.packageId,
+            timestamp: new Date().toISOString(),
+            availableLockers: Array.from(this.lockerConnections.keys())
+          });
+          console.log(`❌ נעילת תא ${cellId} בלוקר ${data.lockerId} נכשלה - לוקר לא מחובר`);
+          
+          // שליחת תגובת שגיאה למנהל
+          ws.send(JSON.stringify({
+            type: 'lockResponse',
+            status: 'error',
+            lockerId: data.lockerId,
+            cellId: cellId,
+            packageId: data.packageId,
+            message: `לוקר ${data.lockerId} לא מחובר`
+          }));
         }
       } catch (error) {
-        this.logEvent('error', `❌ שגיאה בנעילת תא ${data.cellId}`, { error });
+        this.logEvent('error', `❌ שגיאה בנעילת תא ${cellId}`, { 
+          error: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+          lockerId: data.lockerId,
+          cellId: cellId,
+          packageId: data.packageId
+        });
+        console.error('❌ שגיאה בנעילת תא:', error);
+        
+        // שליחת תגובת שגיאה למנהל
+        ws.send(JSON.stringify({
+          type: 'lockResponse',
+          status: 'error',
+          lockerId: data.lockerId,
+          cellId: cellId,
+          packageId: data.packageId,
+          message: 'שגיאה פנימית בנעילת התא'
+        }));
+      }
+    } else {
+      console.log('❌ תנאי נעילת תא לא תקין:', {
+        isAdmin: ws.isAdmin,
+        hasLockerId: !!data.lockerId,
+        hasCellId: !!cellId,
+        hasPackageId: !!data.packageId
+      });
+      
+      // שליחת תגובת שגיאה למנהל אם זה ממנהל
+      if (ws.isAdmin) {
+        ws.send(JSON.stringify({
+          type: 'lockResponse',
+          status: 'error',
+          message: 'חסרים פרמטרים נדרשים לנעילת התא'
+        }));
       }
     }
   }
@@ -777,6 +893,143 @@ class WebSocketManager {
 
     } catch (error) {
       this.logEvent('error', `❌ שגיאה בעיבוד תגובת פתיחה`, { error });
+    }
+  }
+
+  /**
+   * טיפול בתגובת נעילה מהלוקר
+   */
+  private async handleLockResponse(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    console.log('🔒 התקבלה תגובת נעילה מהלוקר:', {
+      type: data.type,
+      lockerId: data.lockerId || ws.lockerId,
+      cellId: data.cellId,
+      packageId: data.packageId,
+      timestamp: new Date().toISOString(),
+      source: 'Railway'
+    });
+    
+    try {
+      const isSuccess = data.type === 'lockSuccess';
+      const lockerId = data.lockerId || ws.lockerId;
+      const cellId = data.cellId;
+      const packageId = data.packageId;
+
+      console.log('🔍 עיבוד תגובת נעילה:', {
+        lockerId,
+        cellId,
+        packageId,
+        isSuccess,
+        timestamp: new Date().toISOString()
+      });
+
+      if (isSuccess) {
+        // עדכון מצב התא במטמון
+        if (ws.cells && cellId) {
+          ws.cells[cellId] = {
+            locked: true,
+            opened: false,
+            hasPackage: !!packageId,
+            packageId: packageId,
+            lastUpdate: new Date()
+          };
+        }
+
+        this.logEvent('cell_locked', `🔐 תא ${cellId} ננעל בהצלחה בלוקר ${lockerId}`, {
+          lockerId,
+          cellId,
+          packageId,
+          timestamp: new Date().toISOString()
+        });
+
+        // שידור לכל המנהלים
+        this.broadcastToAdmins({
+          type: 'cellStatusUpdate',
+          lockerId,
+          cellId,
+          locked: true,
+          hasPackage: !!packageId,
+          packageId,
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log(`✅ תא ${cellId} ננעל בהצלחה בלוקר ${lockerId}`);
+      } else {
+        this.logEvent('lock_failed_response', `❌ נכשלה נעילת תא ${cellId} בלוקר ${lockerId}`, {
+          lockerId,
+          cellId,
+          packageId,
+          reason: data.reason || 'לא צוין',
+          timestamp: new Date().toISOString()
+        });
+
+        // שידור לכל המנהלים
+        this.broadcastToAdmins({
+          type: 'cellLockFailed',
+          lockerId,
+          cellId,
+          packageId,
+          reason: data.reason || 'לא צוין',
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log(`❌ נכשלה נעילת תא ${cellId} בלוקר ${lockerId}: ${data.reason || 'לא צוין'}`);
+      }
+
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעיבוד תגובת נעילה מהלוקר`, { error });
+      console.error('❌ שגיאה בעיבוד תגובת נעילה:', error);
+    }
+  }
+
+  /**
+   * טיפול בהודעת נעילת תא מהלוקר
+   */
+  private async handleCellLocked(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
+    console.log('🔐 התקבלה הודעת נעילת תא מהלוקר:', {
+      lockerId: data.lockerId || ws.lockerId,
+      cellId: data.cellId,
+      packageId: data.packageId,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      const lockerId = data.lockerId || ws.lockerId;
+      const cellId = data.cellId;
+      const packageId = data.packageId;
+
+      // עדכון מצב התא במטמון
+      if (ws.cells && cellId) {
+        ws.cells[cellId] = {
+          locked: true,
+          opened: false,
+          hasPackage: !!packageId,
+          packageId: packageId,
+          lastUpdate: new Date()
+        };
+      }
+
+      this.logEvent('cell_auto_locked', `🔐 תא ${cellId} ננעל אוטומטית בלוקר ${lockerId}`, {
+        lockerId,
+        cellId,
+        packageId,
+        timestamp: new Date().toISOString()
+      });
+
+      // שידור לכל המנהלים
+      this.broadcastToAdmins({
+        type: 'cellAutoLocked',
+        lockerId,
+        cellId,
+        packageId,
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log(`🔐 תא ${cellId} ננעל אוטומטי בלוקר ${lockerId}`);
+
+    } catch (error) {
+      this.logEvent('error', `❌ שגיאה בעיבוד הודעת נעילת תא`, { error });
+      console.error('❌ שגיאה בעיבוד הודעת נעילת תא:', error);
     }
   }
 
@@ -1392,6 +1645,215 @@ class WebSocketManager {
     }
     
     console.log(`📤 נשלח עדכון ל-${sentCount} מנהלים`);
+  }
+
+  /**
+   * שמירת נתוני לוקר ב-DB
+   */
+  private async saveLockerToDB(lockerId: string, data: any): Promise<void> {
+    try {
+      // זהו mock implementation - בגרסה אמיתית זה יתחבר ל-Prisma
+      console.log('💾 שמירת לוקר ב-DB:', {
+        lockerId,
+        ip: data.ip,
+        status: data.status,
+        cellsCount: Object.keys(data.cells).length,
+        timestamp: new Date().toISOString()
+      });
+
+      // TODO: הוסף חיבור ל-Prisma כשהוא יהיה זמין
+      /*
+      await prisma.locker.upsert({
+        where: { deviceId: lockerId },
+        update: {
+          ip: data.ip,
+          status: data.status,
+          lastSeen: data.lastSeen,
+          isActive: data.isActive
+        },
+        create: {
+          deviceId: lockerId,
+          name: `לוקר ${lockerId}`,
+          ip: data.ip,
+          port: data.port,
+          status: data.status,
+          lastSeen: data.lastSeen,
+          isActive: data.isActive
+        }
+      });
+
+      // שמירת תאים
+      for (const [cellNumber, cellData] of Object.entries(data.cells)) {
+        await prisma.cell.upsert({
+          where: { 
+            lockerId_cellNumber: { 
+              lockerId: locker.id, 
+              cellNumber: parseInt(cellNumber) 
+            } 
+          },
+          update: {
+            status: cellData.locked ? 'LOCKED' : 'UNLOCKED',
+            hasPackage: cellData.hasPackage,
+            packageId: cellData.packageId
+          },
+          create: {
+            lockerId: locker.id,
+            cellNumber: parseInt(cellNumber),
+            name: `תא ${cellNumber}`,
+            code: convertCellNumberToName(cellNumber),
+            size: 'MEDIUM',
+            status: cellData.locked ? 'LOCKED' : 'UNLOCKED',
+            hasPackage: cellData.hasPackage,
+            packageId: cellData.packageId,
+            isActive: true
+          }
+        });
+      }
+      */
+
+      this.logEvent('db_save_success', `💾 נתוני לוקר ${lockerId} נשמרו בהצלחה`, {
+        lockerId,
+        cellsCount: Object.keys(data.cells).length
+      });
+
+    } catch (error) {
+      console.error('❌ שגיאה בשמירת לוקר ב-DB:', error);
+      this.logEvent('db_save_error', `❌ שגיאה בשמירת לוקר ${lockerId}`, { 
+        error: error instanceof Error ? error.message : 'שגיאה לא ידועה' 
+      });
+    }
+  }
+
+  /**
+   * עדכון סטטוס לוקר בזיכרון
+   */
+  private updateLockerMemoryStatus(lockerId: string, status: any): void {
+    try {
+      // שמירה במטמון זיכרון גלובלי
+      if (!(globalThis as any).lockerMemoryStatus) {
+        (globalThis as any).lockerMemoryStatus = new Map();
+      }
+
+      const currentTime = new Date();
+      const lockerStatus: any = {
+        lockerId,
+        isConnected: status.isConnected,
+        lastConnected: status.lastConnected,
+        ip: status.ip,
+        status: status.status,
+        cells: {},
+        packages: {},
+        lastUpdate: currentTime
+      };
+
+      // עיבוד תאים
+      for (const [cellNumber, cellData] of Object.entries(status.cells || {})) {
+        const cellName = convertCellNumberToName(cellNumber);
+        const cell = cellData as any;
+        lockerStatus.cells[cellNumber] = {
+          cellNumber: parseInt(cellNumber),
+          cellName,
+          locked: cell.locked || false,
+          opened: cell.opened || false,
+          hasPackage: cell.hasPackage || false,
+          packageId: cell.packageId || null,
+          packageDetails: cell.packageId ? this.getPackageDetails(cell.packageId) : null,
+          lastUpdate: cell.lastUpdate || currentTime
+        };
+      }
+
+      (globalThis as any).lockerMemoryStatus.set(lockerId, lockerStatus);
+
+      console.log(`🧠 עודכן סטטוס לוקר ${lockerId} בזיכרון עם ${Object.keys(status.cells || {}).length} תאים`);
+      
+      this.logEvent('memory_status_update', `🧠 עודכן סטטוס לוקר ${lockerId} בזיכרון`, {
+        lockerId,
+        cellsCount: Object.keys(status.cells || {}).length,
+        packagesCount: Object.keys(lockerStatus.packages).length
+      });
+
+    } catch (error) {
+      console.error('❌ שגיאה בעדכון סטטוס זיכרון:', error);
+      this.logEvent('memory_update_error', `❌ שגיאה בעדכון סטטוס זיכרון לוקר ${lockerId}`, { 
+        error: error instanceof Error ? error.message : 'שגיאה לא ידועה' 
+      });
+    }
+  }
+
+  /**
+   * קבלת פרטי חבילה
+   */
+  private getPackageDetails(packageId: string): any {
+    try {
+      // זהו mock implementation - בגרסה אמיתית זה יחפש ב-DB
+      if (!(globalThis as any).packageMemoryCache) {
+        (globalThis as any).packageMemoryCache = new Map();
+      }
+
+      const cachedPackage = (globalThis as any).packageMemoryCache.get(packageId);
+      if (cachedPackage) {
+        return cachedPackage;
+      }
+
+      // TODO: חיפוש אמיתי ב-DB
+      /*
+      const packageDetails = await prisma.package.findUnique({
+        where: { id: packageId },
+        include: {
+          customer: true,
+          delivery: true
+        }
+      });
+      */
+
+      // mock data בינתיים
+      const mockPackage = {
+        id: packageId,
+        trackingCode: `TRK${packageId.slice(-6)}`,
+        customerName: 'לקוח לדוגמה',
+        customerPhone: '0501234567',
+        customerEmail: 'customer@example.com',
+        status: 'IN_LOCKER',
+        deliveryDate: new Date(),
+        notes: 'חבילה רגילה'
+      };
+
+      (globalThis as any).packageMemoryCache.set(packageId, mockPackage);
+      return mockPackage;
+
+    } catch (error) {
+      console.error('❌ שגיאה בקבלת פרטי חבילה:', error);
+      return null;
+    }
+  }
+
+  /**
+   * קבלת סטטוס מלא של כל הלוקרים מהזיכרון
+   */
+  public getFullMemoryStatus(): any {
+    try {
+      if (!(globalThis as any).lockerMemoryStatus) {
+        return { lockers: [], totalLockers: 0, totalCells: 0, totalPackages: 0 };
+      }
+
+      const lockers = Array.from((globalThis as any).lockerMemoryStatus.values());
+      const totalCells = lockers.reduce((sum: number, locker: any) => sum + Object.keys(locker.cells || {}).length, 0);
+      const totalPackages = lockers.reduce((sum: number, locker: any) => 
+        sum + Object.values(locker.cells || {}).filter((cell: any) => cell.hasPackage).length, 0
+      );
+
+      return {
+        lockers,
+        totalLockers: lockers.length,
+        totalCells,
+        totalPackages,
+        lastUpdate: new Date()
+      };
+
+    } catch (error) {
+      console.error('❌ שגיאה בקבלת סטטוס זיכרון:', error);
+      return { lockers: [], totalLockers: 0, totalCells: 0, totalPackages: 0, error: true };
+    }
   }
 }
 
