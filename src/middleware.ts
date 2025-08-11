@@ -41,13 +41,13 @@ export async function middleware(req: NextRequest) {
   }
 
   // אם המשתמש לא אושר, חסימה
-  if (user.status !== 'ACTIVE' as any && user.role !== 'ADMIN') {
+  if (user.status !== 'ACTIVE' as any && (user.role as any) !== 'ADMIN') {
     return NextResponse.redirect(new URL('/auth/pending-approval', req.url))
   }
 
   // בדיקת גישה לדפי אדמין
   if (pathname.startsWith('/admin')) {
-    if (user.role === 'ADMIN') {
+    if ((user.role as any) === 'ADMIN') {
       return NextResponse.next()
     }
     
@@ -64,14 +64,14 @@ export async function middleware(req: NextRequest) {
 
   // בדיקת גישה לדפי שליח
   if (pathname.startsWith('/courier')) {
-    if (user.role !== 'COURIER' && user.role !== 'ADMIN') {
+    if ((user.role as any) !== 'COURIER' && (user.role as any) !== 'ADMIN') {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
   }
 
   // בדיקת גישה לדפי עסק
   if (pathname.startsWith('/business')) {
-    if (user.role !== 'BUSINESS' && user.role !== 'ADMIN') {
+    if ((user.role as any) !== 'BUSINESS' && (user.role as any) !== 'ADMIN') {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
   }
