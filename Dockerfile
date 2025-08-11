@@ -11,6 +11,8 @@ COPY . .
 RUN npx prisma generate
 
 # Build the Next.js application
+ENV SKIP_WS_START=true
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npm run build
 
 EXPOSE 3000

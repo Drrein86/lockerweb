@@ -1948,8 +1948,13 @@ if (typeof window === 'undefined') {
     timestamp: new Date().toISOString()
   });
   try {
-    wsManager.start();
-    console.log('✅ שרת WebSocket הופעל בהצלחה');
+    // הפעל רק אם לא בזמן build
+    if (process.env.NODE_ENV !== 'production' || process.env.SKIP_WS_START !== 'true') {
+      wsManager.start();
+      console.log('✅ שרת WebSocket הופעל בהצלחה');
+    } else {
+      console.log('⏸️ WebSocket לא הופעל (build mode)');
+    }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
   }
