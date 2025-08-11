@@ -13,13 +13,13 @@ export async function GET() {
     console.log('✅ חיבור ל-Railway DB הצליח')
     
     const lockers = await prisma.locker.findMany({
-      include: {
-        cells: {
-          orderBy: { cellNumber: 'asc' }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+        include: {
+          cells: {
+            orderBy: { cellNumber: 'asc' }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
 
     console.log(`✅ נמצאו ${lockers.length} לוקרים ב-Railway`)
 
@@ -106,14 +106,14 @@ export async function POST(request: NextRequest) {
     // יצירת הלוקר
     console.log('🔨 מתחיל ליצור לוקר ב-Prisma...')
     const locker = await prisma.locker.create({
-      data: {
-        name,
-        location,
-        description,
-        ip,
+          data: {
+            name,
+            location,
+            description,
+            ip,
         port,
-        deviceId,
-        status: 'OFFLINE',
+            deviceId,
+        status: 'OFFLINE' as any,
         isActive: true
       }
     })
@@ -130,8 +130,8 @@ export async function POST(request: NextRequest) {
         cellNumber: i,
         code: cellCode,
         name: `תא ${i}`,
-        size: i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE',
-        status: 'AVAILABLE',
+        size: (i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE') as any,
+        status: 'AVAILABLE' as any,
         isLocked: true,
         isActive: true,
         lockerId: locker.id,
@@ -149,8 +149,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ לוקר ${name} נוצר ב-Railway עם ${cellsCount} תאים`)
 
-    return NextResponse.json({
-      success: true,
+        return NextResponse.json({
+          success: true,
       locker: {
         ...locker,
         cells,
@@ -214,7 +214,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, name, location, description, ip, port, deviceId, status, isActive } = body
 
-    if (!id) {
+      if (!id) {
       return NextResponse.json(
         { error: 'מזהה לוקר נדרש' },
         { status: 400 }
@@ -225,14 +225,14 @@ export async function PUT(request: NextRequest) {
 
     const updatedLocker = await prisma.locker.update({
       where: { id: parseInt(id) },
-      data: {
+          data: {
         ...(name && { name }),
         ...(location && { location }),
         ...(description !== undefined && { description }),
         ...(ip !== undefined && { ip }),
         ...(port !== undefined && { port }),
         ...(deviceId !== undefined && { deviceId }),
-        ...(status && { status }),
+        ...(status && { status: status as any }),
         ...(isActive !== undefined && { isActive })
       },
       include: {
@@ -244,8 +244,8 @@ export async function PUT(request: NextRequest) {
 
     console.log(`✅ לוקר ${id} עודכן ב-Railway`)
 
-    return NextResponse.json({
-      success: true,
+          return NextResponse.json({
+            success: true,
       locker: {
         ...updatedLocker,
         totalCells: updatedLocker.cells.length,
@@ -282,18 +282,18 @@ export async function DELETE(request: NextRequest) {
 
     // מחיקת כל התאים קודם
     await prisma.cell.deleteMany({
-      where: { lockerId: parseInt(id) }
-    })
+          where: { lockerId: parseInt(id) }
+        })
 
-    // מחיקת הלוקר
+        // מחיקת הלוקר
     await prisma.locker.delete({
-      where: { id: parseInt(id) }
-    })
+          where: { id: parseInt(id) }
+        })
 
     console.log(`✅ לוקר ${id} נמחק מ-Railway`)
 
-    return NextResponse.json({
-      success: true,
+      return NextResponse.json({
+        success: true,
       message: 'לוקר נמחק בהצלחה מ-Railway'
     })
   } catch (error) {
@@ -306,4 +306,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+} 
