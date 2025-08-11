@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import wsManager from '@/lib/websocket-server'
+import { hardwareClient } from '@/lib/hardware-client'
 
 /**
  * המרת מספר תא לשם תא (כמו A1, B2, וכו')
@@ -42,32 +42,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // שליחת הודעה דרך WebSocket ל-ESP32
-    const message = {
-      type: 'unlock',
-      cellId: convertCellNumberToName(cell),
-      timestamp: new Date().toISOString()
-    }
+    // שליחת פקודה דרך Hardware Service
+    console.log(`📡 שולח פקודת פתיחה ללוקר ${id}, תא ${cell}`)
 
-    console.log(`📡 שולח הודעה ללוקר ${id}:`, message)
-
-    // שליחה דרך WebSocket Manager
-    const result = await wsManager.sendMessageToLocker(id, message)
-
-    if (result.success) {
-      console.log('✅ הודעה נשלחה בהצלחה ללוקר:', id)
+    try {
+      const result = await hardwareClient.unlockCell(id, parseInt(cell))
+      
+      console.log('✅ פקודת פתיחה נשלחה בהצלחה:', result.message)
       return NextResponse.json({
         success: true,
         message: `תא ${cell} נפתח בהצלחה בלוקר ${id}`,
         lockerId: id,
-        cellId: cell
+        cellId: cell,
+        cellName: convertCellNumberToName(cell)
       })
-    } else {
-      console.log('❌ שגיאה בשליחת הודעה ללוקר:', result.error)
+      
+    } catch (error) {
+      console.log('❌ שגיאה בפתיחת תא דרך Hardware Service:', error)
       return NextResponse.json({
         success: false,
         error: 'הלוקר לא מחובר או לא זמין',
-        details: result.error
+        details: error instanceof Error ? error.message : 'Unknown error'
       }, { status: 503 })
     }
 

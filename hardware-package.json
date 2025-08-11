@@ -1,0 +1,21 @@
+{
+  "name": "locker-hardware-service",
+  "version": "1.0.0",
+  "description": "Microservice for ESP32 hardware communication",
+  "main": "hardware-microservice.js",
+  "scripts": {
+    "start": "node hardware-microservice.js",
+    "dev": "nodemon hardware-microservice.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "@prisma/client": "^6.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
