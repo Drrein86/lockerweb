@@ -41,8 +41,7 @@ export function verifyToken(token: string) {
 export async function loginUser(email: string, password: string) {
   try {
     const user = await prisma.user.findUnique({
-      where: { email },
-      include: { permissions: true }
+      where: { email }
     })
 
     if (!user) {
@@ -131,8 +130,7 @@ export async function getUserFromToken(token: string) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      include: { permissions: true }
+      where: { id: decoded.userId }
     })
 
     return user
