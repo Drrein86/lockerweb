@@ -17,10 +17,15 @@ export class HardwareClientOptional {
     if (!this.isEnabled) return false;
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
-        timeout: 2000 // timeout קצר
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       console.log('ℹ️ Hardware Microservice לא זמין, ממשיך עם השרת הראשי');
