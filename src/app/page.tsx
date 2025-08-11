@@ -53,7 +53,6 @@ export default function HomePage() {
                     <Link href="/admin" className="block hover:text-blue-300 transition-colors cursor-pointer">
                       • דף אדמין ראשי - ניהול 1
                     </Link>
-
                     <Link href="/admin/lockers-management" className="block hover:text-blue-300 transition-colors cursor-pointer">
                       • ניהול לוקרים - ניהול 2
                     </Link>
@@ -68,6 +67,28 @@ export default function HomePage() {
                     </Link>
                     <Link href="/admin/reports" className="block hover:text-blue-300 transition-colors cursor-pointer">
                       • דוחות - ניהול 6
+                    </Link>
+                    <Link href="/admin/users" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • ניהול משתמשים - ניהול 7
+                    </Link>
+                  </div>
+                </div>
+
+                {/* דפי הרשאות ואבטחה */}
+                <div>
+                  <h4 className="text-purple-300 font-bold mb-2">🔐 הרשאות:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <Link href="/auth/signin" className="block hover:text-purple-300 transition-colors cursor-pointer">
+                      • דף התחברות - הרשאות 1
+                    </Link>
+                    <Link href="/auth/error" className="block hover:text-purple-300 transition-colors cursor-pointer">
+                      • שגיאת אימות - הרשאות 2
+                    </Link>
+                    <Link href="/auth/pending-approval" className="block hover:text-purple-300 transition-colors cursor-pointer">
+                      • ממתין לאישור - הרשאות 3
+                    </Link>
+                    <Link href="/unauthorized" className="block hover:text-purple-300 transition-colors cursor-pointer">
+                      • אין הרשאה - הרשאות 4
                     </Link>
                   </div>
                 </div>
@@ -201,7 +222,7 @@ export default function HomePage() {
               
               <div className="mt-6 p-4 bg-white/5 rounded-lg">
                 <p className="text-white/60 text-xs text-center">
-                  📊 סה"כ: ~34 דפים באפליקציה | 🔧 ניהול: 6 | 🚚 שליח: 10 | 👤 לקוח: 3 | 🏢 עסק: 9 | 🎯 הדגמה: 3 | ⚙️ API: 5+
+                  📊 סה"כ: ~38 דפים באפליקציה | 🔧 ניהול: 7 | 🔐 הרשאות: 4 | 🚚 שליח: 10 | 👤 לקוח: 3 | 🏢 עסק: 9 | 🎯 הדגמה: 3 | ⚙️ API: 5+
                 </p>
               </div>
             </div>
@@ -216,7 +237,6 @@ export default function HomePage() {
                 <Link href="/admin" className="block text-white hover:text-blue-300 transition-colors">
                   • דף אדמין ראשי
                 </Link>
-
                 <Link 
                   href="/admin/lockers" 
                   className="block text-white hover:text-blue-300 transition-colors"
@@ -233,6 +253,9 @@ export default function HomePage() {
                 <Link href="/admin/packages" className="block text-white hover:text-blue-300 transition-colors">
                   • ניהול חבילות
                 </Link>
+                <Link href="/admin/users" className="block text-white hover:text-blue-300 transition-colors">
+                  • ניהול משתמשים 👥
+                </Link>
                 <Link href="/admin/settings" className="block text-white hover:text-blue-300 transition-colors">
                   • הגדרות
                 </Link>
@@ -241,6 +264,22 @@ export default function HomePage() {
                 </Link>
                 <Link href="/admin/reports" className="block text-white hover:text-blue-300 transition-colors">
                   • דוחות
+                </Link>
+              </div>
+            </div>
+
+            {/* דפי הרשאות */}
+            <div className="glass-card">
+              <h3 className="text-xl font-bold text-purple-300 mb-4">🔐 הרשאות</h3>
+              <div className="space-y-2">
+                <Link href="/auth/signin" className="block text-white hover:text-purple-300 transition-colors">
+                  • דף התחברות
+                </Link>
+                <Link href="/auth/pending-approval" className="block text-white hover:text-purple-300 transition-colors">
+                  • ממתין לאישור
+                </Link>
+                <Link href="/unauthorized" className="block text-white hover:text-purple-300 transition-colors">
+                  • אין הרשאה
                 </Link>
               </div>
             </div>

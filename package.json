@@ -16,9 +16,11 @@
     "railway:login": "railway login",
     "railway:deploy": "railway up",
     "railway:logs": "railway logs",
-    "railway:status": "railway status"
+    "railway:status": "railway status",
+    "railway:setup-auth": "node scripts/setup-railway-auth.js"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
     "@google-cloud/storage": "^7.16.0",
     "@prisma/client": "^6.10.0",
     "bcryptjs": "^2.4.3",
@@ -27,6 +29,7 @@
     "html5-qrcode": "^2.3.8",
     "jsonwebtoken": "^9.0.2",
     "next": "^14.2.30",
+    "next-auth": "^4.24.11",
     "nodemailer": "^6.10.1",
     "prisma": "^6.10.0",
     "react": "^18",
@@ -36,7 +39,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^18",

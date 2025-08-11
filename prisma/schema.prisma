@@ -14,32 +14,77 @@ datasource db {
 }
 
 enum UserRole {
-  ADMIN
-  COURIER
-  CUSTOMER_SERVICE
+  ADMIN      // אדמין - גישה מלאה
+  MANAGEMENT // ניהול - גישה ניהולית מוגבלת
+  COURIER    // שליח - גישה לדפי משלוחים
+  BUSINESS   // עסק - גישה לדפי עסק
+  CUSTOMER_SERVICE // שירות לקוחות - גישה מוגבלת
 }
 
 enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+  PENDING_APPROVAL // ממתין לאישור אדמין
 }
 
+// מודל למשתמשים עם מערכת הרשאות מתקדמת
 model User {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  role          UserRole
-  status        UserStatus  @default(ACTIVE)
-  lastLoginAt   DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  packages      Package[]
-  deliveries    Delivery[]
-  auditLogs     AuditLog[]
+  id              Int                @id @default(autoincrement())
+  email           String             @unique
+  password        String             // סיסמא מוצפנת
+  googleId        String?            @unique // Google OAuth ID (לעתיד)
+  firstName       String
+  lastName        String
+  phone           String?
+  profileImage    String?            // תמונת פרופיל
+  role            UserRole
+  status          UserStatus         @default(PENDING_APPROVAL)
+  lastLoginAt     DateTime?
+  isApproved      Boolean            @default(false) // האם אושר על ידי אדמין
+  approvedBy      Int?               // מי אישר אותו
+  approvedAt      DateTime?
+  approver        User?              @relation("UserApprovals", fields: [approvedBy], references: [id])
+  approvedUsers   User[]             @relation("UserApprovals")
+  permissions     UserPermission[]   // הרשאות ספציפיות לדפים
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  // קשרים קיימים
+  packages        Package[]
+  deliveries      Delivery[]
+  auditLogs       AuditLog[]
+}
+
+// מודל הרשאות לדפים ספציפיים
+model UserPermission {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pageRoute   String   // נתיב הדף (למשל '/admin/lockers')
+  canView     Boolean  @default(false) // האם יכול לצפות
+  canEdit     Boolean  @default(false) // האם יכול לערוך
+  canDelete   Boolean  @default(false) // האם יכול למחוק
+  canCreate   Boolean  @default(false) // האם יכול ליצור
+  description String?  // תיאור ההרשאה
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, pageRoute]) // משתמש יכול להיות רק הרשאה אחת לכל דף
+  @@index([pageRoute])
+}
+
+// מודל דפים במערכת להגדרת הרשאות
+model SystemPage {
+  id          Int      @id @default(autoincrement())
+  route       String   @unique // נתיב הדף
+  title       String   // כותרת הדף
+  description String?  // תיאור הדף
+  category    String   // קטגוריה (admin, courier, business וכו')
+  isActive    Boolean  @default(true)
+  requiresRole UserRole? // תפקיד מינימלי נדרש
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Customer {

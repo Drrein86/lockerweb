@@ -1,6 +1,7 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import dynamic from 'next/dynamic'
+import AuthProvider from '@/components/providers/AuthProvider'
 
 const ToastContainer = dynamic(() => import('@/components/Toast/Toast'), {
   ssr: false
@@ -30,10 +31,12 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl">
       <body className={inter.className}>
-        <ToastContainer />
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+        <AuthProvider>
+          <ToastContainer />
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </AuthProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `
