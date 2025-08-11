@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     // סדר לפי זמן (החדשים ראשונים)
     history = history
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit)
 
     return NextResponse.json({

@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     })
 
     // מיון לפי מספר תאים זמינים (יותר תאים = עדיפות גבוהה)
-    lockersWithStats.sort((a, b) => b.priority - a.priority)
+    lockersWithStats.sort((a: any, b: any) => b.priority - a.priority)
 
     return NextResponse.json({
       found: true,
