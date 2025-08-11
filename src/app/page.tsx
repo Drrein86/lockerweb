@@ -68,9 +68,7 @@ export default function HomePage() {
                     <Link href="/admin/reports" className="block hover:text-blue-300 transition-colors cursor-pointer">
                       • דוחות - ניהול 6
                     </Link>
-                    <Link href="/admin/users" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • ניהול משתמשים - ניהול 7
-                    </Link>
+
                   </div>
                 </div>
 
@@ -253,9 +251,7 @@ export default function HomePage() {
                 <Link href="/admin/packages" className="block text-white hover:text-blue-300 transition-colors">
                   • ניהול חבילות
                 </Link>
-                <Link href="/admin/users" className="block text-white hover:text-blue-300 transition-colors">
-                  • ניהול משתמשים 👥
-                </Link>
+
                 <Link href="/admin/settings" className="block text-white hover:text-blue-300 transition-colors">
                   • הגדרות
                 </Link>
