@@ -53,23 +53,21 @@ export default function HomePage() {
                     <Link href="/admin" className="block hover:text-blue-300 transition-colors cursor-pointer">
                       • דף אדמין ראשי - ניהול 1
                     </Link>
-                    <Link href="/admin/websocket" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • ניהול WebSocket - ניהול 2
-                    </Link>
+
                     <Link href="/admin/lockers-management" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • ניהול לוקרים - ניהול 3
+                      • ניהול לוקרים - ניהול 2
                     </Link>
                     <Link href="/admin/packages" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • ניהול חבילות - ניהול 4
+                      • ניהול חבילות - ניהול 3
                     </Link>
                     <Link href="/admin/settings" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • הגדרות - ניהול 5
+                      • הגדרות - ניהול 4
                     </Link>
                     <Link href="/admin/logs" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • לוגים - ניהול 6
+                      • לוגים - ניהול 5
                     </Link>
                     <Link href="/admin/reports" className="block hover:text-blue-300 transition-colors cursor-pointer">
-                      • דוחות - ניהול 7
+                      • דוחות - ניהול 6
                     </Link>
                   </div>
                 </div>
@@ -203,7 +201,7 @@ export default function HomePage() {
               
               <div className="mt-6 p-4 bg-white/5 rounded-lg">
                 <p className="text-white/60 text-xs text-center">
-                  📊 סה"כ: ~35 דפים באפליקציה | 🔧 ניהול: 7 | 🚚 שליח: 10 | 👤 לקוח: 3 | 🏢 עסק: 9 | 🎯 הדגמה: 3 | ⚙️ API: 5+
+                  📊 סה"כ: ~34 דפים באפליקציה | 🔧 ניהול: 6 | 🚚 שליח: 10 | 👤 לקוח: 3 | 🏢 עסק: 9 | 🎯 הדגמה: 3 | ⚙️ API: 5+
                 </p>
               </div>
             </div>
@@ -218,9 +216,7 @@ export default function HomePage() {
                 <Link href="/admin" className="block text-white hover:text-blue-300 transition-colors">
                   • דף אדמין ראשי
                 </Link>
-                <Link href="/admin/websocket" className="block text-white hover:text-blue-300 transition-colors">
-                  • ניהול WebSocket
-                </Link>
+
                 <Link 
                   href="/admin/lockers" 
                   className="block text-white hover:text-blue-300 transition-colors"

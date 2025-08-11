@@ -62,12 +62,7 @@ const ReportsIcon = () => (
   </svg>
 )
 
-const WebSocketIcon = () => (
-  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M10 13L14 9L10 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2"/>
-  </svg>
-)
+
 
 const SettingsIcon = () => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -266,17 +261,7 @@ export default function AdminPage() {
             </div>
           </Link>
 
-          <Link href="/admin/websocket" className="group">
-            <div className="glass-card hover:bg-white/15 transition-all duration-300 transform group-hover:scale-105">
-              <div className="text-center">
-                <div className="mb-4 flex justify-center">
-                  <WebSocketIcon />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">חיבורי WebSocket</h3>
-                <p className="text-white/70">ניהול חיבורים ופתיחה ידנית</p>
-              </div>
-            </div>
-          </Link>
+
 
           <Link href="/admin/settings" className="group">
             <div className="glass-card hover:bg-white/15 transition-all duration-300 transform group-hover:scale-105">
