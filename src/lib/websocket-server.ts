@@ -1950,15 +1950,37 @@ if (typeof window === 'undefined') {
   // רק בצד השרת
   console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
     nodeEnv: process.env.NODE_ENV,
+    skipWsStart: process.env.SKIP_WS_START,
     timestamp: new Date().toISOString()
   });
+  
+  console.log('🔍 בדיקת משתני סביבה:', {
+    'SKIP_WS_START': process.env.SKIP_WS_START,
+    'SKIP_WS_START === "true"': process.env.SKIP_WS_START === 'true',
+    'NODE_ENV': process.env.NODE_ENV
+  });
+  
   try {
     // הפעל רק אם לא בזמן build
-    if (process.env.SKIP_WS_START !== 'true') {
+    const shouldStart = process.env.SKIP_WS_START !== 'true' && process.env.SKIP_WS_START !== '';
+    console.log('🔧 החלטה על אתחול WebSocket:', {
+      shouldStart,
+      skipValue: process.env.SKIP_WS_START,
+      skipType: typeof process.env.SKIP_WS_START
+    });
+    
+    if (shouldStart) {
+      console.log('✅ מתאתחל WebSocket server...');
       wsManager.start();
       console.log('✅ שרת WebSocket הופעל בהצלחה');
     } else {
-      console.log('⏸️ WebSocket לא הופעל (build mode)');
+      console.log('⏸️ WebSocket לא הופעל (build mode או SKIP_WS_START מוגדר)');
+      // אבל בוא ננסה בכל זאת אם זה production
+      if (process.env.NODE_ENV === 'production') {
+        console.log('🔄 מנסה להפעיל WebSocket בכל זאת (production mode)...');
+        wsManager.start();
+        console.log('✅ WebSocket הופעל בכוח ב-production');
+      }
     }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
