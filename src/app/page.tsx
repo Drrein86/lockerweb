@@ -50,13 +50,27 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-blue-300 font-bold mb-2">🔧 אדמין:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• דף אדמין ראשי - ניהול 1</div>
-                    <div>• ניהול WebSocket - ניהול 2</div>
-                    <div>• ניהול לוקרים - ניהול 3</div>
-                    <div>• ניהול חבילות - ניהול 4</div>
-                    <div>• הגדרות - ניהול 5</div>
-                    <div>• לוגים - ניהול 6</div>
-                    <div>• דוחות - ניהול 7</div>
+                    <Link href="/admin" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • דף אדמין ראשי - ניהול 1
+                    </Link>
+                    <Link href="/admin/websocket" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • ניהול WebSocket - ניהול 2
+                    </Link>
+                    <Link href="/admin/lockers-management" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • ניהול לוקרים - ניהול 3
+                    </Link>
+                    <Link href="/admin/packages" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • ניהול חבילות - ניהול 4
+                    </Link>
+                    <Link href="/admin/settings" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • הגדרות - ניהול 5
+                    </Link>
+                    <Link href="/admin/logs" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • לוגים - ניהול 6
+                    </Link>
+                    <Link href="/admin/reports" className="block hover:text-blue-300 transition-colors cursor-pointer">
+                      • דוחות - ניהול 7
+                    </Link>
                   </div>
                 </div>
 
@@ -64,16 +78,36 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-blue-200 font-bold mb-2">🚚 שליח:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• דף שליח ראשי - שליח 1</div>
-                    <div>• סריקת QR - שליח 2</div>
-                    <div>• חיפוש מיקום - שליח 3</div>
-                    <div>• בחירת גודל - שליח 4</div>
-                    <div>• רשימת לוקרים - שליח 5</div>
-                    <div>• בחירת לוקר - שליח 6</div>
-                    <div>• בחירת תא - שליח 7</div>
-                    <div>• אימות תא - שליח 8</div>
-                    <div>• החלפת תא - שליח 9</div>
-                    <div>• דף הצלחה - שליח 10</div>
+                    <Link href="/courier" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • דף שליח ראשי - שליח 1
+                    </Link>
+                    <Link href="/courier/scan-qr" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • סריקת QR - שליח 2
+                    </Link>
+                    <Link href="/courier/location-search" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • חיפוש מיקום - שליח 3
+                    </Link>
+                    <Link href="/courier/size-selection" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • בחירת גודל - שליח 4
+                    </Link>
+                    <Link href="/courier/lockers-list" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • רשימת לוקרים - שליח 5
+                    </Link>
+                    <Link href="/courier/select-locker" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • בחירת לוקר - שליח 6
+                    </Link>
+                    <Link href="/courier/select-cell" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • בחירת תא - שליח 7
+                    </Link>
+                    <Link href="/courier/cell-verification" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • אימות תא - שליח 8
+                    </Link>
+                    <Link href="/courier/change-cell" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • החלפת תא - שליח 9
+                    </Link>
+                    <Link href="/courier/success" className="block hover:text-blue-200 transition-colors cursor-pointer">
+                      • דף הצלחה - שליח 10
+                    </Link>
                   </div>
                 </div>
 
@@ -81,9 +115,15 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-blue-100 font-bold mb-2">👤 לקוח:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• דף לקוח ראשי - לקוח 1</div>
-                    <div>• פתיחת חבילה - לקוח 2</div>
-                    <div>• הדגמה פתיחה - לקוח 3</div>
+                    <Link href="/customer" className="block hover:text-blue-100 transition-colors cursor-pointer">
+                      • דף לקוח ראשי - לקוח 1
+                    </Link>
+                    <Link href="/customer/unlock/XYZ123" className="block hover:text-blue-100 transition-colors cursor-pointer">
+                      • פתיחת חבילה - לקוח 2
+                    </Link>
+                    <Link href="/customer/unlock-demo" className="block hover:text-blue-100 transition-colors cursor-pointer">
+                      • הדגמה פתיחה - לקוח 3
+                    </Link>
                   </div>
                 </div>
 
@@ -91,15 +131,33 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-yellow-300 font-bold mb-2">🏢 עסק:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• דף עסק ראשי - עסק 1</div>
-                    <div>• קטגוריות מוצרים - עסק 2</div>
-                    <div>• קניית מוצרים - עסק 3</div>
-                    <div>• השכרת מוצרים - עסק 4</div>
-                    <div>• השכרת לוקרים - עסק 5</div>
-                    <div>• תשלום - עסק 6</div>
-                    <div>• פתיחת לוקר - עסק 7</div>
-                    <div>• מידע ושאלות - עסק 8</div>
-                    <div>• עזרה וקשר - עסק 9</div>
+                    <Link href="/business" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • דף עסק ראשי - עסק 1
+                    </Link>
+                    <Link href="/business/categories" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • קטגוריות מוצרים - עסק 2
+                    </Link>
+                    <Link href="/business/product-purchase" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • קניית מוצרים - עסק 3
+                    </Link>
+                    <Link href="/business/product-rental" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • השכרת מוצרים - עסק 4
+                    </Link>
+                    <Link href="/business/locker-rental" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • השכרת לוקרים - עסק 5
+                    </Link>
+                    <Link href="/business/payment" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • תשלום - עסק 6
+                    </Link>
+                    <Link href="/business/unlock" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • פתיחת לוקר - עסק 7
+                    </Link>
+                    <Link href="/business/info" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • מידע ושאלות - עסק 8
+                    </Link>
+                    <Link href="/business/help" className="block hover:text-yellow-300 transition-colors cursor-pointer">
+                      • עזרה וקשר - עסק 9
+                    </Link>
                   </div>
                 </div>
 
@@ -107,9 +165,15 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-yellow-400 font-bold mb-2">🎯 הדגמה:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• דף הדגמה ראשי - הדגמה 1</div>
-                    <div>• הדגמה אדמין - הדגמה 2</div>
-                    <div>• הדגמה לקוח - הדגמה 3</div>
+                    <Link href="/demo" className="block hover:text-yellow-400 transition-colors cursor-pointer">
+                      • דף הדגמה ראשי - הדגמה 1
+                    </Link>
+                    <Link href="/demo/admin" className="block hover:text-yellow-400 transition-colors cursor-pointer">
+                      • הדגמה אדמין - הדגמה 2
+                    </Link>
+                    <Link href="/demo/customer" className="block hover:text-yellow-400 transition-colors cursor-pointer">
+                      • הדגמה לקוח - הדגמה 3
+                    </Link>
                   </div>
                 </div>
 
@@ -117,11 +181,21 @@ export default function HomePage() {
                 <div>
                   <h4 className="text-green-300 font-bold mb-2">⚙️ API:</h4>
                   <div className="space-y-1 text-white/80">
-                    <div>• /api/lockers - API 1</div>
-                    <div>• /api/packages - API 2</div>
-                    <div>• /api/unlock - API 3</div>
-                    <div>• /api/admin/* - API 4</div>
-                    <div>• /api/websocket - API 5</div>
+                    <a href="/api/lockers/available" target="_blank" className="block hover:text-green-300 transition-colors cursor-pointer">
+                      • /api/lockers - API 1
+                    </a>
+                    <a href="/api/packages/track/ABC123" target="_blank" className="block hover:text-green-300 transition-colors cursor-pointer">
+                      • /api/packages - API 2
+                    </a>
+                    <span className="block text-white/50 cursor-not-allowed">
+                      • /api/unlock - API 3 (POST)
+                    </span>
+                    <a href="/api/admin/memory-status" target="_blank" className="block hover:text-green-300 transition-colors cursor-pointer">
+                      • /api/admin/* - API 4
+                    </a>
+                    <span className="block text-white/50 cursor-not-allowed">
+                      • /api/websocket - API 5 (WS)
+                    </span>
                   </div>
                 </div>
 
