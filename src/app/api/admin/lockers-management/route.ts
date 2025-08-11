@@ -25,7 +25,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      lockers: lockers.map(locker => ({
+      lockers: lockers.map((locker: any) => ({
         id: locker.id,
         name: locker.name,
         location: locker.location,
