@@ -1652,8 +1652,7 @@ class WebSocketManager {
    */
   private async saveLockerToDB(lockerId: string, data: any): Promise<void> {
     try {
-      // זהו mock implementation - בגרסה אמיתית זה יתחבר ל-Prisma
-      console.log('💾 שמירת לוקר ב-DB:', {
+      console.log('💾 שמירת לוקר ב-Railway DB:', {
         lockerId,
         ip: data.ip,
         status: data.status,
@@ -1661,29 +1660,33 @@ class WebSocketManager {
         timestamp: new Date().toISOString()
       });
 
-      // TODO: הוסף חיבור ל-Prisma כשהוא יהיה זמין
-      /*
-      await prisma.locker.upsert({
+      // ייבוא Prisma רק כשצריך
+      const { prisma } = await import('@/lib/prisma');
+
+      // שמירת/עדכון לוקר ב-Railway
+      const locker = await prisma.locker.upsert({
         where: { deviceId: lockerId },
         update: {
           ip: data.ip,
-          status: data.status,
-          lastSeen: data.lastSeen,
+          status: data.status as any,
+          lastSeen: new Date(data.lastSeen),
           isActive: data.isActive
         },
         create: {
           deviceId: lockerId,
           name: `לוקר ${lockerId}`,
+          location: `מיקום ${lockerId}`,
           ip: data.ip,
-          port: data.port,
-          status: data.status,
-          lastSeen: data.lastSeen,
+          port: data.port || null,
+          status: data.status as any,
+          lastSeen: new Date(data.lastSeen),
           isActive: data.isActive
         }
       });
 
-      // שמירת תאים
+      // שמירת תאים ב-Railway
       for (const [cellNumber, cellData] of Object.entries(data.cells)) {
+        const cellDataTyped = cellData as any;
         await prisma.cell.upsert({
           where: { 
             lockerId_cellNumber: { 
@@ -1692,9 +1695,11 @@ class WebSocketManager {
             } 
           },
           update: {
-            status: cellData.locked ? 'LOCKED' : 'UNLOCKED',
-            hasPackage: cellData.hasPackage,
-            packageId: cellData.packageId
+            status: cellDataTyped.locked ? 'LOCKED' : 'AVAILABLE',
+            isLocked: cellDataTyped.locked,
+            lastOpenedAt: cellDataTyped.lastOpened ? new Date(cellDataTyped.lastOpened) : undefined,
+            lastClosedAt: cellDataTyped.lastClosed ? new Date(cellDataTyped.lastClosed) : undefined,
+            openCount: cellDataTyped.openCount || 0
           },
           create: {
             lockerId: locker.id,
@@ -1702,23 +1707,22 @@ class WebSocketManager {
             name: `תא ${cellNumber}`,
             code: convertCellNumberToName(cellNumber),
             size: 'MEDIUM',
-            status: cellData.locked ? 'LOCKED' : 'UNLOCKED',
-            hasPackage: cellData.hasPackage,
-            packageId: cellData.packageId,
-            isActive: true
+            status: cellDataTyped.locked ? 'LOCKED' : 'AVAILABLE',
+            isLocked: cellDataTyped.locked,
+            isActive: true,
+            openCount: cellDataTyped.openCount || 0
           }
         });
       }
-      */
 
-      this.logEvent('db_save_success', `💾 נתוני לוקר ${lockerId} נשמרו בהצלחה`, {
+      this.logEvent('db_save_success', `💾 נתוני לוקר ${lockerId} נשמרו ב-Railway`, {
         lockerId,
         cellsCount: Object.keys(data.cells).length
       });
 
     } catch (error) {
-      console.error('❌ שגיאה בשמירת לוקר ב-DB:', error);
-      this.logEvent('db_save_error', `❌ שגיאה בשמירת לוקר ${lockerId}`, { 
+      console.error('❌ שגיאה בשמירת לוקר ב-Railway DB:', error);
+      this.logEvent('db_save_error', `❌ שגיאה בשמירת לוקר ${lockerId} ב-Railway`, { 
         error: error instanceof Error ? error.message : 'שגיאה לא ידועה' 
       });
     }
@@ -1830,29 +1834,105 @@ class WebSocketManager {
   /**
    * קבלת סטטוס מלא של כל הלוקרים מהזיכרון
    */
-  public getFullMemoryStatus(): any {
+  public async getFullMemoryStatus(): Promise<any> {
     try {
-      if (!(globalThis as any).lockerMemoryStatus) {
-        return { lockers: [], totalLockers: 0, totalCells: 0, totalPackages: 0 };
-      }
+      console.log('📊 טוען סטטוס לוקרים מ-Railway DB...');
+      
+      // ייבוא Prisma רק כשצריך
+      const { prisma } = await import('@/lib/prisma');
 
-      const lockers = Array.from((globalThis as any).lockerMemoryStatus.values());
-      const totalCells = lockers.reduce((sum: number, locker: any) => sum + Object.keys(locker.cells || {}).length, 0);
-      const totalPackages = lockers.reduce((sum: number, locker: any) => 
-        sum + Object.values(locker.cells || {}).filter((cell: any) => cell.hasPackage).length, 0
+      // קבלת כל הלוקרים עם התאים שלהם
+      const lockers = await prisma.locker.findMany({
+        include: {
+          cells: {
+            include: {
+              packages: true
+            }
+          }
+        }
+      });
+
+      // חישוב סטטיסטיקות
+      const totalCells = lockers.reduce((sum, locker) => sum + locker.cells.length, 0);
+      const totalPackages = lockers.reduce((sum, locker) => 
+        sum + locker.cells.filter(cell => cell.packages.length > 0).length, 0
       );
 
+      // עיצוב הנתונים למבנה הצפוי
+      const formattedLockers = lockers.map(locker => ({
+        lockerId: locker.deviceId || locker.id.toString(),
+        name: locker.name,
+        location: locker.location,
+        isConnected: this.lockerConnections.has(locker.deviceId || locker.id.toString()),
+        lastConnected: locker.lastSeen,
+        ip: locker.ip,
+        status: locker.status,
+        cells: locker.cells.reduce((cellsObj: any, cell) => {
+          cellsObj[convertCellNumberToName(cell.cellNumber)] = {
+            name: convertCellNumberToName(cell.cellNumber),
+            locked: cell.isLocked,
+            hasPackage: cell.packages.length > 0,
+            packageId: cell.packages[0]?.trackingCode || null,
+            status: cell.status,
+            lastOpened: cell.lastOpenedAt,
+            lastClosed: cell.lastClosedAt,
+            openCount: cell.openCount
+          };
+          return cellsObj;
+        }, {}),
+        packages: locker.cells
+          .filter(cell => cell.packages.length > 0)
+          .reduce((packagesObj: any, cell) => {
+            cell.packages.forEach(pkg => {
+              packagesObj[pkg.trackingCode] = {
+                id: pkg.trackingCode,
+                trackingCode: pkg.trackingCode,
+                cell: convertCellNumberToName(cell.cellNumber),
+                customerId: pkg.customerId,
+                status: pkg.status,
+                size: pkg.size,
+                createdAt: pkg.createdAt
+              };
+            });
+            return packagesObj;
+          }, {}),
+        lastUpdate: new Date()
+      }));
+
+      console.log(`✅ נטענו ${formattedLockers.length} לוקרים מ-Railway`);
+
       return {
-        lockers,
-        totalLockers: lockers.length,
+        lockers: formattedLockers,
+        totalLockers: formattedLockers.length,
         totalCells,
         totalPackages,
-        lastUpdate: new Date()
+        lastUpdate: new Date(),
+        source: 'railway_db'
       };
 
     } catch (error) {
-      console.error('❌ שגיאה בקבלת סטטוס זיכרון:', error);
-      return { lockers: [], totalLockers: 0, totalCells: 0, totalPackages: 0, error: true };
+      console.error('❌ שגיאה בקבלת סטטוס מ-Railway DB:', error);
+      
+      // fallback לזיכרון מקומי אם יש בעיה עם DB
+      if ((globalThis as any).lockerMemoryStatus) {
+        console.log('🔄 עובר לזיכרון מקומי כ-fallback');
+        const lockers = Array.from((globalThis as any).lockerMemoryStatus.values());
+        const totalCells = lockers.reduce((sum: number, locker: any) => sum + Object.keys(locker.cells || {}).length, 0);
+        const totalPackages = lockers.reduce((sum: number, locker: any) => 
+          sum + Object.values(locker.cells || {}).filter((cell: any) => cell.hasPackage).length, 0
+        );
+
+        return {
+          lockers,
+          totalLockers: lockers.length,
+          totalCells,
+          totalPackages,
+          lastUpdate: new Date(),
+          source: 'memory_fallback'
+        };
+      }
+
+      return { lockers: [], totalLockers: 0, totalCells: 0, totalPackages: 0, error: true, source: 'error' };
     }
   }
 }

@@ -8,9 +8,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('📊 בקשה לקבלת סטטוס זיכרון מלא');
+    console.log('📊 בקשה לקבלת סטטוס מ-Railway DB');
 
-    const memoryStatus = wsManager.getFullMemoryStatus();
+    const memoryStatus = await wsManager.getFullMemoryStatus();
 
     return NextResponse.json({
       success: true,
@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ שגיאה בקבלת סטטוס זיכרון:', error);
+    console.error('❌ שגיאה בקבלת סטטוס מ-Railway:', error);
     return NextResponse.json(
       { 
         success: false, 
-        error: 'שגיאה בקבלת סטטוס זיכרון',
+        error: 'שגיאה בקבלת סטטוס מ-Railway',
         details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
       },
       { status: 500 }
