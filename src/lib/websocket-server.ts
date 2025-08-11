@@ -1953,15 +1953,23 @@ if (typeof window === 'undefined') {
     timestamp: new Date().toISOString()
   });
   try {
-    // הפעל רק אם לא בזמן build ויש DATABASE_URL
-    if ((process.env.NODE_ENV !== 'production' || process.env.SKIP_WS_START !== 'true') && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('dummy')) {
+    // הפעל רק אם לא בזמן build
+    if (process.env.SKIP_WS_START !== 'true') {
       wsManager.start();
       console.log('✅ שרת WebSocket הופעל בהצלחה');
     } else {
-      console.log('⏸️ WebSocket לא הופעל (build mode או DATABASE_URL חסר)');
+      console.log('⏸️ WebSocket לא הופעל (build mode)');
     }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
+    // ננסה שוב ללא התלות בDB
+    try {
+      console.log('🔄 מנסה להפעיל WebSocket ללא DB...');
+      wsManager.start();
+      console.log('✅ WebSocket התחיל ללא DB');
+    } catch (fallbackError) {
+      console.error('❌ גם fallback נכשל:', fallbackError);
+    }
   }
 }
 
