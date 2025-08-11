@@ -7,9 +7,12 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 8080
+# Build the Next.js application
+RUN npm run build
 
-ENV PORT=8080
+EXPOSE 3000
+
+ENV PORT=3000
 ENV NODE_ENV=production
 
-CMD ["node", "locker-hardware-server.js"] 
+CMD ["npm", "start"] 
