@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET - קבלת כל הלוקרים עם התאים (רק מ-Railway DB)
 export async function GET() {
   try {
     console.log('🔍 טוען לוקרים מ-Railway PostgreSQL...')
+    
+    // בדיקת חיבור ראשונית
+    await prisma.$connect()
+    console.log('✅ חיבור ל-Railway DB הצליח')
     
     const lockers = await prisma.locker.findMany({
       include: {
@@ -76,6 +82,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`🆕 יוצר לוקר חדש ב-Railway: ${name}`)
+    
+    // בדיקת חיבור ראשונית
+    await prisma.$connect()
+    console.log('✅ חיבור ל-Railway DB הצליח לPOST')
 
     // יצירת הלוקר
     const locker = await prisma.locker.create({
