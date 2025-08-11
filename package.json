@@ -17,7 +17,8 @@
     "railway:deploy": "railway up",
     "railway:logs": "railway logs",
     "railway:status": "railway status",
-    "railway:setup-auth": "node scripts/setup-railway-auth.js"
+    "railway:setup-auth": "node scripts/setup-railway-auth.js",
+    "railway:migrate": "node scripts/railway-migrate.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
