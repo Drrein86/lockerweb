@@ -65,7 +65,7 @@ interface WebSocketMessage {
 
 // קונפיגורציה
 const CONFIG = {
-  PORT: process.env.PORT || 3003,
+  PORT: process.env.WS_PORT || 3004,
   USE_SSL: process.env.USE_SSL === 'true',
   SSL_KEY: process.env.SSL_KEY_PATH,
   SSL_CERT: process.env.SSL_CERT_PATH,
