@@ -54,7 +54,7 @@ export default function Unauthorized() {
               חזור לדף הבית
             </Link>
             
-            {session?.user?.role === 'COURIER' && (
+            {user?.role === 'COURIER' && (
               <Link
                 href="/courier"
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -63,7 +63,7 @@ export default function Unauthorized() {
               </Link>
             )}
             
-            {session?.user?.role === 'BUSINESS' && (
+            {user?.role === 'BUSINESS' && (
               <Link
                 href="/business"
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
