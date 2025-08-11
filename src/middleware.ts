@@ -51,7 +51,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next()
     }
     
-    if (user.role === 'MANAGEMENT') {
+    if ((user.role as any) === 'MANAGEMENT') {
       const allowedPaths = ['/admin/lockers', '/admin/packages', '/admin/reports']
       const hasAccess = allowedPaths.some(path => pathname.startsWith(path))
       if (!hasAccess) {
