@@ -40,6 +40,101 @@ export default function HomePage() {
             <p className="text-white/50 text-sm mt-2">דף הדגמה מקצועי לשיווק ומכירות</p>
           </div>
 
+          {/* רשימת כל הדפים באפליקציה */}
+          <div className="mb-12">
+            <div className="glass-card">
+              <h3 className="text-2xl font-bold text-white mb-6 text-center">📄 כל הדפים באפליקציה</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                
+                {/* דפי אדמין */}
+                <div>
+                  <h4 className="text-blue-300 font-bold mb-2">🔧 אדמין:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• דף אדמין ראשי - ניהול 1</div>
+                    <div>• ניהול WebSocket - ניהול 2</div>
+                    <div>• ניהול לוקרים - ניהול 3</div>
+                    <div>• ניהול חבילות - ניהול 4</div>
+                    <div>• הגדרות - ניהול 5</div>
+                    <div>• לוגים - ניהול 6</div>
+                    <div>• דוחות - ניהול 7</div>
+                  </div>
+                </div>
+
+                {/* דפי שליח */}
+                <div>
+                  <h4 className="text-blue-200 font-bold mb-2">🚚 שליח:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• דף שליח ראשי - שליח 1</div>
+                    <div>• סריקת QR - שליח 2</div>
+                    <div>• חיפוש מיקום - שליח 3</div>
+                    <div>• בחירת גודל - שליח 4</div>
+                    <div>• רשימת לוקרים - שליח 5</div>
+                    <div>• בחירת לוקר - שליח 6</div>
+                    <div>• בחירת תא - שליח 7</div>
+                    <div>• אימות תא - שליח 8</div>
+                    <div>• החלפת תא - שליח 9</div>
+                    <div>• דף הצלחה - שליח 10</div>
+                  </div>
+                </div>
+
+                {/* דפי לקוח */}
+                <div>
+                  <h4 className="text-blue-100 font-bold mb-2">👤 לקוח:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• דף לקוח ראשי - לקוח 1</div>
+                    <div>• פתיחת חבילה - לקוח 2</div>
+                    <div>• הדגמה פתיחה - לקוח 3</div>
+                  </div>
+                </div>
+
+                {/* דפי עסק */}
+                <div>
+                  <h4 className="text-yellow-300 font-bold mb-2">🏢 עסק:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• דף עסק ראשי - עסק 1</div>
+                    <div>• קטגוריות מוצרים - עסק 2</div>
+                    <div>• קניית מוצרים - עסק 3</div>
+                    <div>• השכרת מוצרים - עסק 4</div>
+                    <div>• השכרת לוקרים - עסק 5</div>
+                    <div>• תשלום - עסק 6</div>
+                    <div>• פתיחת לוקר - עסק 7</div>
+                    <div>• מידע ושאלות - עסק 8</div>
+                    <div>• עזרה וקשר - עסק 9</div>
+                  </div>
+                </div>
+
+                {/* דפי הדגמה */}
+                <div>
+                  <h4 className="text-yellow-400 font-bold mb-2">🎯 הדגמה:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• דף הדגמה ראשי - הדגמה 1</div>
+                    <div>• הדגמה אדמין - הדגמה 2</div>
+                    <div>• הדגמה לקוח - הדגמה 3</div>
+                  </div>
+                </div>
+
+                {/* דפי API */}
+                <div>
+                  <h4 className="text-green-300 font-bold mb-2">⚙️ API:</h4>
+                  <div className="space-y-1 text-white/80">
+                    <div>• /api/lockers - API 1</div>
+                    <div>• /api/packages - API 2</div>
+                    <div>• /api/unlock - API 3</div>
+                    <div>• /api/admin/* - API 4</div>
+                    <div>• /api/websocket - API 5</div>
+                  </div>
+                </div>
+
+              </div>
+              
+              <div className="mt-6 p-4 bg-white/5 rounded-lg">
+                <p className="text-white/60 text-xs text-center">
+                  📊 סה"כ: ~35 דפים באפליקציה | 🔧 ניהול: 7 | 🚚 שליח: 10 | 👤 לקוח: 3 | 🏢 עסק: 9 | 🎯 הדגמה: 3 | ⚙️ API: 5+
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* תפריט פיתוח */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* דפי אדמין */}
