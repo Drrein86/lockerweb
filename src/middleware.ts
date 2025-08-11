@@ -71,6 +71,7 @@ export async function middleware(req: NextRequest) {
 
   // בדיקת גישה לדפי עסק
   if (pathname.startsWith('/business')) {
+    // TypeScript fix: force type casting for role comparison
     if ((user.role as any) !== 'BUSINESS' && (user.role as any) !== 'ADMIN') {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
