@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     // קיבוץ תאים לפי לוקר
     const lockersMap = new Map()
     
-    availableCells.forEach(cell => {
+    availableCells.forEach((cell: any) => {
       const lockerId = cell.lockerId
       if (!lockersMap.has(lockerId)) {
         lockersMap.set(lockerId, {
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
     }
 
     // יצירת רשימה פשוטה של תאים (לתצוגה ישירה)
-    const cellsList = availableCells.map(cell => ({
+    const cellsList = availableCells.map((cell: any) => ({
       id: cell.id,
       code: cell.code,
       cellNumber: cell.cellNumber,
