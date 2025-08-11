@@ -58,10 +58,25 @@ export async function GET() {
     })
   } catch (error) {
     console.error('❌ שגיאה בטעינת לוקרים מ-Railway:', error)
+    
+    // בדיקה אם זו שגיאת חיבור לDB
+    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      return NextResponse.json(
+        { 
+          error: 'שגיאה בחיבור לDB - DATABASE_URL לא מוגדר',
+          details: 'נדרש להגדיר את משתנה הסביבה DATABASE_URL',
+          errorType: 'DATABASE_CONNECTION'
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         error: 'שגיאה בטעינת לוקרים מ-Railway',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     )
@@ -135,10 +150,25 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('❌ שגיאה ביצירת לוקר ב-Railway:', error)
+    
+    // בדיקה אם זו שגיאת חיבור לDB
+    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      return NextResponse.json(
+        { 
+          error: 'שגיאה בחיבור לDB - DATABASE_URL לא מוגדר',
+          details: 'נדרש להגדיר את משתנה הסביבה DATABASE_URL לPOST',
+          errorType: 'DATABASE_CONNECTION'
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         error: 'שגיאה ביצירת לוקר ב-Railway',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     )
