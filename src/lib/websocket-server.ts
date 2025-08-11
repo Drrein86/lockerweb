@@ -1539,6 +1539,14 @@ class WebSocketManager {
       console.error('❌ WebSocket server לא מאותחל');
       return;
     }
+
+    // בדיקה אם השרת כבר פועל
+    if (this.server.listening) {
+      console.log('⚠️ השרת כבר פועל על פורט', CONFIG.PORT);
+      return;
+    }
+
+    console.log('🔧 מתחיל להקשיב על פורט', CONFIG.PORT);
     
     this.server.listen(CONFIG.PORT, () => {
       console.log('🚀 שרת הלוקרים פועל:', {
@@ -1945,9 +1953,12 @@ class WebSocketManager {
 // יצירת מופע יחיד של המחלקה
 const wsManager = new WebSocketManager();
 
+// משתנה גלובלי למניעת אתחול כפול
+let wsManagerStarted = false;
+
 // הפעלה אוטומטית של השרת בסביבת development או production
-if (typeof window === 'undefined') {
-  // רק בצד השרת
+if (typeof window === 'undefined' && !wsManagerStarted) {
+  // רק בצד השרת ורק פעם אחת
   console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
     nodeEnv: process.env.NODE_ENV,
     skipWsStart: process.env.SKIP_WS_START,
@@ -1972,6 +1983,7 @@ if (typeof window === 'undefined') {
     if (shouldStart) {
       console.log('✅ מתאתחל WebSocket server...');
       wsManager.start();
+      wsManagerStarted = true;
       console.log('✅ שרת WebSocket הופעל בהצלחה');
     } else {
       console.log('⏸️ WebSocket לא הופעל (build mode או SKIP_WS_START מוגדר)');
@@ -1979,18 +1991,22 @@ if (typeof window === 'undefined') {
       if (process.env.NODE_ENV === 'production') {
         console.log('🔄 מנסה להפעיל WebSocket בכל זאת (production mode)...');
         wsManager.start();
+        wsManagerStarted = true;
         console.log('✅ WebSocket הופעל בכוח ב-production');
       }
     }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
-    // ננסה שוב ללא התלות בDB
-    try {
-      console.log('🔄 מנסה להפעיל WebSocket ללא DB...');
-      wsManager.start();
-      console.log('✅ WebSocket התחיל ללא DB');
-    } catch (fallbackError) {
-      console.error('❌ גם fallback נכשל:', fallbackError);
+    // ננסה שוב ללא התלות בDB רק אם עדיין לא התחלנו
+    if (!wsManagerStarted) {
+      try {
+        console.log('🔄 מנסה להפעיל WebSocket ללא DB...');
+        wsManager.start();
+        wsManagerStarted = true;
+        console.log('✅ WebSocket התחיל ללא DB');
+      } catch (fallbackError) {
+        console.error('❌ גם fallback נכשל:', fallbackError);
+      }
     }
   }
 }
