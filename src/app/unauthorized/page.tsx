@@ -40,7 +40,7 @@ export default function Unauthorized() {
                                         user.role}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>סטטוס:</strong> {user.status === 'ACTIVE' ? 'מאושר' : 'ממתין לאישור'}
+                <strong>סטטוס:</strong> {user.status === 'ACTIVE' as any ? 'מאושר' : 'ממתין לאישור'}
               </p>
             </div>
           )}

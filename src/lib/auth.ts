@@ -53,7 +53,7 @@ export async function loginUser(email: string, password: string) {
       return { success: false, error: 'סיסמא שגויה' }
     }
 
-    if (user.status !== 'ACTIVE') {
+    if (user.status !== 'ACTIVE' as any) {
       return { success: false, error: 'החשבון ממתין לאישור אדמין' }
     }
 
