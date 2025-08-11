@@ -37,9 +37,9 @@ export async function GET() {
         lastSeen: locker.lastSeen,
         isActive: locker.isActive,
         totalCells: locker.cells.length,
-        availableCells: locker.cells.filter(cell => cell.status === 'AVAILABLE').length,
-        occupiedCells: locker.cells.filter(cell => cell.status === 'OCCUPIED').length,
-        cells: locker.cells.map(cell => ({
+        availableCells: locker.cells.filter((cell: any) => cell.status === 'AVAILABLE').length,
+        occupiedCells: locker.cells.filter((cell: any) => cell.status === 'OCCUPIED').length,
+        cells: locker.cells.map((cell: any) => ({
           id: cell.id,
           cellNumber: cell.cellNumber,
           code: cell.code,
@@ -249,8 +249,8 @@ export async function PUT(request: NextRequest) {
       locker: {
         ...updatedLocker,
         totalCells: updatedLocker.cells.length,
-        availableCells: updatedLocker.cells.filter(cell => cell.status === 'AVAILABLE').length,
-        occupiedCells: updatedLocker.cells.filter(cell => cell.status === 'OCCUPIED').length,
+        availableCells: updatedLocker.cells.filter((cell: any) => cell.status === 'AVAILABLE').length,
+        occupiedCells: updatedLocker.cells.filter((cell: any) => cell.status === 'OCCUPIED').length,
       }
     })
   } catch (error) {
