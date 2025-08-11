@@ -1535,6 +1535,11 @@ class WebSocketManager {
    * הפעלת השרת
    */
   public start(): void {
+    if (!this.server) {
+      console.error('❌ WebSocket server לא מאותחל');
+      return;
+    }
+    
     this.server.listen(CONFIG.PORT, () => {
       console.log('🚀 שרת הלוקרים פועל:', {
         port: CONFIG.PORT,
@@ -1948,12 +1953,12 @@ if (typeof window === 'undefined') {
     timestamp: new Date().toISOString()
   });
   try {
-    // הפעל רק אם לא בזמן build
-    if (process.env.NODE_ENV !== 'production' || process.env.SKIP_WS_START !== 'true') {
+    // הפעל רק אם לא בזמן build ויש DATABASE_URL
+    if ((process.env.NODE_ENV !== 'production' || process.env.SKIP_WS_START !== 'true') && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('dummy')) {
       wsManager.start();
       console.log('✅ שרת WebSocket הופעל בהצלחה');
     } else {
-      console.log('⏸️ WebSocket לא הופעל (build mode)');
+      console.log('⏸️ WebSocket לא הופעל (build mode או DATABASE_URL חסר)');
     }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
