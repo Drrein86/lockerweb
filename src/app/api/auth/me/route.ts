@@ -28,9 +28,7 @@ export async function GET(request: NextRequest) {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        status: user.status,
-        isApproved: user.isApproved,
-        permissions: user.permissions
+        status: user.status
       }
     })
   } catch (error) {
