@@ -3,6 +3,9 @@ import { Inter } from 'next/font/google'
 import dynamic from 'next/dynamic'
 import AuthProvider from '@/components/providers/AuthProvider'
 
+// אתחול WebSocket עבור השרת
+import '@/lib/websocket-init'
+
 const ToastContainer = dynamic(() => import('@/components/Toast/Toast'), {
   ssr: false
 })

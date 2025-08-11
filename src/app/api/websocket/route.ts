@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import wsManager from '@/lib/websocket-server';
+import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server';
 
 export async function GET() {
   try {
-    // הפעלת שרת WebSocket אם לא פועל
+    // וידוא שהWebSocket פועל (בטוח)
+    initializeWebSocketIfNeeded();
+    
+    // בדיקה שהמנג'ר זמין
     if (!wsManager) {
       return NextResponse.json({
         error: 'WebSocket server not available',
@@ -37,8 +40,8 @@ export async function POST(request: NextRequest) {
     const { action, lockerId, message } = body;
 
     if (action === 'start') {
-      // הפעלת שרת WebSocket
-      wsManager.start();
+      // הפעלת שרת WebSocket (בטוח)
+      initializeWebSocketIfNeeded();
       return NextResponse.json({
         message: 'WebSocket server started',
         status: 'success'

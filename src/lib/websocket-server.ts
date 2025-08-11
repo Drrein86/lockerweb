@@ -1945,19 +1945,25 @@ class WebSocketManager {
 // יצירת מופע יחיד של המחלקה
 const wsManager = new WebSocketManager();
 
-// מניעת אתחול כפול
-let isWebSocketStarted = false;
+// בקרת אתחול מרכזי
+declare global {
+  var __WEBSOCKET_STARTED__: boolean;
+}
 
-// הפעלה אוטומטית של השרת בסביבת development או production
-if (typeof window === 'undefined' && !isWebSocketStarted) {
-  // רק בצד השרת ורק פעם אחת
+// פונקציה בטוחה לאתחול
+export function initializeWebSocketIfNeeded() {
+  if (globalThis.__WEBSOCKET_STARTED__) {
+    console.log('⚠️ WebSocket כבר פועל, מדלג על אתחול');
+    return;
+  }
+
+  globalThis.__WEBSOCKET_STARTED__ = true;
+
   console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
     nodeEnv: process.env.NODE_ENV,
     skipWsStart: process.env.SKIP_WS_START,
     timestamp: new Date().toISOString()
   });
-  
-  isWebSocketStarted = true;
   
   console.log('🔍 בדיקת משתני סביבה:', {
     'SKIP_WS_START': process.env.SKIP_WS_START,
@@ -1997,6 +2003,18 @@ if (typeof window === 'undefined' && !isWebSocketStarted) {
     } catch (fallbackError) {
       console.error('❌ גם fallback נכשל:', fallbackError);
     }
+  }
+}
+
+// הפעלה אוטומטית רק במקומות ספציפיים
+if (typeof window === 'undefined' && !globalThis.__WEBSOCKET_STARTED__) {
+  // רק אם זה לא import מ-API route
+  const isApiRoute = process.env.NODE_ENV === 'production' && 
+                     (require.main?.filename.includes('/api/') || 
+                      process.argv.some(arg => arg.includes('api')));
+                      
+  if (!isApiRoute) {
+    initializeWebSocketIfNeeded();
   }
 }
 
