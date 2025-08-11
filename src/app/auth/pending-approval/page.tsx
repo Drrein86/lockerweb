@@ -1,10 +1,10 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useAuth } from '@/components/providers/AuthProvider'
 import Link from 'next/link'
 
 export default function PendingApproval() {
-  const { data: session } = useSession()
+  const { user, logout } = useAuth()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -26,33 +26,26 @@ export default function PendingApproval() {
           </div>
 
           {/* User Info */}
-          {session?.user && (
+          {user && (
             <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-center mb-3">
-                {session.user.image && (
-                  <img
-                    src={session.user.image}
-                    alt="תמונת פרופיל"
-                    className="h-10 w-10 rounded-full ml-3"
-                  />
-                )}
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {session.user.name}
+                    {user.firstName} {user.lastName}
                   </p>
                   <p className="text-sm text-gray-500">
-                    {session.user.email}
+                    {user.email}
                   </p>
                 </div>
               </div>
               
               <div className="space-y-1">
                 <p className="text-sm text-gray-600">
-                  <strong>תפקיד:</strong> {session.user.role === 'MANAGEMENT' ? 'ניהול' :
-                                          session.user.role === 'COURIER' ? 'שליח' :
-                                          session.user.role === 'BUSINESS' ? 'עסק' :
-                                          session.user.role === 'CUSTOMER_SERVICE' ? 'שירות לקוחות' :
-                                          session.user.role}
+                  <strong>תפקיד:</strong> {user.role === 'MANAGEMENT' ? 'ניהול' :
+                                          user.role === 'COURIER' ? 'שליח' :
+                                          user.role === 'BUSINESS' ? 'עסק' :
+                                          user.role === 'CUSTOMER_SERVICE' ? 'שירות לקוחות' :
+                                          user.role}
                 </p>
                 <p className="text-sm text-gray-600">
                   <strong>סטטוס:</strong> ממתין לאישור מנהל המערכת
@@ -85,7 +78,7 @@ export default function PendingApproval() {
             </button>
             
             <button
-              onClick={() => signOut({ callbackUrl: '/' })}
+              onClick={logout}
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               התנתק

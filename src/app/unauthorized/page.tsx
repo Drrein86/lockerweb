@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/components/providers/AuthProvider'
 
 export default function Unauthorized() {
-  const { data: session } = useSession()
+  const { user } = useAuth()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -26,21 +26,21 @@ export default function Unauthorized() {
           </div>
 
           {/* User Info */}
-          {session?.user && (
+          {user && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">
-                <strong>משתמש:</strong> {session.user.name}
+                <strong>משתמש:</strong> {user.firstName} {user.lastName}
               </p>
               <p className="text-sm text-gray-600 mb-1">
-                <strong>תפקיד:</strong> {session.user.role === 'ADMIN' ? 'אדמין' : 
-                                        session.user.role === 'MANAGEMENT' ? 'ניהול' :
-                                        session.user.role === 'COURIER' ? 'שליח' :
-                                        session.user.role === 'BUSINESS' ? 'עסק' :
-                                        session.user.role === 'CUSTOMER_SERVICE' ? 'שירות לקוחות' :
-                                        session.user.role}
+                <strong>תפקיד:</strong> {user.role === 'ADMIN' ? 'אדמין' : 
+                                        user.role === 'MANAGEMENT' ? 'ניהול' :
+                                        user.role === 'COURIER' ? 'שליח' :
+                                        user.role === 'BUSINESS' ? 'עסק' :
+                                        user.role === 'CUSTOMER_SERVICE' ? 'שירות לקוחות' :
+                                        user.role}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>סטטוס:</strong> {session.user.isApproved ? 'מאושר' : 'ממתין לאישור'}
+                <strong>סטטוס:</strong> {user.isApproved ? 'מאושר' : 'ממתין לאישור'}
               </p>
             </div>
           )}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { useRouter } from 'next/navigation'
 
 interface User {
@@ -35,7 +35,7 @@ interface SystemPage {
 }
 
 export default function UsersManagement() {
-  const { data: session, status } = useSession()
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [systemPages, setSystemPages] = useState<SystemPage[]>([])
@@ -45,16 +45,16 @@ export default function UsersManagement() {
 
   // בדיקת הרשאות אדמין
   useEffect(() => {
-    if (status === 'loading') return
+    if (isLoading) return
     
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!user || user.role !== 'ADMIN') {
       router.push('/auth/signin')
       return
     }
     
     fetchUsers()
     fetchSystemPages()
-  }, [session, status, router])
+  }, [user, isLoading, router])
 
   const fetchUsers = async () => {
     try {

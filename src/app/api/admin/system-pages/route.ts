@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { getUserFromToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET - קבלת כל דפי המערכת
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const token = request.cookies.get('auth-token')?.value
+    if (!token) {
+      return NextResponse.json({ error: 'לא מחובר' }, { status: 401 })
+    }
+
+    const user = await getUserFromToken(token)
     
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!user || user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 })
     }
 
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!user || user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'אין הרשאה' }, { status: 403 })
     }
 
