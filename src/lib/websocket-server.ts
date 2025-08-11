@@ -1853,13 +1853,13 @@ class WebSocketManager {
       });
 
       // חישוב סטטיסטיקות
-      const totalCells = lockers.reduce((sum, locker) => sum + locker.cells.length, 0);
-      const totalPackages = lockers.reduce((sum, locker) => 
-        sum + locker.cells.filter(cell => cell.packages.length > 0).length, 0
+      const totalCells = lockers.reduce((sum: any, locker: any) => sum + locker.cells.length, 0);
+      const totalPackages = lockers.reduce((sum: any, locker: any) => 
+        sum + locker.cells.filter((cell: any) => cell.packages.length > 0).length, 0
       );
 
       // עיצוב הנתונים למבנה הצפוי
-      const formattedLockers = lockers.map(locker => ({
+      const formattedLockers = lockers.map((locker: any) => ({
         lockerId: locker.deviceId || locker.id.toString(),
         name: locker.name,
         location: locker.location,
@@ -1867,7 +1867,7 @@ class WebSocketManager {
         lastConnected: locker.lastSeen,
         ip: locker.ip,
         status: locker.status,
-        cells: locker.cells.reduce((cellsObj: any, cell) => {
+        cells: locker.cells.reduce((cellsObj: any, cell: any) => {
           cellsObj[convertCellNumberToName(cell.cellNumber)] = {
             name: convertCellNumberToName(cell.cellNumber),
             locked: cell.isLocked,
@@ -1881,9 +1881,9 @@ class WebSocketManager {
           return cellsObj;
         }, {}),
         packages: locker.cells
-          .filter(cell => cell.packages.length > 0)
-          .reduce((packagesObj: any, cell) => {
-            cell.packages.forEach(pkg => {
+          .filter((cell: any) => cell.packages.length > 0)
+          .reduce((packagesObj: any, cell: any) => {
+            cell.packages.forEach((pkg: any) => {
               packagesObj[pkg.trackingCode] = {
                 id: pkg.trackingCode,
                 trackingCode: pkg.trackingCode,
