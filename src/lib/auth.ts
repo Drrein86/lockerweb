@@ -110,7 +110,7 @@ export async function registerUser(userData: {
         firstName: userData.firstName,
         lastName: userData.lastName,
         role: isAdmin ? 'ADMIN' : (userData.role as any) || 'MANAGEMENT',
-        status: isAdmin ? 'ACTIVE' : 'PENDING_APPROVAL',
+        status: (isAdmin ? 'ACTIVE' : 'PENDING_APPROVAL') as any,
       }
     })
 
