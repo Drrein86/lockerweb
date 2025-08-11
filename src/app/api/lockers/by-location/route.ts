@@ -125,12 +125,12 @@ export async function GET(request: Request) {
       },
       summary: {
         totalLockers: lockersWithStats.length,
-        totalAvailableCells: lockersWithStats.reduce((sum, l) => sum + l.totalAvailableCells, 0),
+        totalAvailableCells: lockersWithStats.reduce((sum: any, l: any) => sum + l.totalAvailableCells, 0),
         cellsBySize: {
-          SMALL: lockersWithStats.reduce((sum, l) => sum + l.cellsBySize.SMALL, 0),
-          MEDIUM: lockersWithStats.reduce((sum, l) => sum + l.cellsBySize.MEDIUM, 0),
-          LARGE: lockersWithStats.reduce((sum, l) => sum + l.cellsBySize.LARGE, 0),
-          WIDE: lockersWithStats.reduce((sum, l) => sum + l.cellsBySize.WIDE, 0)
+          SMALL: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.SMALL, 0),
+          MEDIUM: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.MEDIUM, 0),
+          LARGE: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.LARGE, 0),
+          WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.WIDE, 0)
         }
       }
     })
