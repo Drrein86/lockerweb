@@ -9,7 +9,6 @@ interface User {
   lastName: string
   role: string
   status: string
-  isApproved: boolean
 }
 
 interface AuthContextType {

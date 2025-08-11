@@ -41,7 +41,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // אם המשתמש לא אושר, חסימה
-  if (!user.isApproved && user.role !== 'ADMIN') {
+  if (user.status !== 'ACTIVE' && user.role !== 'ADMIN') {
     return NextResponse.redirect(new URL('/auth/pending-approval', req.url))
   }
 

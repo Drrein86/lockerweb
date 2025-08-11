@@ -54,7 +54,7 @@ export async function loginUser(email: string, password: string) {
       return { success: false, error: 'סיסמא שגויה' }
     }
 
-    if (!user.isApproved) {
+    if (user.status !== 'ACTIVE') {
       return { success: false, error: 'החשבון ממתין לאישור אדמין' }
     }
 
@@ -75,9 +75,7 @@ export async function loginUser(email: string, password: string) {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        status: user.status,
-        isApproved: user.isApproved,
-        permissions: user.permissions
+        status: user.status
       }
     }
   } catch (error) {
@@ -114,8 +112,6 @@ export async function registerUser(userData: {
         lastName: userData.lastName,
         role: isAdmin ? 'ADMIN' : (userData.role as any) || 'MANAGEMENT',
         status: isAdmin ? 'ACTIVE' : 'PENDING_APPROVAL',
-        isApproved: isAdmin,
-        approvedAt: isAdmin ? new Date() : null,
       }
     })
 
