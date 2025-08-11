@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     })
 
     // סינון לוקרים שיש להם לפחות תא אחד פנוי
-    const availableLockers = lockers.filter(locker => locker._count.cells > 0)
+    const availableLockers = lockers.filter((locker: any) => locker._count.cells > 0)
 
     if (availableLockers.length === 0) {
       return NextResponse.json({
@@ -84,12 +84,12 @@ export async function GET(request: Request) {
     }
 
     // חישוב סטטיסטיקות לכל לוקר
-    const lockersWithStats = availableLockers.map(locker => {
+    const lockersWithStats = availableLockers.map((locker: any) => {
       const cellsBySize = {
-        SMALL: locker.cells.filter(c => c.size === 'SMALL').length,
-        MEDIUM: locker.cells.filter(c => c.size === 'MEDIUM').length,
-        LARGE: locker.cells.filter(c => c.size === 'LARGE').length,
-        WIDE: locker.cells.filter(c => c.size === 'WIDE').length
+        SMALL: locker.cells.filter((c: any) => c.size === 'SMALL').length,
+        MEDIUM: locker.cells.filter((c: any) => c.size === 'MEDIUM').length,
+        LARGE: locker.cells.filter((c: any) => c.size === 'LARGE').length,
+        WIDE: locker.cells.filter((c: any) => c.size === 'WIDE').length
       }
 
       return {
