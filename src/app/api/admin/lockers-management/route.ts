@@ -97,12 +97,14 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`🆕 יוצר לוקר חדש ב-Railway: ${name}`)
+    console.log('📋 נתוני הלוקר:', { name, location, description, ip, port, deviceId, cellsCount })
     
     // בדיקת חיבור ראשונית
     await prisma.$connect()
     console.log('✅ חיבור ל-Railway DB הצליח לPOST')
 
     // יצירת הלוקר
+    console.log('🔨 מתחיל ליצור לוקר ב-Prisma...')
     const locker = await prisma.locker.create({
       data: {
         name,
@@ -115,26 +117,35 @@ export async function POST(request: NextRequest) {
         isActive: true
       }
     })
+    console.log(`✅ לוקר נוצר בהצלחה עם ID: ${locker.id}`)
 
     // יצירת התאים
+    console.log(`🔧 יוצר ${cellsCount} תאים עבור לוקר ${locker.id}...`)
     const cells = []
     for (let i = 1; i <= cellsCount; i++) {
       const cellCode = `${deviceId || locker.id}-${String(i).padStart(2, '0')}`
+      console.log(`📦 יוצר תא ${i} עם קוד: ${cellCode}`)
+      
+      const cellData = {
+        cellNumber: i,
+        code: cellCode,
+        name: `תא ${i}`,
+        size: i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE',
+        status: 'AVAILABLE',
+        isLocked: true,
+        isActive: true,
+        lockerId: locker.id,
+        openCount: 0
+      }
+      console.log(`📋 נתוני תא ${i}:`, cellData)
+      
       const cell = await prisma.cell.create({
-        data: {
-          cellNumber: i,
-          code: cellCode,
-          name: `תא ${i}`,
-          size: i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE',
-          status: 'AVAILABLE',
-          isLocked: true,
-          isActive: true,
-          lockerId: locker.id,
-          openCount: 0
-        }
+        data: cellData
       })
+      console.log(`✅ תא ${i} נוצר בהצלחה עם ID: ${cell.id}`)
       cells.push(cell)
     }
+    console.log(`🎉 כל ${cells.length} התאים נוצרו בהצלחה`)
 
     console.log(`✅ לוקר ${name} נוצר ב-Railway עם ${cellsCount} תאים`)
 
@@ -153,6 +164,7 @@ export async function POST(request: NextRequest) {
     
     // בדיקה אם זו שגיאת חיבור לDB
     if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      console.error('🔌 בעיית חיבור DB - DATABASE_URL חסר')
       return NextResponse.json(
         { 
           error: 'שגיאה בחיבור לDB - DATABASE_URL לא מוגדר',
@@ -162,6 +174,27 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+    
+    // בדיקה אם זו שגיאת Prisma
+    if (error instanceof Error && error.name?.includes('Prisma')) {
+      console.error('🗄️ שגיאת Prisma:', error.message)
+      console.error('📋 Stack trace:', error.stack?.split('\n').slice(0, 5))
+      return NextResponse.json(
+        { 
+          error: 'שגיאה במסד הנתונים',
+          details: error.message,
+          errorType: 'DATABASE_ERROR',
+          errorName: error.name
+        },
+        { status: 500 }
+      )
+    }
+    
+    // שגיאה כללית
+    console.error('🚨 שגיאה כללית:')
+    console.error('📝 Message:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('🏷️ Name:', error instanceof Error ? error.name : 'Unknown')
+    console.error('📍 Stack:', error instanceof Error ? error.stack?.split('\n').slice(0, 8) : 'No stack')
     
     return NextResponse.json(
       { 
