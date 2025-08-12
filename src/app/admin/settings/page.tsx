@@ -15,11 +15,12 @@ interface Settings {
 }
 
 export default function SettingsPage() {
-  // Force override לוודא שתמיד נשתמש בפורט הנכון
+  // התאמה ל-ESP32 שמתחבר על פורט 443 (רגיל)
   function getWebSocketURL() {
-    let url = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
-    if (url.includes('lockerweb-production.up.railway.app') && !url.includes(':3004')) {
-      url = url.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004')
+    let url = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
+    // הסר פורט 3004 אם הוא קיים - נתחבר לפורט רגיל כמו ESP32
+    if (url.includes(':3004')) {
+      url = url.replace(':3004', '')
     }
     return url
   }

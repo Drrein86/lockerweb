@@ -69,12 +69,13 @@ export default function LockersManagementPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר')
-        // Force override לוודא שתמיד נשתמש בפורט הנכון  
-        let wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
-        if (wsUrl.includes('lockerweb-production.up.railway.app') && !wsUrl.includes(':3004')) {
-          wsUrl = wsUrl.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004')
+        // התאמה ל-ESP32 שמתחבר על פורט 443 (רגיל)
+        let wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
+        // הסר פורט 3004 אם הוא קיים - נתחבר לפורט רגיל כמו ESP32
+        if (wsUrl.includes(':3004')) {
+          wsUrl = wsUrl.replace(':3004', '')
         }
-        console.log('🔗 WebSocket URL נקבע:', wsUrl)
+        console.log('🔗 WebSocket URL נקבע (מותאם ל-ESP32):', wsUrl)
         ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {

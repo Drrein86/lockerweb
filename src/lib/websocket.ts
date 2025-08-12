@@ -1,15 +1,15 @@
-// הגדרות חיבור לשרת החומרה - WebSocket על פורט 3004
-// Force override לוודא שתמיד נשתמש בפורט הנכון
+// הגדרות חיבור לשרת החומרה - WebSocket על פורט 443 (כמו ESP32)
+// התאמה ל-ESP32 שמתחבר על פורט 443
 function getWebSocketURL() {
-  // אם יש משתנה סביבה אבל הוא ללא פורט, נוסיף פורט
-  let url = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
+  // ESP32 מתחבר על פורט 443, נעשה אותו דבר
+  let url = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
   
-  // אם הכתובת היא Railway אבל ללא פורט, נוסיף פורט 3004
-  if (url.includes('lockerweb-production.up.railway.app') && !url.includes(':3004')) {
-    url = url.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004')
+  // הסר פורט 3004 אם הוא קיים - נתחבר לפורט רגיל כמו ESP32
+  if (url.includes(':3004')) {
+    url = url.replace(':3004', '')
   }
   
-  console.log('🔗 WebSocket URL נקבע:', url)
+  console.log('🔗 WebSocket URL נקבע (מותאם ל-ESP32):', url)
   return url
 }
 

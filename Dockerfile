@@ -16,10 +16,8 @@ ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npm run build
 
 EXPOSE 3000
-EXPOSE 3004
 
 ENV PORT=3000
-ENV WS_PORT=3004
 ENV NODE_ENV=production
 
 # הסר את SKIP_WS_START בruntime כדי שהWebSocket יתאתחל

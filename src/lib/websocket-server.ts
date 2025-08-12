@@ -63,9 +63,9 @@ interface WebSocketMessage {
   reason?: string;
 }
 
-// קונפיגורציה
+// קונפיגורציה - התאמה ל-ESP32: WebSocket על אותו פורט כמו HTTP
 const CONFIG = {
-  PORT: process.env.WS_PORT || 3004,
+  PORT: process.env.PORT || process.env.WS_PORT || 3000,
   USE_SSL: process.env.USE_SSL === 'true',
   SSL_KEY: process.env.SSL_KEY_PATH,
   SSL_CERT: process.env.SSL_CERT_PATH,
