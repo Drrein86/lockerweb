@@ -69,7 +69,7 @@ export default function LockersManagementPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר')
-        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'ws://localhost:3003'
+        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
         ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {
@@ -945,7 +945,7 @@ export default function LockersManagementPage() {
                 </p>
                 {wsStatus !== 'מחובר' && (
                   <p className="text-orange-300 text-sm">
-                    💡 וודא שהשרת החומרה פועל על ws://localhost:3003
+                    💡 וודא שהשרת החומרה פועל על Railway
                   </p>
                 )}
               </div>
