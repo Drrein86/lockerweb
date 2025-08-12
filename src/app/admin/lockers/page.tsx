@@ -94,7 +94,12 @@ export default function AdminLockersPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר');
-        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004';
+        // Force override לוודא שתמיד נשתמש בפורט הנכון  
+        let wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004';
+        if (wsUrl.includes('lockerweb-production.up.railway.app') && !wsUrl.includes(':3004')) {
+          wsUrl = wsUrl.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004');
+        }
+        console.log('🔗 WebSocket URL נקבע:', wsUrl);
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {

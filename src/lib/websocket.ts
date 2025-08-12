@@ -1,7 +1,21 @@
 // הגדרות חיבור לשרת החומרה - WebSocket על פורט 3004
+// Force override לוודא שתמיד נשתמש בפורט הנכון
+function getWebSocketURL() {
+  // אם יש משתנה סביבה אבל הוא ללא פורט, נוסיף פורט
+  let url = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
+  
+  // אם הכתובת היא Railway אבל ללא פורט, נוסיף פורט 3004
+  if (url.includes('lockerweb-production.up.railway.app') && !url.includes(':3004')) {
+    url = url.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004')
+  }
+  
+  console.log('🔗 WebSocket URL נקבע:', url)
+  return url
+}
+
 const HARDWARE_WS_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004')
-  : 'wss://lockerweb-production.up.railway.app:3004'
+  ? getWebSocketURL()
+  : getWebSocketURL()
 
 const ADMIN_SECRET = '86428642'
 const PING_INTERVAL = 30000 // 30 שניות
