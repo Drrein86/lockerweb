@@ -218,12 +218,13 @@ class WebSocketManager {
           console.log('🔓 עיבוד בקשת פתיחת תא - התקבלה הודעת unlock/openCell!');
           console.log('🔓 פרטי הבקשה:', {
             lockerId: data.lockerId,
-            cellId: data.cellId || data.cellCode,
+            cellId: data.cellId || data.cellCode || data.cell,
             cellCode: data.cellCode,
+            cell: data.cell,
             isAdmin: ws.isAdmin,
             timestamp: new Date().toISOString(),
             hasLockerId: !!data.lockerId,
-            hasCellId: !!(data.cellId || data.cellCode)
+            hasCellId: !!(data.cellId || data.cellCode || data.cell)
           });
           
           // אם זה ממנהל, נטפל כ-unlock רגיל
@@ -235,7 +236,7 @@ class WebSocketManager {
           this.handleClientOpenRequest(ws, {
             ...data,
             type: 'openByClient',
-            cellId: data.cellId || data.cellCode,
+            cellId: data.cellId || data.cellCode || data.cell,
             packageId: data.packageId || `CLIENT-${Date.now()}`,
             clientToken: data.clientToken || 'CLIENT-TOKEN'
           });
@@ -519,7 +520,7 @@ class WebSocketManager {
    * טיפול בפקודת פתיחה
    */
   private async handleUnlockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
-    const cellId = data.cellId || data.cellCode;
+    const cellId = data.cellId || data.cellCode || data.cell;
     
     console.log('🔍 בדיקת בקשה לפתיחת תא:', {
       isAdmin: ws.isAdmin,
@@ -622,7 +623,7 @@ class WebSocketManager {
    * טיפול בפקודת נעילה
    */
   private async handleLockCommand(ws: LockerConnection, data: WebSocketMessage): Promise<void> {
-    const cellId = data.cellId || data.cellCode;
+    const cellId = data.cellId || data.cellCode || data.cell;
     
     console.log('🔒 בדיקת בקשה לנעילת תא:', {
       isAdmin: ws.isAdmin,
