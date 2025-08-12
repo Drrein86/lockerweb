@@ -1539,6 +1539,12 @@ class WebSocketManager {
       console.error('❌ WebSocket server לא מאותחל');
       return;
     }
+
+    // בדיקה נוספת - אם השרת כבר פועל
+    if (this.server.listening) {
+      console.log('⚠️ WebSocket server כבר פועל, מדלג על start()');
+      return;
+    }
     
     this.server.listen(CONFIG.PORT, () => {
       console.log('🚀 שרת הלוקרים פועל:', {
@@ -1948,61 +1954,56 @@ const wsManager = new WebSocketManager();
 // בקרת אתחול מרכזי
 declare global {
   var __WEBSOCKET_STARTED__: boolean;
+  var __WEBSOCKET_STARTING__: boolean;
 }
 
-// פונקציה בטוחה לאתחול
+// פונקציה בטוחה לאתחול - עם בקרה מוחלטת
 export function initializeWebSocketIfNeeded() {
-  if (globalThis.__WEBSOCKET_STARTED__) {
-    console.log('⚠️ WebSocket כבר פועל, מדלג על אתחול');
+  // בדיקה מוחלטת - אם כבר מופעל או בprocess של הפעלה
+  if (globalThis.__WEBSOCKET_STARTED__ || globalThis.__WEBSOCKET_STARTING__) {
+    console.log('⚠️ WebSocket כבר פועל/מתחיל, מדלג על אתחול');
     return;
   }
 
-  globalThis.__WEBSOCKET_STARTED__ = true;
+  // נעול את הסטטוס מיידית
+  globalThis.__WEBSOCKET_STARTING__ = true;
 
-  console.log('🚀 מפעיל שרת WebSocket אוטומטית...', {
+  console.log('🚀 מפעיל שרת WebSocket (בקרה מוחלטת)...', {
     nodeEnv: process.env.NODE_ENV,
     skipWsStart: process.env.SKIP_WS_START,
     timestamp: new Date().toISOString()
   });
   
-  console.log('🔍 בדיקת משתני סביבה:', {
-    'SKIP_WS_START': process.env.SKIP_WS_START,
-    'SKIP_WS_START === "true"': process.env.SKIP_WS_START === 'true',
-    'NODE_ENV': process.env.NODE_ENV
-  });
-  
   try {
-    // הפעל רק אם לא בזמן build
-    const shouldStart = process.env.SKIP_WS_START !== 'true' && process.env.SKIP_WS_START !== '';
+    // בדיקה אם השרת כבר פועל
+    if (wsManager.server && wsManager.server.listening) {
+      console.log('✅ WebSocket כבר פועל, מדלג על אתחול');
+      globalThis.__WEBSOCKET_STARTED__ = true;
+      globalThis.__WEBSOCKET_STARTING__ = false;
+      return;
+    }
+
+    // הפעלה מותנית
+    const shouldStart = process.env.SKIP_WS_START !== 'true';
     console.log('🔧 החלטה על אתחול WebSocket:', {
       shouldStart,
       skipValue: process.env.SKIP_WS_START,
-      skipType: typeof process.env.SKIP_WS_START
+      serverExists: !!wsManager.server,
+      serverListening: wsManager.server?.listening
     });
     
     if (shouldStart) {
       console.log('✅ מתאתחל WebSocket server...');
       wsManager.start();
+      globalThis.__WEBSOCKET_STARTED__ = true;
       console.log('✅ שרת WebSocket הופעל בהצלחה');
     } else {
-      console.log('⏸️ WebSocket לא הופעל (build mode או SKIP_WS_START מוגדר)');
-      // אבל בוא ננסה בכל זאת אם זה production
-      if (process.env.NODE_ENV === 'production') {
-        console.log('🔄 מנסה להפעיל WebSocket בכל זאת (production mode)...');
-        wsManager.start();
-        console.log('✅ WebSocket הופעל בכוח ב-production');
-      }
+      console.log('⏸️ WebSocket לא הופעל (SKIP_WS_START מוגדר)');
     }
   } catch (error) {
     console.error('❌ שגיאה בהפעלת שרת WebSocket:', error);
-    // ננסה שוב ללא התלות בDB
-    try {
-      console.log('🔄 מנסה להפעיל WebSocket ללא DB...');
-      wsManager.start();
-      console.log('✅ WebSocket התחיל ללא DB');
-    } catch (fallbackError) {
-      console.error('❌ גם fallback נכשל:', fallbackError);
-    }
+  } finally {
+    globalThis.__WEBSOCKET_STARTING__ = false;
   }
 }
 
