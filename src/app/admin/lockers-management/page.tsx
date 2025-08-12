@@ -69,13 +69,10 @@ export default function LockersManagementPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר')
-        // Web Client מתחבר לפורט 3004, ESP32 לפורט רגיל
-        let wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
-        // ודא שיש פורט 3004 עבור Web Client
-        if (wsUrl.includes('lockerweb-production.up.railway.app') && !wsUrl.includes(':3004')) {
-          wsUrl = wsUrl.replace('lockerweb-production.up.railway.app', 'lockerweb-production.up.railway.app:3004')
-        }
-        console.log('🔗 WebSocket URL נקבע (Web Client על 3004):', wsUrl)
+        // לעת עתה, נשבית את WebSocket עד שנתקן את הserver
+        // יש בעיה שהWebSocket server רץ על פורט 3004 שלא נגיש ב-Railway
+        console.log('⚠️ WebSocket מושבת זמנית - יש לתקן את הפורט ב-Railway')
+        return // מדלג על חיבור WebSocket
         ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {
@@ -368,7 +365,7 @@ export default function LockersManagementPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/lockers-management?id=${id}&type=${type}`, {
+      const response = await fetch(`https://lockerweb-production.up.railway.app/api/admin/lockers-management?id=${id}&type=${type}`, {
         method: 'DELETE'
       })
 
