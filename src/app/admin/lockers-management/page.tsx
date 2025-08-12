@@ -235,8 +235,8 @@ export default function LockersManagementPage() {
     const startTime = Date.now()
     try {
       setLoading(true)
-      console.log('🌐 שולח בקשה ל-API:', '/api/admin/lockers-management')
-      const response = await fetch('/api/admin/lockers-management')
+      console.log('🌐 שולח בקשה ל-Railway API:', 'https://lockerweb-production.up.railway.app/api/admin/lockers-management')
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management')
       console.log('📡 תגובה מהשרת:', response.status, response.statusText)
       
       if (!response.ok) {
@@ -291,7 +291,7 @@ export default function LockersManagementPage() {
   const saveLocker = async (lockerData: Partial<Locker>) => {
     console.log('💾 מתחיל לשמור לוקר:', lockerData)
     try {
-      const url = '/api/admin/lockers-management'
+      const url = 'https://lockerweb-production.up.railway.app/api/admin/lockers-management'
       const method = lockerData.id ? 'PUT' : 'POST'
       console.log('🌐 שולח בקשה:', method, url)
       
@@ -333,7 +333,7 @@ export default function LockersManagementPage() {
 
   const saveCell = async (cellData: Partial<Cell>) => {
     try {
-      const url = '/api/admin/lockers-management'
+      const url = 'https://lockerweb-production.up.railway.app/api/admin/lockers-management'
       const method = cellData.id ? 'PUT' : 'POST'
       
       const response = await fetch(url, {
@@ -395,7 +395,7 @@ export default function LockersManagementPage() {
     
     try {
       // מציאת הלוקר במסד הנתונים לפי deviceId
-      const lockersResponse = await fetch('/api/admin/lockers-management')
+      const lockersResponse = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management')
       const lockersData = await lockersResponse.json()
       
       let dbLockerId = null
@@ -411,7 +411,7 @@ export default function LockersManagementPage() {
         const liveLocker = liveLockers[lockerId]
         if (liveLocker?.ip) {
           // יצירת לוקר זמני במסד הנתונים
-          const createResponse = await fetch('/api/admin/lockers-management', {
+          const createResponse = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -462,7 +462,7 @@ export default function LockersManagementPage() {
       console.log(`📤 שולח בקשה לפתיחת תא:`, requestBody)
       
       // שימוש ב-API לפתיחת תא
-      const response = await fetch('/api/lockers/unlock-cell', {
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/lockers/unlock-cell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -523,7 +523,7 @@ export default function LockersManagementPage() {
   // טעינת לוקרים מוגדרים מראש (ללא חיבור לשרת חומרה)
   const loadPredefinedLockers = async () => {
     try {
-      const response = await fetch('/api/admin/lockers-management')
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management')
       const data = await response.json()
       
       if (data.success) {
@@ -569,7 +569,7 @@ export default function LockersManagementPage() {
       
       console.log('📤 שולח בקשת PUT עם נתונים:', requestBody)
 
-      const response = await fetch('/api/admin/lockers-management', {
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -618,7 +618,7 @@ export default function LockersManagementPage() {
         isActive: true
       }
 
-      const response = await fetch('/api/admin/lockers-management', {
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newLocker)
@@ -657,7 +657,7 @@ export default function LockersManagementPage() {
           isActive: true
         }
 
-        await fetch('/api/admin/lockers-management', {
+        await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newCell)
@@ -674,7 +674,7 @@ export default function LockersManagementPage() {
   // עדכון הגדרות תא
   const updateCellSettings = async (cellId: number, settings: { size?: string, name?: string, isActive?: boolean }) => {
     try {
-      const response = await fetch('/api/admin/lockers-management', {
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -730,7 +730,7 @@ export default function LockersManagementPage() {
       
       if (action === 'open') {
         console.log('🔓 שולח בקשה לפתיחת תא:', { lockerId, cellId })
-        console.log('📤 URL:', '/api/lockers/unlock-cell')
+        console.log('📤 URL:', 'https://lockerweb-production.up.railway.app/api/lockers/unlock-cell')
         console.log('📤 Method:', 'POST')
         
         const requestBody = {
@@ -742,7 +742,7 @@ export default function LockersManagementPage() {
         console.log('📤 Request Body:', requestBody)
         
         // עבור פתיחת תאים, נשתמש ב-API המיוחד שתומך בסימולציה
-        response = await fetch('/api/lockers/unlock-cell', {
+        response = await fetch('https://lockerweb-production.up.railway.app/api/lockers/unlock-cell', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody)
@@ -751,7 +751,7 @@ export default function LockersManagementPage() {
         console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()))
       } else {
         console.log('🔒 שולח בקשה לסגירת תא:', { lockerId, cellId })
-        console.log('📤 URL:', '/api/admin/cell-control')
+        console.log('📤 URL:', 'https://lockerweb-production.up.railway.app/api/admin/cell-control')
         console.log('📤 Method:', 'POST')
         
         const requestBody = {
@@ -762,7 +762,7 @@ export default function LockersManagementPage() {
         }
         console.log('📤 Request Body:', requestBody)
         
-        response = await fetch('/api/admin/cell-control', {
+        response = await fetch('https://lockerweb-production.up.railway.app/api/admin/cell-control', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody)
@@ -880,7 +880,7 @@ export default function LockersManagementPage() {
               onClick={async () => {
                 try {
                   setLoading(true)
-                  const response = await fetch('/api/admin/lockers-management')
+                  const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management')
                   const data = await response.json()
                   console.log('🔍 בדיקה מהירה:', { status: response.status, data })
                   alert(`API בדיקה:\nסטטוס: ${response.status}\nלוקרים: ${data.lockers?.length || 0}\nהצלחה: ${data.success}`)
@@ -1316,7 +1316,7 @@ export default function LockersManagementPage() {
               <button
                 onClick={async () => {
                   try {
-                    const response = await fetch('/api/admin/lockers-management')
+                    const response = await fetch('https://lockerweb-production.up.railway.app/api/admin/lockers-management')
                     const data = await response.json()
                     console.log('🔍 בדיקה ידנית של API:', data)
                     alert(`סטטוס: ${response.status}\nלוקרים: ${data.lockers?.length || 0}\nהצלחה: ${data.success}`)
