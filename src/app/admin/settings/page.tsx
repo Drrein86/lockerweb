@@ -16,7 +16,7 @@ interface Settings {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
-    websocketUrl: process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app',
+    websocketUrl: process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004',
     adminSecret: '',
     reconnectAttempts: 3,
     reconnectInterval: 5000,

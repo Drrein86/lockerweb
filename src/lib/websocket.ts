@@ -1,7 +1,7 @@
-// הגדרות חיבור לשרת החומרה - Railway מנהל את הפורטים אוטומטית
+// הגדרות חיבור לשרת החומרה - WebSocket על פורט 3004
 const HARDWARE_WS_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app')
-  : 'wss://lockerweb-production.up.railway.app'
+  ? (process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004')
+  : 'wss://lockerweb-production.up.railway.app:3004'
 
 const ADMIN_SECRET = '86428642'
 const PING_INTERVAL = 30000 // 30 שניות

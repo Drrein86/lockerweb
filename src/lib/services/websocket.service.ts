@@ -9,7 +9,7 @@ interface WebSocketState {
   send: (message: any) => void
 }
 
-const WS_URL = 'wss://lockerweb-production.up.railway.app'
+const WS_URL = 'wss://lockerweb-production.up.railway.app:3004'
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   socket: null,

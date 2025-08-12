@@ -69,7 +69,7 @@ export default function LockersManagementPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר')
-        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app'
+        const wsUrl = process.env.NEXT_PUBLIC_HARDWARE_WS_URL || 'wss://lockerweb-production.up.railway.app:3004'
         ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {
