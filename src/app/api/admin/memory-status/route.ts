@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import wsManager from '@/lib/websocket-server'
+import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +9,9 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     console.log('📊 בקשה לקבלת סטטוס מ-Railway DB');
+    
+    // וידוא שהWebSocket פועל (בטוח)
+    initializeWebSocketIfNeeded();
 
     const memoryStatus = await wsManager.getFullMemoryStatus();
 

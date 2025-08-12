@@ -2006,17 +2006,8 @@ export function initializeWebSocketIfNeeded() {
   }
 }
 
-// הפעלה אוטומטית רק במקומות ספציפיים
-if (typeof window === 'undefined' && !globalThis.__WEBSOCKET_STARTED__) {
-  // רק אם זה לא import מ-API route
-  const isApiRoute = process.env.NODE_ENV === 'production' && 
-                     (require.main?.filename.includes('/api/') || 
-                      process.argv.some(arg => arg.includes('api')));
-                      
-  if (!isApiRoute) {
-    initializeWebSocketIfNeeded();
-  }
-}
+// הפעלה אוטומטית מושבתת - רק דרך הקובץ websocket-init.ts
+// כדי למנוע אתחול כפול
 
 // ייצוא לשימוש במודולים אחרים
 export default wsManager; 
