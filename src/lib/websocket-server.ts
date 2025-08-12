@@ -85,6 +85,11 @@ class WebSocketManager {
   private server: Server;
   private wss: WebSocketServer;
   private lockerConnections: Map<string, LockerConnection>;
+  
+  // Getter public לסטטוס השרת
+  public get isServerListening(): boolean {
+    return this.server?.listening || false;
+  }
   private adminConnections: Set<LockerConnection>;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
@@ -1541,7 +1546,7 @@ class WebSocketManager {
     }
 
     // בדיקה נוספת - אם השרת כבר פועל
-    if (this.server.listening) {
+    if (this.server && this.server.listening) {
       console.log('⚠️ WebSocket server כבר פועל, מדלג על start()');
       return;
     }
@@ -1976,7 +1981,7 @@ export function initializeWebSocketIfNeeded() {
   
   try {
     // בדיקה אם השרת כבר פועל
-    if (wsManager.server && wsManager.server.listening) {
+    if (wsManager.isServerListening) {
       console.log('✅ WebSocket כבר פועל, מדלג על אתחול');
       globalThis.__WEBSOCKET_STARTED__ = true;
       globalThis.__WEBSOCKET_STARTING__ = false;
@@ -1988,8 +1993,7 @@ export function initializeWebSocketIfNeeded() {
     console.log('🔧 החלטה על אתחול WebSocket:', {
       shouldStart,
       skipValue: process.env.SKIP_WS_START,
-      serverExists: !!wsManager.server,
-      serverListening: wsManager.server?.listening
+      serverListening: wsManager.isServerListening
     });
     
     if (shouldStart) {
