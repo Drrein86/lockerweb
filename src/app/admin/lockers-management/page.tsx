@@ -81,14 +81,11 @@ export default function LockersManagementPage() {
       }
     }
 
-    connect()
+    // WebSocket מושבת זמנית
+    // connect()
 
     return () => {
-      if (pingInterval) clearInterval(pingInterval)
-      if (reconnectTimeout) clearTimeout(reconnectTimeout)
-      if (ws) {
-        ws.close()
-      }
+      // ניקוי לא נדרש כי WebSocket מושבת
     }
   }, [])
 
