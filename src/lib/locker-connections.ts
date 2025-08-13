@@ -91,15 +91,17 @@ defaultLockers.forEach(locker => {
 });
 
 // פונקציות ניהול חיבורים (כמו בשרת הישן)
-export function registerLocker(id: string, ip?: string, cells?: any) {
+export function registerLocker(id: string, ip?: string, cells?: any): LockerConnection {
   const existingLocker = registeredLockers.get(id) || {
     id,
+    ip: undefined,
     lastSeen: new Date(),
     isOnline: true,
-    cells: cells || {}
+    cells: cells || {},
+    deviceId: id
   };
 
-  const updatedLocker = {
+  const updatedLocker: LockerConnection = {
     ...existingLocker,
     ip: ip || existingLocker.ip,
     lastSeen: new Date(),
