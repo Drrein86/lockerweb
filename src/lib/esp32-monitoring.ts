@@ -216,7 +216,7 @@ export async function performLockerDiagnostics(lockerId: string) {
     cellsCount: Object.keys(locker.cells || {}).length,
     healthCheck,
     status: isRecentlyActive ? 'healthy' : 'inactive',
-    recommendations: []
+    recommendations: [] as string[]
   };
   
   // המלצות לפי הסטטוס
