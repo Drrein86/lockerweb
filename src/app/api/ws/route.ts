@@ -107,6 +107,16 @@ export async function POST(request: NextRequest) {
           timestamp: new Date().toISOString()
         })
         
+      case 'lock':
+        // בקשה לנעילת תא (מהקליינט)
+        console.log(`🔒 מבקש נעילת תא ${data.cell || data.cellId} בלוקר ${data.id}`)
+        
+        return Response.json({
+          success: true,
+          message: `פקודת נעילה נשלחה לתא ${data.cell || data.cellId} בלוקר ${data.id}`,
+          timestamp: new Date().toISOString()
+        })
+        
       case 'ping':
         return Response.json({
           type: 'pong',

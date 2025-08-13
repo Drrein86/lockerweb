@@ -1,6 +1,7 @@
 // Client לתקשורת עם Hardware Microservice
 
-const HARDWARE_SERVICE_URL = process.env.HARDWARE_SERVICE_URL || 'http://localhost:8080';
+// Hardware service עכשיו רץ דרך Next.js APIs
+const HARDWARE_SERVICE_URL = process.env.HARDWARE_SERVICE_URL || 'https://lockerweb-production.up.railway.app';
 
 export class HardwareClient {
   private baseUrl: string;
@@ -9,19 +10,20 @@ export class HardwareClient {
     this.baseUrl = HARDWARE_SERVICE_URL;
   }
 
-  // פתיחת תא דרך Hardware Service
+  // פתיחת תא דרך WebSocket API
   async unlockCell(lockerId: string, cellNumber: number): Promise<{ success: boolean; message: string }> {
     try {
-      console.log(`📤 שולח פקודת פתיחה ל-Hardware Service: ${lockerId}, תא ${cellNumber}`);
+      console.log(`📤 שולח פקודת פתיחה ל-WebSocket API: ${lockerId}, תא ${cellNumber}`);
       
-      const response = await fetch(`${this.baseUrl}/hardware/unlock`, {
+      const response = await fetch(`${this.baseUrl}/api/ws`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          lockerId,
-          cellNumber
+          type: 'unlock',
+          id: lockerId,
+          cell: cellNumber.toString()
         })
       });
 
@@ -40,19 +42,20 @@ export class HardwareClient {
     }
   }
 
-  // נעילת תא דרך Hardware Service
+  // נעילת תא דרך WebSocket API
   async lockCell(lockerId: string, cellNumber: number): Promise<{ success: boolean; message: string }> {
     try {
-      console.log(`📤 שולח פקודת נעילה ל-Hardware Service: ${lockerId}, תא ${cellNumber}`);
+      console.log(`📤 שולח פקודת נעילה ל-WebSocket API: ${lockerId}, תא ${cellNumber}`);
       
-      const response = await fetch(`${this.baseUrl}/hardware/lock`, {
+      const response = await fetch(`${this.baseUrl}/api/ws`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          lockerId,
-          cellNumber
+          type: 'lock',
+          id: lockerId,
+          cell: cellNumber.toString()
         })
       });
 
@@ -74,18 +77,22 @@ export class HardwareClient {
   // קבלת סטטוס חיבורי לוקרים
   async getHardwareStatus(): Promise<{ connectedLockers: number; lockers: any[] }> {
     try {
-      const response = await fetch(`${this.baseUrl}/hardware/status`);
+      const response = await fetch(`${this.baseUrl}/api/admin/lockers-management`);
       
       if (!response.ok) {
-        throw new Error('שגיאה בקבלת סטטוס Hardware Service');
+        throw new Error('שגיאה בקבלת סטטוס לוקרים');
       }
 
-      const status = await response.json();
-      console.log(`📊 סטטוס Hardware Service: ${status.connectedLockers} לוקרים מחוברים`);
-      return status;
+      const data = await response.json();
+      const lockers = data.lockers || [];
+      console.log(`📊 סטטוס לוקרים: ${lockers.length} לוקרים זמינים`);
+      return {
+        connectedLockers: lockers.length,
+        lockers: lockers
+      };
 
     } catch (error) {
-      console.error('❌ שגיאה בקבלת סטטוס Hardware Service:', error);
+      console.error('❌ שגיאה בקבלת סטטוס לוקרים:', error);
       throw error;
     }
   }
@@ -94,7 +101,7 @@ export class HardwareClient {
   async isLockerConnected(lockerId: string): Promise<boolean> {
     try {
       const status = await this.getHardwareStatus();
-      return status.lockers.some(locker => locker.lockerId === lockerId);
+      return status.lockers.some(locker => locker.deviceId === lockerId || locker.id === lockerId);
     } catch (error) {
       console.error('❌ שגיאה בבדיקת חיבור לוקר:', error);
       return false;
