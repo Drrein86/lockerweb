@@ -65,14 +65,45 @@ export async function POST(request: NextRequest) {
     
     // טיפול בהודעות שונות
     switch (data.type) {
-      case 'unlock':
-        // שליחת פקודת פתיחה
-        console.log(`🔓 מבקש פתיחת תא ${data.cell} בלוקר ${data.id}`)
+      case 'register':
+        // Arduino נרשם למערכת
+        console.log(`📝 Arduino נרשם: ${data.id} (IP: ${data.ip})`)
+        // כאן נעדכן מסד נתונים או cache של מכשירים מחוברים
+        return Response.json({
+          type: 'registerSuccess',
+          message: 'רישום הצליח',
+          timestamp: new Date().toISOString()
+        })
         
-        // כאן נשלח ל-ESP32 או נחזיר הודעה
+      case 'cellClosed':
+        // Arduino מדווח על סגירת תא
+        console.log(`🔒 תא ${data.cellId || data.cell} נסגר במכשיר ${data.id}`)
+        
+        // שליחת אישור חזרה ל-Arduino
+        return Response.json({
+          type: 'confirmClose',
+          id: data.id,
+          cellId: data.cellId || data.cell,
+          timestamp: new Date().toISOString()
+        })
+        
+      case 'failedToUnlock':
+        // Arduino מדווח על כישלון בפתיחה
+        console.log(`❌ כישלון בפתיחת תא ${data.cell} במכשיר ${data.id}: ${data.reason}`)
+        return Response.json({
+          type: 'acknowledged',
+          message: 'הודעת כישלון התקבלה',
+          timestamp: new Date().toISOString()
+        })
+        
+      case 'unlock':
+        // בקשה לפתיחת תא (מהקליינט)
+        console.log(`🔓 מבקש פתיחת תא ${data.cell || data.cellId} בלוקר ${data.id}`)
+        
+        // כאן נשלח ל-Arduino או נחזיר הודעה
         return Response.json({
           success: true,
-          message: `פקודת פתיחה נשלחה לתא ${data.cell} בלוקר ${data.id}`,
+          message: `פקודת פתיחה נשלחה לתא ${data.cell || data.cellId} בלוקר ${data.id}`,
           timestamp: new Date().toISOString()
         })
         
@@ -84,9 +115,11 @@ export async function POST(request: NextRequest) {
         })
         
       default:
+        console.log('⚠️ סוג הודעה לא מוכר:', data.type)
         return Response.json({
           error: 'Unknown message type',
-          type: data.type
+          type: data.type,
+          received: data
         }, { status: 400 })
     }
     
