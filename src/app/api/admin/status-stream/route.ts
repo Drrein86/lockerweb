@@ -17,8 +17,13 @@ export async function GET(request: NextRequest) {
   console.log('🔄 Admin מתחבר ל-status stream')
   
   // יצירת SSE stream
+  let streamController: ReadableStreamDefaultController<any> | null = null
+  
   const stream = new ReadableStream({
     start(controller) {
+      // שמירת הcontroller למשתנה חיצוני
+      streamController = controller
+      
       // הוספת החיבור לרשימה
       addSSEConnection(controller)
       
@@ -38,7 +43,10 @@ export async function GET(request: NextRequest) {
     cancel() {
       // ניקוי בעת ניתוק
       console.log('🔄 Admin מתנתק מ-status stream')
-      removeSSEConnection(controller)
+      if (streamController) {
+        removeSSEConnection(streamController)
+        streamController = null
+      }
     }
   })
   
