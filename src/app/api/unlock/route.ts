@@ -1,76 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { hardwareClient } from '@/lib/hardware-client'
+import { sendToLockerWithResponse } from '@/lib/pending-requests'
+import { isLockerOnline } from '@/lib/locker-connections'
 
-/**
- * המרת מספר תא לשם תא (כמו A1, B2, וכו')
- * @param cellNumber מספר התא (1-26 עבור A-Z)
- * @returns שם התא (A1, A2, ..., Z26)
- */
-function convertCellNumberToName(cellNumber: string | number): string {
-  const num = typeof cellNumber === 'string' ? parseInt(cellNumber) : cellNumber;
-  
-  if (isNaN(num) || num <= 0) {
-    return cellNumber.toString(); // החזר כמו שהגיע אם לא תקין
-  }
-  
-  // לוגיקה פשוטה: A1, A2, ..., A26, B1, B2, וכו'
-  const letterIndex = Math.floor((num - 1) / 26);
-  const numberInRow = ((num - 1) % 26) + 1;
-  const letter = String.fromCharCode(65 + letterIndex); // A=65, B=66, וכו'
-  
-  return `${letter}${numberInRow}`;
-}
+export const dynamic = 'force-dynamic'
 
+// API endpoint זהה לשרת הישן - POST /api/unlock
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    console.log('🔓 התקבלה בקשה לפתיחת תא:', data)
-
+    console.log('📡 בקשת פתיחת תא מ-Vercel:', data)
+    
     const { type, id, cell } = data
-
-    if (!type || !id || !cell) {
-      return NextResponse.json(
-        { success: false, error: 'חסרים פרמטרים נדרשים' },
-        { status: 400 }
-      )
-    }
-
-    if (type !== 'unlock') {
-      return NextResponse.json(
-        { success: false, error: 'סוג פעולה לא נתמך' },
-        { status: 400 }
-      )
-    }
-
-    // שליחת פקודה דרך Hardware Service
-    console.log(`📡 שולח פקודת פתיחה ללוקר ${id}, תא ${cell}`)
-
-    try {
-      const result = await hardwareClient.unlockCell(id, parseInt(cell))
+    
+    // בדיקת פרמטרים נדרשים (כמו בשרת הישן)
+    if (type === 'unlock' && id && cell) {
+              // שליחת פקודת פתיחה ללוקר דרך WebSocket עם המתנה לתגובה (כמו בשרת הישן)
+        const result = await sendToLockerWithResponse(id, {
+          type: 'unlock',
+          cell: cell
+        }, 5000) // 5 שניות timeout כמו בשרת הישן
+        
+        // שידור הודעת פעולה לכל הלקוחות
+        const { broadcastCellOperation } = await import('@/lib/broadcast-status')
+        broadcastCellOperation(id, cell, 'unlock', result.success, result.message)
       
-      console.log('✅ פקודת פתיחה נשלחה בהצלחה:', result.message)
-      return NextResponse.json({
-        success: true,
-        message: `תא ${cell} נפתח בהצלחה בלוקר ${id}`,
-        lockerId: id,
-        cellId: cell,
-        cellName: convertCellNumberToName(cell)
-      })
-      
-    } catch (error) {
-      console.log('❌ שגיאה בפתיחת תא דרך Hardware Service:', error)
+      if (result.success) {
+        console.log(`✅ תא ${cell} נפתח בלוקר ${id}`)
+        
+        // תגובה זהה לשרת הישן - הצלחה
+        return NextResponse.json({
+          success: true,
+          message: `תא ${cell} נפתח בהצלחה בלוקר ${id}`,
+          lockerId: id,
+          cellId: cell,
+          simulated: false
+        }, { 
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        })
+      } else {
+        console.log(`❌ כשל בפתיחת תא ${cell} בלוקר ${id}: ${result.message}`)
+        
+        // תגובה זהה לשרת הישן - כישלון
+        return NextResponse.json({
+          success: false,
+          message: result.message || `לוקר ${id} לא מחובר למערכת`,
+          lockerId: id,
+          cellId: cell,
+          simulated: true
+        }, { 
+          status: 503,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        })
+      }
+    } else {
+      // תגובה זהה לשרת הישן - חסרים פרמטרים
       return NextResponse.json({
         success: false,
-        error: 'הלוקר לא מחובר או לא זמין',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 503 })
+        message: 'חסרים פרמטרים נדרשים (type, id, cell)',
+        required: ['type', 'id', 'cell'],
+        received: data
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      })
     }
-
   } catch (error) {
-    console.error('❌ שגיאה כללית בפתיחת תא:', error)
-    return NextResponse.json(
-      { success: false, error: 'שגיאה כללית בפתיחת תא' },
-      { status: 500 }
-    )
+    console.error('❌ שגיאה בעיבוד בקשת פתיחה:', error)
+    
+    // תגובה זהה לשרת הישן - שגיאת שרת
+    return NextResponse.json({
+      success: false,
+      message: 'שגיאה בשרת',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    })
   }
+}
+
+// טיפול ב-OPTIONS request (CORS preflight) - כמו בשרת הישן
+export async function OPTIONS() {
+  return NextResponse.json({}, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }
+  })
 }

@@ -47,11 +47,14 @@ export async function POST(request: NextRequest) {
       pendingCommands[targetDeviceId] = []
     }
     
-    pendingCommands[targetDeviceId].push({
+    // שמירת מזהה הבקשה אם קיים (לתמיכה במנגנון timeout)
+    const commandWithId = {
       ...command,
       timestamp: new Date().toISOString(),
-      id: Math.random().toString(36).substr(2, 9)
-    })
+      id: command.requestId || Math.random().toString(36).substr(2, 9)
+    }
+    
+    pendingCommands[targetDeviceId].push(commandWithId)
     
     console.log(`📥 נוספה פקודה ל-${targetDeviceId}:`, command)
     

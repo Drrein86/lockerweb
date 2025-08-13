@@ -74,8 +74,13 @@ export default function LockersManagementPage() {
         setWsStatus('מתחבר')
         
         try {
-          // התחברות ל-Server-Sent Events
-          const eventSource = new EventSource('https://lockerweb-production.up.railway.app/api/ws?client=admin')
+          // התחברות ל-Admin Status Stream עם authentication
+          const adminSecret = '86428642' // זהה לשרת הישן
+          const eventSource = new EventSource('https://lockerweb-production.up.railway.app/api/admin/status-stream', {
+            headers: {
+              'Authorization': `Bearer ${adminSecret}`
+            }
+          })
           
           eventSource.onopen = () => {
             setWsStatus('מחובר')
@@ -90,9 +95,33 @@ export default function LockersManagementPage() {
               setLastMessage(event.data)
               console.log('📨 התקבלה הודעה:', data)
               
-              // טיפול בהודעות
-              if (data.type === 'ping') {
-                console.log('🏓 ping התקבל מהשרת')
+              // טיפול בהודעות (כמו בשרת הישן)
+              if (data.type === 'lockerUpdate') {
+                // עדכון מצב לוקרים
+                const states = data.data.lockers || {}
+                let connectedCount = 0
+                
+                Object.values(states).forEach((state: any) => {
+                  if (state.isOnline) connectedCount++
+                })
+                
+                setLockersCount(Object.keys(states).length)
+                setLiveLockersCount(connectedCount)
+                console.log(`📊 עודכנו ${connectedCount}/${Object.keys(states).length} לוקרים מחוברים`)
+              }
+              
+              if (data.type === 'cellOperation') {
+                console.log(`🔄 פעולת תא: ${data.data.operation} על ${data.data.cellId} בלוקר ${data.data.lockerId}`)
+              }
+              
+              if (data.type === 'lockerConnection') {
+                console.log(`🔄 לוקר ${data.data.lockerId} ${data.data.connected ? 'התחבר' : 'התנתק'}`)
+                // רענון מיידי של הנתונים
+                loadLockers()
+              }
+              
+              if (data.type === 'connected') {
+                console.log('✅ חיבור Admin מאושר')
               }
             } catch (error) {
               console.error('❌ שגיאה בעיבוד הודעה:', error)
@@ -299,6 +328,26 @@ export default function LockersManagementPage() {
   // פונקציה לשליחת הודעות דרך ה-API החדש
   const sendWebSocketMessage = async (message: any) => {
     try {
+      // שליחה דרך /api/unlock עבור פקודות פתיחה (כמו בשרת הישן)
+      if (message.type === 'unlock') {
+        const response = await fetch('https://lockerweb-production.up.railway.app/api/unlock', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: 'unlock',
+            id: message.id || message.lockerId,
+            cell: message.cell || message.cellId
+          })
+        })
+        
+        const data = await response.json()
+        console.log('📤 פקודת פתיחה נשלחה:', message, '| תגובה:', data)
+        return data
+      }
+      
+      // שליחה דרך /api/ws עבור הודעות אחרות
       const response = await fetch('https://lockerweb-production.up.railway.app/api/ws', {
         method: 'POST',
         headers: {
@@ -312,7 +361,7 @@ export default function LockersManagementPage() {
       return data
     } catch (error) {
       console.error('❌ שגיאה בשליחת הודעה:', error)
-      return null
+      return { success: false, error: error.message }
     }
   }
 

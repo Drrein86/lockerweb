@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+import { registerLocker, updateLockerStatus, markLockerOffline } from '@/lib/locker-connections'
+import { handleESP32Response } from '@/lib/pending-requests'
 
 // WebSocket upgrade לא נתמך ב-Next.js API routes
 // במקום זה, נשתמש ב-Server-Sent Events (SSE) או polling
@@ -65,21 +67,40 @@ export async function POST(request: NextRequest) {
     
     // טיפול בהודעות שונות
     switch (data.type) {
-      case 'register':
-        // Arduino נרשם למערכת
-        console.log(`📝 Arduino נרשם: ${data.id} (IP: ${data.ip})`)
-        // כאן נעדכן מסד נתונים או cache של מכשירים מחוברים
-        return Response.json({
-          type: 'registerSuccess',
-          message: 'רישום הצליח',
-          timestamp: new Date().toISOString()
-        })
+              case 'register':
+          // Arduino נרשם למערכת (כמו בשרת הישן)
+          console.log(`📝 Arduino נרשם: ${data.id} (IP: ${data.ip})`)
+          
+                  // רישום בזיכרון (כמו בשרת הישן)
+        const registeredLocker = registerLocker(data.id, data.ip, data.cells)
+        
+        // שידור הודעת חיבור לכל הלקוחות
+        const { broadcastLockerConnection } = await import('@/lib/broadcast-status')
+        broadcastLockerConnection(data.id, true, data.ip)
+          
+          return Response.json({
+            type: 'registerSuccess',
+            message: `נרשמת בהצלחה כלוקר ${data.id}`,
+            timestamp: new Date().toISOString()
+          })
         
       case 'cellClosed':
-        // Arduino מדווח על סגירת תא
+        // Arduino מדווח על סגירת תא (כמו בשרת הישן)
         console.log(`🔒 תא ${data.cellId || data.cell} נסגר במכשיר ${data.id}`)
         
-        // שליחת אישור חזרה ל-Arduino
+        // עדכון סטטוס בזיכרון
+        updateLockerStatus(data.id, {
+          [data.cellId || data.cell]: {
+            locked: data.status === 'closed',
+            opened: data.status === 'open'
+          }
+        })
+        
+        // שידור עדכון לכל הלקוחות
+        const { broadcastStatus } = await import('@/lib/broadcast-status')
+        broadcastStatus()
+        
+        // שליחת אישור חזרה ל-Arduino (כמו בשרת הישן)
         return Response.json({
           type: 'confirmClose',
           id: data.id,
@@ -143,9 +164,27 @@ export async function POST(request: NextRequest) {
         })
         
       case 'ping':
+        // עדכון זמן חיבור אחרון (כמו בשרת הישן)
+        updateLockerStatus(data.id)
+        
         return Response.json({
           type: 'pong',
           id: data.id,
+          timestamp: new Date().toISOString()
+        })
+        
+      // טיפול בתגובות מArduino (כמו בשרת הישן)
+      case 'unlockResponse':
+      case 'lockResponse':
+        console.log(`📥 התקבלה תגובה מלוקר ${data.lockerId || data.id}:`, data)
+        
+        // העברה למנגנון הבקשות הממתינות
+        const handled = handleESP32Response(data)
+        
+        return Response.json({
+          type: 'acknowledged',
+          message: handled ? 'תגובה עובדה בהצלחה' : 'לא נמצאה בקשה ממתינה',
+          requestId: data.requestId,
           timestamp: new Date().toISOString()
         })
         
