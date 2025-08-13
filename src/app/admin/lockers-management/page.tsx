@@ -69,11 +69,55 @@ export default function LockersManagementPage() {
     const connect = () => {
       try {
         setWsStatus('מתחבר')
-        // לעת עתה, נשבית את WebSocket עד שנתקן את הserver
-        // יש בעיה שהWebSocket server רץ על פורט 3004 שלא נגיש ב-Railway
-        console.log('⚠️ WebSocket מושבת זמנית - יש לתקן את הפורט ב-Railway')
-        setWsStatus('מנותק')
-        return // מדלג על חיבור WebSocket
+        // שימוש ב-API החדש במקום WebSocket
+        console.log('🔗 מתחבר ל-WebSocket API החדש...')
+        setWsStatus('מתחבר')
+        
+        try {
+          // התחברות ל-Server-Sent Events
+          const eventSource = new EventSource('https://lockerweb-production.up.railway.app/api/ws?client=admin')
+          
+          eventSource.onopen = () => {
+            setWsStatus('מחובר')
+            setLastMessage('התחברת בהצלחה לשרת החדש')
+            console.log('✅ התחברות לAPI WebSocket הצליחה')
+            reconnectAttempts = 0
+          }
+          
+          eventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data)
+              setLastMessage(event.data)
+              console.log('📨 התקבלה הודעה:', data)
+              
+              // טיפול בהודעות
+              if (data.type === 'ping') {
+                console.log('🏓 ping התקבל מהשרת')
+              }
+            } catch (error) {
+              console.error('❌ שגיאה בעיבוד הודעה:', error)
+            }
+          }
+          
+          eventSource.onerror = () => {
+            setWsStatus('שגיאה')
+            console.error('❌ שגיאת WebSocket API')
+            eventSource.close()
+            
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              reconnectAttempts++
+              console.log(`🔄 ניסיון התחברות מחדש ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
+              setTimeout(connect, 3000)
+            }
+          }
+          
+          // שמירת החיבור לניקוי
+          ws = eventSource as any
+          
+        } catch (error) {
+          console.error('❌ שגיאה ביצירת חיבור API:', error)
+          setWsStatus('שגיאה')
+        }
 
       } catch (error) {
         console.error('❌ שגיאה ביצירת חיבור WebSocket:', error)
@@ -81,11 +125,14 @@ export default function LockersManagementPage() {
       }
     }
 
-    // WebSocket מושבת זמנית
-    // connect()
+    // התחלת חיבור
+    connect()
 
     return () => {
-      // ניקוי לא נדרש כי WebSocket מושבת
+      // ניקוי החיבור
+      if (ws) {
+        ws.close()
+      }
     }
   }, [])
 
@@ -248,6 +295,26 @@ export default function LockersManagementPage() {
   }
 
   const deleteLocker = (id: number) => deleteItem(id, 'locker')
+
+  // פונקציה לשליחת הודעות דרך ה-API החדש
+  const sendWebSocketMessage = async (message: any) => {
+    try {
+      const response = await fetch('https://lockerweb-production.up.railway.app/api/ws', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(message)
+      })
+      
+      const data = await response.json()
+      console.log('📤 הודעה נשלחה:', message, '| תגובה:', data)
+      return data
+    } catch (error) {
+      console.error('❌ שגיאה בשליחת הודעה:', error)
+      return null
+    }
+  }
 
   // פונקציות בקרת תאים בזמן אמת - משתמש באותו API כמו לוקרי DB
   const unlockCell = async (lockerId: string, cellId: string) => {
