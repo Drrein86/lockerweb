@@ -100,12 +100,37 @@ export async function POST(request: NextRequest) {
         // בקשה לפתיחת תא (מהקליינט)
         console.log(`🔓 מבקש פתיחת תא ${data.cell || data.cellId} בלוקר ${data.id}`)
         
-        // כאן נשלח ל-Arduino או נחזיר הודעה
-        return Response.json({
-          success: true,
-          message: `פקודת פתיחה נשלחה לתא ${data.cell || data.cellId} בלוקר ${data.id}`,
-          timestamp: new Date().toISOString()
-        })
+        // שליחת פקודה ל-Arduino דרך queue
+        try {
+          const commandResponse = await fetch(`${process.env.NEXTAUTH_URL || 'https://lockerweb-production.up.railway.app'}/api/arduino/commands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetDeviceId: data.id,
+              command: {
+                type: 'unlock',
+                cell: data.cell || data.cellId
+              }
+            })
+          })
+          
+          if (commandResponse.ok) {
+            return Response.json({
+              success: true,
+              message: `פקודת פתיחה נשלחה לתא ${data.cell || data.cellId} בלוקר ${data.id}`,
+              timestamp: new Date().toISOString()
+            })
+          } else {
+            throw new Error('Failed to queue command')
+          }
+        } catch (error) {
+          console.error('❌ שגיאה בשליחת פקודה:', error)
+          return Response.json({
+            success: false,
+            error: 'שגיאה בשליחת פקודה ל-Arduino',
+            timestamp: new Date().toISOString()
+          }, { status: 500 })
+        }
         
       case 'lock':
         // בקשה לנעילת תא (מהקליינט)
