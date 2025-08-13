@@ -357,7 +357,7 @@ export default function LockersManagementPage() {
       return data
     } catch (error) {
       console.error('❌ שגיאה בשליחת הודעה:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   }
 
