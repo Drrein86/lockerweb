@@ -101,8 +101,8 @@ export default function LockersManagementPage() {
                   if (state.isOnline) connectedCount++
                 })
                 
-                setLockersCount(Object.keys(states).length)
-                setLiveLockersCount(connectedCount)
+                // עדכון מצב הלוקרים הישירות במקום ספירה
+                setLiveLockers(states)
                 console.log(`📊 עודכנו ${connectedCount}/${Object.keys(states).length} לוקרים מחוברים`)
               }
               
