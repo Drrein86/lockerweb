@@ -5,11 +5,12 @@ export const dynamic = 'force-dynamic'
 
 // Server-Sent Events endpoint לעדכונים בזמן אמת (במקום WebSocket)
 export async function GET(request: NextRequest) {
-  // בדיקת authentication למנהלים
-  const authHeader = request.headers.get('authorization')
+  // בדיקת authentication למנהלים דרך query parameter
+  const { searchParams } = new URL(request.url)
+  const secret = searchParams.get('secret')
   const adminSecret = process.env.ADMIN_SECRET || '86428642'
   
-  if (!authHeader || !authHeader.includes(adminSecret)) {
+  if (!secret || secret !== adminSecret) {
     return new Response('Unauthorized', { status: 401 })
   }
   
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Allow-Methods': 'GET, OPTIONS'
     }
   })
@@ -60,7 +61,7 @@ export async function OPTIONS() {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Allow-Methods': 'GET, OPTIONS'
     }
   })

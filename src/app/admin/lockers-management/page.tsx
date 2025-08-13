@@ -76,11 +76,7 @@ export default function LockersManagementPage() {
         try {
           // התחברות ל-Admin Status Stream עם authentication
           const adminSecret = '86428642' // זהה לשרת הישן
-          const eventSource = new EventSource('https://lockerweb-production.up.railway.app/api/admin/status-stream', {
-            headers: {
-              'Authorization': `Bearer ${adminSecret}`
-            }
-          })
+          const eventSource = new EventSource(`https://lockerweb-production.up.railway.app/api/admin/status-stream?secret=${adminSecret}`)
           
           eventSource.onopen = () => {
             setWsStatus('מחובר')
