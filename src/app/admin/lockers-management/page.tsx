@@ -95,15 +95,24 @@ export default function LockersManagementPage() {
               if (data.type === 'lockerUpdate') {
                 // עדכון מצב לוקרים
                 const states = data.data.lockers || {}
-                let connectedCount = 0
                 
-                Object.values(states).forEach((state: any) => {
+                // סינון לוקרים - הסרת LOC720 ולוקרים לא רצויים
+                const filteredStates = Object.fromEntries(
+                  Object.entries(states).filter(([lockerId, state]) => {
+                    // התר רק LOC632 (הלוקר הפיזי שלנו)
+                    return lockerId === 'LOC632' || lockerId.includes('צצצצ')
+                  })
+                )
+                
+                // ספירת לוקרים מחוברים אחרי הסינון
+                let connectedCount = 0
+                Object.values(filteredStates).forEach((state: any) => {
                   if (state.isOnline) connectedCount++
                 })
                 
-                // עדכון מצב הלוקרים הישירות במקום ספירה
-                setLiveLockers(states)
-                console.log(`📊 עודכנו ${connectedCount}/${Object.keys(states).length} לוקרים מחוברים`)
+                // עדכון מצב הלוקרים הסינונים
+                setLiveLockers(filteredStates)
+                console.log(`📊 עודכנו ${connectedCount}/${Object.keys(states).length} לוקרים מחוברים (${Object.keys(filteredStates).length} אחרי סינון)`)
               }
               
               if (data.type === 'cellOperation') {
