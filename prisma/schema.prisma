@@ -116,7 +116,9 @@ enum CellStatus {
 model Locker {
   id            Int         @id @default(autoincrement())
   name          String      // שם הלוקר
-  location      String
+  location      String      // כתובת מלאה
+  city          String?     // עיר
+  street        String?     // רחוב ומספר בית
   description   String?
   ip            String?     // כתובת IP של הלוקר
   port          Int?        // פורט התקשורת

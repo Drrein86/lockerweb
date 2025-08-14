@@ -45,14 +45,26 @@ interface SearchResult {
 
 export default function LocationSearchPage() {
   const [location, setLocation] = useState('')
+  const [city, setCity] = useState('')
+  const [street, setStreet] = useState('')
+  const [searchType, setSearchType] = useState<'address' | 'city_street'>('address')
   const [loading, setLoading] = useState(false)
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [selectedLocker, setSelectedLocker] = useState<LockerInfo | null>(null)
   const router = useRouter()
 
   const handleLocationSearch = async () => {
-    if (!location.trim()) {
+    const searchTerm = searchType === 'address' ? location.trim() : '';
+    const searchCity = searchType === 'city_street' ? city.trim() : '';
+    const searchStreet = searchType === 'city_street' ? street.trim() : '';
+    
+    if (searchType === 'address' && !searchTerm) {
       alert('אנא הזן כתובת למשלוח')
+      return
+    }
+    
+    if (searchType === 'city_street' && !searchCity && !searchStreet) {
+      alert('אנא הזן לפחות עיר או רחוב')
       return
     }
 
@@ -61,7 +73,21 @@ export default function LocationSearchPage() {
     setSelectedLocker(null)
 
     try {
-      const response = await fetch(`/api/lockers/by-location?location=${encodeURIComponent(location.trim())}`)
+      // בניית URL החיפוש לפי סוג החיפוש
+      let searchUrl = '/api/lockers/by-location?';
+      const params = new URLSearchParams();
+      
+      if (searchType === 'address' && searchTerm) {
+        params.append('location', searchTerm);
+      } else if (searchType === 'city_street') {
+        if (searchCity) params.append('city', searchCity);
+        if (searchStreet) params.append('street', searchStreet);
+      }
+      
+      searchUrl += params.toString();
+      console.log('🔍 חיפוש לוקרים:', searchUrl);
+      
+      const response = await fetch(searchUrl)
       const data: SearchResult = await response.json()
       
       setSearchResult(data)
@@ -85,8 +111,18 @@ export default function LocationSearchPage() {
   const handleContinueToSizeSelection = () => {
     if (!selectedLocker) return
     
-    // מעבר לבחירת גודל עם פרמטר הלוקר שנבחר
-    router.push(`/courier/size-selection?lockerId=${selectedLocker.id}&location=${encodeURIComponent(location)}`)
+    // מעבר לבחירת גודל עם פרמטרים מהחיפוש
+    const params = new URLSearchParams()
+    params.append('lockerId', selectedLocker.id.toString())
+    
+    if (searchType === 'address' && location) {
+      params.append('location', location)
+    } else if (searchType === 'city_street') {
+      if (city) params.append('city', city)
+      if (street) params.append('street', street)
+    }
+    
+    router.push(`/courier/size-selection?${params.toString()}`)
   }
 
   const getSizeDisplayName = (size: string) => {
@@ -149,19 +185,70 @@ export default function LocationSearchPage() {
               </h2>
               
               <div className="space-y-4">
-                <div className="flex gap-4">
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="הכנס כתובת למשלוח (רחוב, עיר, שכונה)"
-                    className="flex-1 px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    onKeyPress={(e) => e.key === 'Enter' && !loading && handleLocationSearch()}
-                    disabled={loading}
-                  />
+                {/* בחירת סוג חיפוש */}
+                <div className="flex gap-4 mb-4">
+                  <button
+                    onClick={() => setSearchType('address')}
+                    className={`px-4 py-2 rounded-lg transition-all ${
+                      searchType === 'address'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    }`}
+                  >
+                    חיפוש לפי כתובת מלאה
+                  </button>
+                  <button
+                    onClick={() => setSearchType('city_street')}
+                    className={`px-4 py-2 rounded-lg transition-all ${
+                      searchType === 'city_street'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    }`}
+                  >
+                    חיפוש לפי עיר ורחוב
+                  </button>
+                </div>
+
+                {/* שדות חיפוש */}
+                {searchType === 'address' ? (
+                  <div className="flex gap-4">
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="הכנס כתובת מלאה למשלוח"
+                      className="flex-1 px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      onKeyPress={(e) => e.key === 'Enter' && !loading && handleLocationSearch()}
+                      disabled={loading}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="עיר (למשל: תל אביב)"
+                      className="px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      onKeyPress={(e) => e.key === 'Enter' && !loading && handleLocationSearch()}
+                      disabled={loading}
+                    />
+                    <input
+                      type="text"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      placeholder="רחוב (למשל: הרצל)"
+                      className="px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      onKeyPress={(e) => e.key === 'Enter' && !loading && handleLocationSearch()}
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+
+                <div className="flex justify-center">
                   <button
                     onClick={handleLocationSearch}
-                    disabled={loading || !location.trim()}
+                    disabled={loading || (searchType === 'address' && !location.trim()) || (searchType === 'city_street' && !city.trim() && !street.trim())}
                     className="btn-primary px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
@@ -174,7 +261,7 @@ export default function LocationSearchPage() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        חפש
+                        חפש לוקרים
                       </div>
                     )}
                   </button>

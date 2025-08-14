@@ -22,10 +22,16 @@ async function main() {
   // יצירת לוקרים לדוגמה
   const locker1 = await prisma.locker.upsert({
     where: { deviceId: 'LOC632' },
-    update: {},
+    update: {
+      city: 'תל אביב',
+      street: 'הרצל 123',
+      location: 'רחוב הרצל 123, תל אביב'
+    },
     create: {
       name: 'לוקר מרכז העיר',
       location: 'רחוב הרצל 123, תל אביב',
+      city: 'תל אביב',
+      street: 'הרצל 123',
       description: 'לוקר ראשי במרכז העיר',
       ip: '192.168.0.104',
       port: 80,
@@ -37,25 +43,11 @@ async function main() {
 
   // LOC720 הוסר - משתמשים רק ב-LOC632
 
-  // יצירת תאים לכל לוקר
-  for (let i = 1; i <= 12; i++) {
-    await prisma.cell.upsert({
-      where: { code: `LOC632-CELL-${i.toString().padStart(2, '0')}` },
-      update: {},
-      create: {
-        cellNumber: i,
-        code: `LOC632-CELL-${i.toString().padStart(2, '0')}`,
-        name: `תא ${i}`,
-        size: i <= 4 ? 'SMALL' : i <= 8 ? 'MEDIUM' : 'LARGE',
-        status: 'AVAILABLE',
-        isLocked: true,
-        isActive: false,  // תאים מתחילים כלא פעילים עד חיבור WebSocket ראשון
-        lockerId: locker1.id
-      }
-    });
-
-    // תאים של LOC720 הוסרו
-  }
+  // התאים כבר קיימים, לא צריך ליצור חדשים
+  const existingCells = await prisma.cell.findMany({
+    where: { lockerId: locker1.id }
+  });
+  console.log(`📦 נמצאו ${existingCells.length} תאים קיימים עבור הלוקר`);
 
   // יצירת לקוח לדוגמה
   const customer = await prisma.customer.upsert({

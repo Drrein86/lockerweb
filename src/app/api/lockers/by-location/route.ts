@@ -9,40 +9,69 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const location = url.searchParams.get('location')
+    const city = url.searchParams.get('city')
+    const street = url.searchParams.get('street')
     const radius = parseInt(url.searchParams.get('radius') || '5') // רדיוס חיפוש בק"מ
 
-    if (!location) {
+    if (!location && !city && !street) {
       return NextResponse.json(
-        { error: 'חובה להזין כתובת למשלוח' },
+        { error: 'חובה להזין לפחות כתובת, עיר או רחוב' },
         { status: 400 }
       )
     }
 
     // חיפוש לוקרים לפי מיקום (חיפוש טקסט פשוט)
+    const searchConditions = [];
+    
+    // חיפוש לפי כתובת מלאה
+    if (location) {
+      searchConditions.push(
+        {
+          location: {
+            contains: location,
+            mode: 'insensitive'
+          }
+        },
+        {
+          name: {
+            contains: location,
+            mode: 'insensitive'
+          }
+        },
+        {
+          description: {
+            contains: location,
+            mode: 'insensitive'
+          }
+        }
+      );
+    }
+    
+    // חיפוש לפי עיר
+    if (city) {
+      searchConditions.push({
+        city: {
+          contains: city,
+          mode: 'insensitive'
+        }
+      });
+    }
+    
+    // חיפוש לפי רחוב
+    if (street) {
+      searchConditions.push({
+        street: {
+          contains: street,
+          mode: 'insensitive'
+        }
+      });
+    }
+    
     const lockers = await prisma.locker.findMany({
       where: {
         status: 'ONLINE',
         isActive: true,
-        OR: [
-          {
-            location: {
-              contains: location,
-              mode: 'insensitive'
-            }
-          },
-          {
-            name: {
-              contains: location,
-              mode: 'insensitive'
-            }
-          },
-          {
-            description: {
-              contains: location,
-              mode: 'insensitive'
-            }
-          }
-        ]
+        OR: searchConditions
       },
       include: {
         cells: {
@@ -96,6 +125,8 @@ export async function GET(request: Request) {
         id: locker.id,
         name: locker.name,
         location: locker.location,
+        city: locker.city,
+        street: locker.street,
         description: locker.description,
         deviceId: locker.deviceId,
         ip: locker.ip,

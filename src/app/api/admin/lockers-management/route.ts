@@ -42,6 +42,8 @@ export async function GET() {
         id: locker.id,
         name: locker.name,
         location: locker.location,
+        city: locker.city,
+        street: locker.street,
         description: locker.description,
         ip: locker.ip,
         port: locker.port,
@@ -98,7 +100,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, name, location, description, cellsCount = 0 } = body
+    const { type, name, location, city, street, description, cellsCount = 0 } = body
 
     // יצירת תא חדש
     if (type === 'cell') {
@@ -143,6 +145,8 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         location,
+        city: city || null,
+        street: street || null,
         description,
         ip: null, // יעודכן כאשר Arduino יתחבר
         port: 80, // ברירת מחדל
@@ -211,7 +215,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, id, name, location, description, status, isActive } = body
+    const { type, id, name, location, city, street, description, status, isActive } = body
 
     // עדכון תא
     if (type === 'cell') {
@@ -252,6 +256,8 @@ export async function PUT(request: NextRequest) {
       data: {
         ...(name && { name }),
         ...(location && { location }),
+        ...(city !== undefined && { city }),
+        ...(street !== undefined && { street }),
         ...(description !== undefined && { description }),
         ...(status && { status: status as any }),
         ...(isActive !== undefined && { isActive })

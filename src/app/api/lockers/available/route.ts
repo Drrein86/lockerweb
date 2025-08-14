@@ -11,6 +11,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url || 'http://localhost:3000')
     const size = url.searchParams.get('size')
     const location = url.searchParams.get('location')
+    const city = url.searchParams.get('city')
+    const street = url.searchParams.get('street')
     const lockerId = url.searchParams.get('lockerId')
 
     // אם לא צוין גודל, מחזיר את כל התאים הזמינים
@@ -19,12 +21,31 @@ export async function GET(request: Request) {
     // סינון לפי לוקר ספציפי או לפי מיקום
     const lockerFilter = lockerId ? 
       { lockerId: parseInt(lockerId) } : 
-      location ? { 
+      (location || city || street) ? { 
         locker: { 
-          location: { 
-            contains: location,
-            mode: 'insensitive' as const
-          } 
+          OR: [
+            // חיפוש במיקום מלא
+            ...(location ? [{
+              location: { 
+                contains: location,
+                mode: 'insensitive' as const
+              }
+            }] : []),
+            // חיפוש בעיר
+            ...(city ? [{
+              city: { 
+                contains: city,
+                mode: 'insensitive' as const
+              }
+            }] : []),
+            // חיפוש ברחוב
+            ...(street ? [{
+              street: { 
+                contains: street,
+                mode: 'insensitive' as const
+              }
+            }] : [])
+          ]
         } 
       } : {}
 
@@ -38,12 +59,28 @@ export async function GET(request: Request) {
         locker: {
           status: 'ONLINE',
           isActive: true,
-          // אם מחפשים לפי מיקום, מוסיפים סינון מיקום
-          ...(location && !lockerId ? { 
-            location: { 
-              contains: location,
-              mode: 'insensitive' as const
-            } 
+          // אם מחפשים לפי מיקום/עיר/רחוב, מוסיפים סינון נוסף
+          ...((location || city || street) && !lockerId ? {
+            OR: [
+              ...(location ? [{
+                location: { 
+                  contains: location,
+                  mode: 'insensitive' as const
+                }
+              }] : []),
+              ...(city ? [{
+                city: { 
+                  contains: city,
+                  mode: 'insensitive' as const
+                }
+              }] : []),
+              ...(street ? [{
+                street: { 
+                  contains: street,
+                  mode: 'insensitive' as const
+                }
+              }] : [])
+            ]
           } : {})
         }
       },
@@ -53,6 +90,8 @@ export async function GET(request: Request) {
             id: true,
             name: true,
             location: true,
+            city: true,
+            street: true,
             description: true,
             ip: true,
             port: true,
@@ -77,6 +116,8 @@ export async function GET(request: Request) {
           id: cell.locker.id,
           name: cell.locker.name,
           location: cell.locker.location,
+          city: cell.locker.city,
+          street: cell.locker.street,
           description: cell.locker.description,
           ip: cell.locker.ip,
           port: cell.locker.port,

@@ -32,6 +32,8 @@ interface Locker {
   id: number
   name: string
   location: string
+  city?: string
+  street?: string
   description?: string
   ip?: string
   port?: number
@@ -1409,6 +1411,8 @@ function LockerForm({ locker, onSave, onCancel }: {
   const [formData, setFormData] = useState({
     name: locker?.name || '',
     location: locker?.location || '',
+    city: locker?.city || '',
+    street: locker?.street || '',
     description: locker?.description || '',
     isActive: locker?.isActive ?? true
   })
@@ -1434,15 +1438,39 @@ function LockerForm({ locker, onSave, onCancel }: {
           </div>
 
           <div>
-            <label className="block text-white/70 text-sm mb-2">מיקום</label>
+            <label className="block text-white/70 text-sm mb-2">מיקום מלא</label>
             <input
               type="text"
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
               className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-              placeholder="כניסה ראשית"
+              placeholder="כתובת מלאה"
               required
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/70 text-sm mb-2">עיר</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={e => setFormData({...formData, city: e.target.value})}
+                className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
+                placeholder="תל אביב"
+              />
+            </div>
+
+            <div>
+              <label className="block text-white/70 text-sm mb-2">רחוב ומספר</label>
+              <input
+                type="text"
+                value={formData.street}
+                onChange={e => setFormData({...formData, street: e.target.value})}
+                className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
+                placeholder="הרצל 123"
+              />
+            </div>
           </div>
 
           <div>
