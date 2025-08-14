@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server';
+// מערכת WebSocket ישנה מושבתת - הקובץ משתמש ב-HTTP API ישירות
+// import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server';
 
 /**
  * המרת מספר תא לשם תא (כמו A1, B2, וכו')
@@ -208,8 +209,8 @@ export async function POST(request: NextRequest) {
         clientToken
       });
       
-      // וידוא שהWebSocket פועל (בטוח)
-      initializeWebSocketIfNeeded();
+      // המערכת הישנה מושבתת - משתמש ב-HTTP API ישירות
+      // initializeWebSocketIfNeeded();
       
       // קודם נמצא את הלוקר במסד הנתונים ונשלוף את ה-deviceId
       let lockerIdStr = null;

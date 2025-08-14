@@ -1,26 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server';
+// מערכת WebSocket ישנה מושבתת לטובת HTTP API החדש
+// import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server';
 
 export async function GET() {
   try {
-    // וידוא שהWebSocket פועל (בטוח)
-    initializeWebSocketIfNeeded();
-    
-    // בדיקה שהמנג'ר זמין
-    if (!wsManager) {
-      return NextResponse.json({
-        error: 'WebSocket server not available',
-        status: 'error'
-      }, { status: 503 });
-    }
-
-    // בדיקת מצב השרת
+    // המערכת הישנה מושבתת - מחזיר מידע על המערכת החדשה
     const status = {
-      message: 'WebSocket Server Status',
+      message: 'HTTP API מערכת חדשה פעילה',
       timestamp: new Date().toISOString(),
-      status: 'active',
-      port: process.env.PORT || 3003,
-      ssl: process.env.USE_SSL === 'true'
+      status: 'migrated_to_http_api',
+      newApiEndpoint: '/api/ws',
+      note: 'WebSocket הישן הוחלף ב-HTTP API חדש'
     };
 
     return NextResponse.json(status);
@@ -37,37 +27,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, lockerId, message } = body;
+    console.log('📨 בקשה למערכת החדשה:', body);
 
-    if (action === 'start') {
-      // הפעלת שרת WebSocket (בטוח)
-      initializeWebSocketIfNeeded();
-      return NextResponse.json({
-        message: 'WebSocket server started',
-        status: 'success'
-      });
-    }
-
-    if (action === 'status') {
-      // בדיקת סטטוס
-      return NextResponse.json({
-        message: 'WebSocket server status',
-        status: 'success',
-        active: true
-      });
-    }
-
+    // הפניה למערכת החדשה
     return NextResponse.json({
-      error: 'Unknown action',
-      status: 'error'
-    }, { status: 400 });
+      message: 'המערכת הישנה הוחלפה',
+      status: 'migrated',
+      redirectTo: '/api/ws',
+      newSystem: 'השתמש ב-HTTP API החדש במקום WebSocket ישן',
+      note: 'כל הפונקציונליות עברה ל-/api/ws'
+    });
 
   } catch (error) {
-    console.error('❌ שגיאה ב-WebSocket API:', error);
+    console.error('❌ שגיאה ב-API:', error);
     return NextResponse.json({
       error: 'Internal server error',
       status: 'error',
-      message: '❌ שגיאה ב-WebSocket API',
       details: error instanceof Error ? error.message : 'שגיאה לא ידועה'
     }, { status: 500 });
   }

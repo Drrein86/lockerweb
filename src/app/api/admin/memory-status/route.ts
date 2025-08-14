@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server'
+// מערכת WebSocket ישנה מושבתת - החלפה במערכת חדשה
+// import wsManager, { initializeWebSocketIfNeeded } from '@/lib/websocket-server'
+import { getAllConnectedLockers, getLockerStates } from '@/lib/locker-connections'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,12 +10,19 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('📊 בקשה לקבלת סטטוס מ-Railway DB');
+    console.log('📊 בקשה לקבלת סטטוס מהמערכת החדשה');
     
-    // וידוא שהWebSocket פועל (בטוח)
-    initializeWebSocketIfNeeded();
-
-    const memoryStatus = await wsManager.getFullMemoryStatus();
+    // שימוש במערכת החדשה במקום הישנה
+    const memoryStatus = {
+      connectedLockers: getAllConnectedLockers(),
+      lockerStates: getLockerStates(),
+      timestamp: new Date().toISOString(),
+      system: 'HTTP API מערכת חדשה',
+      memory: {
+        freeHeap: process.memoryUsage().heapUsed,
+        totalHeap: process.memoryUsage().heapTotal
+      }
+    };
 
     return NextResponse.json({
       success: true,
