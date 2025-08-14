@@ -7,21 +7,35 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json()
     const {
       trackingCode,
+      tracking_code,
       customerName,
+      name,
+      userName,
       customerPhone,
+      phone,
       customerEmail,
+      email,
       size,
       lockerId,
       cellId,
+      cellCode,
       notes
-    } = await request.json()
+    } = body
+
+    // תמיכה בשמות שדות שונים
+    const finalTrackingCode = trackingCode || tracking_code
+    const finalCustomerName = customerName || name || userName
+    const finalCustomerPhone = customerPhone || phone  
+    const finalCustomerEmail = customerEmail || email
 
     // בדיקת פרמטרים נדרשים
-    if (!trackingCode || !customerName || !customerPhone || !size || !lockerId || !cellId) {
+    if (!finalTrackingCode || !finalCustomerName || !finalCustomerPhone || !size || !lockerId || !cellId) {
       return NextResponse.json(
-        { success: false, message: 'חסרים פרמטרים נדרשים' },
+        { success: false, message: 'חסרים פרמטרים נדרשים', 
+          received: { finalTrackingCode, finalCustomerName, finalCustomerPhone, size, lockerId, cellId } },
         { status: 400 }
       )
     }
@@ -48,16 +62,16 @@ export async function POST(request: Request) {
 
     // יצירת או מציאת לקוח
     let customer = await prisma.customer.findFirst({
-      where: { phone: customerPhone }
+      where: { phone: finalCustomerPhone }
     })
 
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
-          email: customerEmail || `${customerPhone}@temp.local`,
-          firstName: customerName.split(' ')[0] || customerName,
-          lastName: customerName.split(' ').slice(1).join(' ') || '',
-          phone: customerPhone,
+          email: finalCustomerEmail || `${finalCustomerPhone}@temp.local`,
+          firstName: finalCustomerName.split(' ')[0] || finalCustomerName,
+          lastName: finalCustomerName.split(' ').slice(1).join(' ') || '',
+          phone: finalCustomerPhone,
           address: cell.locker.location // כתובת זמנית
         }
       })
@@ -69,7 +83,7 @@ export async function POST(request: Request) {
     // יצירת רשומת החבילה
     const newPackage = await prisma.package.create({
       data: {
-        trackingCode,
+        trackingCode: finalTrackingCode,
         customerId: customer.id,
         courierId: 1, // נניח שיש משתמש courier ברירת מחדל
         size: size.toUpperCase(),
@@ -99,18 +113,47 @@ export async function POST(request: Request) {
       }
     })
 
+    // פתיחת התא אוטומטית עבור השליח
+    try {
+      console.log(`🚚 פותח תא ${cell.cellNumber} בלוקר ${cell.locker.deviceId} עבור הכנסת חבילה`)
+      
+      // קריאה ל-API פתיחת תא
+      const unlockResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/lockers/unlock-cell`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lockerId: cell.lockerId,
+          cellId: cell.cellNumber,
+          reason: 'COURIER_DELIVERY',
+          packageId: newPackage.id
+        })
+      })
+
+      if (unlockResponse.ok) {
+        console.log(`✅ תא ${cell.cellNumber} נפתח בהצלחה עבור הכנסת חבילה`)
+      } else {
+        console.error(`❌ שגיאה בפתיחת תא: ${unlockResponse.status}`)
+      }
+    } catch (unlockError) {
+      console.error('❌ שגיאה בפתיחת תא אוטומטית:', unlockError)
+      // לא נכשיל את כל הפעולה אם יש שגיאה בפתיחת התא
+    }
+
     // שמירת קוד השחרור בטבלה נפרדת (אם קיימת) או ב-metadata
     try {
       console.log('נוצר לוג: חבילה נוצרה', {
         action: 'PACKAGE_CREATED',
         entityType: 'PACKAGE',
         entityId: newPackage.id.toString(),
-          trackingCode,
+          trackingCode: finalTrackingCode,
           customerId: customer.id,
-          customerName,
-          customerPhone,
+          customerName: finalCustomerName,
+          customerPhone: finalCustomerPhone,
           lockerId,
           cellId,
+          cellCode,
           pickupCode, // שמירת קוד השחרור
           size,
           notes
@@ -121,10 +164,10 @@ export async function POST(request: Request) {
 
     // שליחת הודעה ללקוח (SMS/Email)
     const notificationResult = await sendCustomerNotification({
-      customerName,
-      customerPhone,
-      customerEmail,
-      trackingCode,
+      customerName: finalCustomerName,
+      customerPhone: finalCustomerPhone,
+      customerEmail: finalCustomerEmail,
+      trackingCode: finalTrackingCode,
       pickupCode,
       lockerName: cell.locker.name,
       lockerLocation: cell.locker.location,
@@ -140,9 +183,9 @@ export async function POST(request: Request) {
         status: newPackage.status,
         pickupCode,
         customer: {
-          name: customerName,
-          phone: customerPhone,
-          email: customerEmail
+          name: finalCustomerName,
+          phone: finalCustomerPhone,
+          email: finalCustomerEmail
         },
         locker: {
           id: cell.locker.id,

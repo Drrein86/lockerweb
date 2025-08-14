@@ -14,6 +14,18 @@ interface Cell {
   lockerId: number
   openCount: number
   lastOpenedAt?: string
+  package?: {
+    id: number
+    trackingCode: string
+    status: string
+    size: string
+    createdAt: string
+    customer: {
+      name: string
+      email: string
+      phone: string
+    }
+  } | null
 }
 
 interface Locker {
@@ -1162,6 +1174,19 @@ export default function LockersManagementPage() {
                             {!cell.isActive ? '🔴 לא פעיל' : `סטטוס: ${String(cell.status || 'לא מוגדר')}`}
                           </div>
                           <div>נעול: {cell.isLocked ? 'כן' : 'לא'}</div>
+                          
+                          {/* הצגת פרטי חבילה אם קיימת */}
+                          {cell.package && (
+                            <div className="mt-2 p-2 bg-orange-500/20 rounded border border-orange-400/30">
+                              <div className="text-orange-300 font-semibold text-xs mb-1">📦 חבילה:</div>
+                              <div className="text-orange-200 text-[10px] space-y-0.5">
+                                <div>קוד: {cell.package.trackingCode}</div>
+                                <div>לקוח: {cell.package.customer.name}</div>
+                                <div>טלפון: {cell.package.customer.phone}</div>
+                                <div>תאריך: {new Date(cell.package.createdAt).toLocaleDateString('he-IL')}</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className={`flex flex-col gap-2 ${!cell.isActive ? 'opacity-50' : ''}`}>

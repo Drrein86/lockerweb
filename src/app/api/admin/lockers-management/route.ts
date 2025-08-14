@@ -9,6 +9,27 @@ export async function GET() {
     const lockers = await prisma.locker.findMany({
       include: {
         cells: {
+          include: {
+            packages: {
+              where: {
+                status: {
+                  in: ['WAITING', 'DELIVERED']
+                }
+              },
+              include: {
+                customer: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true
+                  }
+                }
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1 // רק החבילה האחרונה בתא
+            }
+          },
           orderBy: { cellNumber: 'asc' }
         }
       },
@@ -42,7 +63,19 @@ export async function GET() {
           isActive: cell.isActive,
           lastOpenedAt: cell.lastOpenedAt,
           lastClosedAt: cell.lastClosedAt,
-          openCount: cell.openCount
+          openCount: cell.openCount,
+          package: cell.packages && cell.packages.length > 0 ? {
+            id: cell.packages[0].id,
+            trackingCode: cell.packages[0].trackingCode,
+            status: cell.packages[0].status,
+            size: cell.packages[0].size,
+            createdAt: cell.packages[0].createdAt,
+            customer: {
+              name: `${cell.packages[0].customer.firstName} ${cell.packages[0].customer.lastName}`.trim(),
+              email: cell.packages[0].customer.email,
+              phone: cell.packages[0].customer.phone
+            }
+          } : null
         })),
         createdAt: locker.createdAt,
         updatedAt: locker.updatedAt
