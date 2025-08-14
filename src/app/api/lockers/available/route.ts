@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -28,21 +28,21 @@ export async function GET(request: Request) {
             ...(location ? [{
               location: { 
                 contains: location,
-                mode: 'insensitive' as const
+                mode: Prisma.QueryMode.insensitive
               }
             }] : []),
             // חיפוש בעיר
             ...(city ? [{
               city: { 
                 contains: city,
-                mode: 'insensitive' as const
+                mode: Prisma.QueryMode.insensitive
               }
             }] : []),
             // חיפוש ברחוב
             ...(street ? [{
               street: { 
                 contains: street,
-                mode: 'insensitive' as const
+                mode: Prisma.QueryMode.insensitive
               }
             }] : [])
           ]
@@ -65,19 +65,19 @@ export async function GET(request: Request) {
               ...(location ? [{
                 location: { 
                   contains: location,
-                  mode: 'insensitive' as const
+                  mode: Prisma.QueryMode.insensitive
                 }
               }] : []),
               ...(city ? [{
                 city: { 
                   contains: city,
-                  mode: 'insensitive' as const
+                  mode: Prisma.QueryMode.insensitive
                 }
               }] : []),
               ...(street ? [{
                 street: { 
                   contains: street,
-                  mode: 'insensitive' as const
+                  mode: Prisma.QueryMode.insensitive
                 }
               }] : [])
             ]
