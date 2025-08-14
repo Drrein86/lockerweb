@@ -13,7 +13,10 @@ export async function GET(request: Request) {
     const street = url.searchParams.get('street')
     const radius = parseInt(url.searchParams.get('radius') || '5') // רדיוס חיפוש בק"מ
 
+    console.log('🔍 API by-location קיבל:', { location, city, street, radius });
+
     if (!location && !city && !street) {
+      console.log('❌ לא צוינו פרמטרי חיפוש');
       return NextResponse.json(
         { error: 'חובה להזין לפחות כתובת, עיר או רחוב' },
         { status: 400 }
@@ -96,13 +99,21 @@ export async function GET(request: Request) {
       }
     })
 
+    console.log('📊 לוקרים שנמצאו לפני סינון:', lockers.length);
+    lockers.forEach(l => {
+      console.log(`   - ${l.name}: ${l._count.cells} תאים זמינים, סטטוס: ${l.status}`);
+    });
+
     // סינון לוקרים שיש להם לפחות תא אחד פנוי
     const availableLockers = lockers.filter((locker: any) => locker._count.cells > 0)
+    console.log('✅ לוקרים זמינים אחרי סינון:', availableLockers.length);
 
     if (availableLockers.length === 0) {
+      const searchTerm = location || city || street;
+      console.log('❌ לא נמצאו לוקרים זמינים');
       return NextResponse.json({
         found: false,
-        message: `לא נמצאו לוקרים פעילים עם תאים זמינים באזור "${location}"`,
+        message: `לא נמצאו לוקרים פעילים עם תאים זמינים עבור "${searchTerm}"`,
         lockers: [],
         suggestions: [
           'בדוק אם הכתובת נכתבה נכון',
@@ -146,12 +157,14 @@ export async function GET(request: Request) {
     // מיון לפי מספר תאים זמינים (יותר תאים = עדיפות גבוהה)
     lockersWithStats.sort((a: any, b: any) => b.priority - a.priority)
 
-    return NextResponse.json({
+    const result = {
       found: true,
       lockers: lockersWithStats,
       total: lockersWithStats.length,
       query: {
         location,
+        city,
+        street,
         radius
       },
       summary: {
@@ -164,7 +177,10 @@ export async function GET(request: Request) {
           WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.WIDE, 0)
         }
       }
-    })
+    };
+
+    console.log('🎯 מחזיר תוצאה:', result);
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('שגיאה בחיפוש לוקרים לפי מיקום:', error)

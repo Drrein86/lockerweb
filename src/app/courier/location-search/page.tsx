@@ -86,9 +86,19 @@ export default function LocationSearchPage() {
       
       searchUrl += params.toString();
       console.log('🔍 חיפוש לוקרים:', searchUrl);
+      console.log('📋 פרמטרים:', {
+        searchType,
+        searchTerm,
+        searchCity,
+        searchStreet,
+        params: Object.fromEntries(params)
+      });
       
       const response = await fetch(searchUrl)
+      console.log('📡 Response status:', response.status);
+      
       const data: SearchResult = await response.json()
+      console.log('📊 Response data:', data);
       
       setSearchResult(data)
       
