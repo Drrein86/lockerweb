@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         })
         
         // עדכון סטטוס מתקדם בזיכרון
-        updateLockerStatus(data.id, null, {
+        updateLockerStatus(data.id, null, null, {
           uptime: data.uptime,
           free_heap: data.free_heap,
           wifi_rssi: data.wifi_rssi || data.status?.wifi_rssi,
