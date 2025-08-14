@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // יצירת הלוקר
+    // יצירת הלוקר קודם בלי deviceId
     const locker = await prisma.locker.create({
       data: {
         name,
@@ -113,17 +113,28 @@ export async function POST(request: NextRequest) {
         description,
         ip,
         port,
-        deviceId,
+        deviceId: null, // נעדכן זאת אחר כך
         status: 'OFFLINE' as any,
         isActive: true
       }
+    })
+
+    // יצירת deviceId אוטומטי אם לא מסופק
+    const finalDeviceId = deviceId && deviceId.trim() 
+      ? deviceId.trim() 
+      : `LOC${String(locker.id).padStart(3, '0')}`
+
+    // עדכון הlוקר עם deviceId הסופי
+    const updatedLocker = await prisma.locker.update({
+      where: { id: locker.id },
+      data: { deviceId: finalDeviceId }
     })
 
     // יצירת התאים (רק אם מבוקש)
     const cells = []
     if (cellsCount > 0) {
       for (let i = 1; i <= cellsCount; i++) {
-        const cellCode = `${deviceId || locker.id}-${String(i).padStart(2, '0')}`
+        const cellCode = `${finalDeviceId}-${String(i).padStart(2, '0')}`
         
         const cell = await prisma.cell.create({
           data: {
@@ -134,7 +145,7 @@ export async function POST(request: NextRequest) {
             status: 'AVAILABLE' as any,
             isLocked: true,
             isActive: true,
-            lockerId: locker.id,
+            lockerId: updatedLocker.id,
             openCount: 0
           }
         })
@@ -145,7 +156,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       locker: {
-        ...locker,
+        ...updatedLocker,
         cells,
         totalCells: cells.length,
         availableCells: cells.length,
