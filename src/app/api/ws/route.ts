@@ -3,19 +3,47 @@ import { registerLocker, updateLockerStatus, markLockerOffline } from '@/lib/loc
 import { handleESP32Response } from '@/lib/pending-requests'
 
 // פונקציה ליצירת תאים מנתוני Arduino
-async function createCellsFromArduino(deviceId: string, cells: any) {
+async function createCellsFromArduino(deviceId: string, cells: any, ip?: string) {
   try {
     // קודם נמצא את הלוקר במסד הנתונים
     const { prisma } = await import('@/lib/prisma')
     
-    const locker = await prisma.locker.findUnique({
+    let locker = await prisma.locker.findUnique({
       where: { deviceId: deviceId },
       include: { cells: true }
     })
     
     if (!locker) {
       console.log(`⚠️ לא נמצא לוקר עם deviceId: ${deviceId}`)
-      return
+      // אולי זה לוקר שנוצר בלי deviceId? בואו נחפש לוקר ללא deviceId
+      const emptyDeviceIdLocker = await prisma.locker.findFirst({
+        where: { deviceId: null },
+        include: { cells: true }
+      })
+      
+      if (emptyDeviceIdLocker) {
+        console.log(`🔗 מוצא לוקר ריק, מקצה אותו ל-${deviceId}`)
+        locker = await prisma.locker.update({
+          where: { id: emptyDeviceIdLocker.id },
+          data: { 
+            deviceId: deviceId,
+            ip: ip || null,
+            status: 'ONLINE'
+          },
+          include: { cells: true }
+        })
+      } else {
+        return
+      }
+    } else if (ip) {
+      // עדכון IP אם סופק
+      await prisma.locker.update({
+        where: { id: locker.id },
+        data: { 
+          ip: ip,
+          status: 'ONLINE'
+        }
+      })
     }
     
     // בדיקה אילו תאים כבר קיימים
@@ -143,7 +171,7 @@ export async function POST(request: NextRequest) {
         if (data.cells && Object.keys(data.cells).length > 0) {
           try {
             console.log(`🔄 יוצר תאים אוטומטית עבור לוקר ${data.id}`)
-            await createCellsFromArduino(data.id, data.cells)
+            await createCellsFromArduino(data.id, data.cells, data.ip)
           } catch (error) {
             console.error(`❌ שגיאה ביצירת תאים עבור ${data.id}:`, error)
           }

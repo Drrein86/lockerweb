@@ -1369,9 +1369,6 @@ function LockerForm({ locker, onSave, onCancel }: {
     name: locker?.name || '',
     location: locker?.location || '',
     description: locker?.description || '',
-    ip: locker?.ip || '',
-    port: locker?.port || 80,
-    deviceId: locker?.deviceId || '',
     isActive: locker?.isActive ?? true
   })
 
@@ -1418,38 +1415,14 @@ function LockerForm({ locker, onSave, onCancel }: {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/70 text-sm mb-2">כתובת IP</label>
-              <input
-                type="text"
-                value={formData.ip}
-                onChange={e => setFormData({...formData, ip: e.target.value})}
-                className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-                placeholder="192.168.0.104"
-              />
+          <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-400/30">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-blue-400">ℹ️</span>
+              <h4 className="text-sm font-semibold text-blue-300">מידע אוטומטי</h4>
             </div>
-            <div>
-              <label className="block text-white/70 text-sm mb-2">פורט</label>
-              <input
-                type="number"
-                value={formData.port}
-                onChange={e => setFormData({...formData, port: parseInt(e.target.value)})}
-                className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-                placeholder="80"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-white/70 text-sm mb-2">Device ID</label>
-            <input
-              type="text"
-              value={formData.deviceId}
-              onChange={e => setFormData({...formData, deviceId: e.target.value})}
-              className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50"
-              placeholder="ESP32_001"
-            />
+            <p className="text-xs text-blue-200">
+              Device ID וכתובת IP יוקצו אוטומטית כאשר Arduino יתחבר למערכת
+            </p>
           </div>
 
           <div className="flex items-center gap-3">

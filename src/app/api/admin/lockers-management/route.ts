@@ -65,7 +65,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, name, location, description, ip, port, deviceId, cellsCount = 0 } = body
+    const { type, name, location, description, cellsCount = 0 } = body
 
     // יצירת תא חדש
     if (type === 'cell') {
@@ -111,18 +111,16 @@ export async function POST(request: NextRequest) {
         name,
         location,
         description,
-        ip,
-        port,
+        ip: null, // יעודכן כאשר Arduino יתחבר
+        port: 80, // ברירת מחדל
         deviceId: null, // נעדכן זאת אחר כך
         status: 'OFFLINE' as any,
         isActive: true
       }
     })
 
-    // יצירת deviceId אוטומטי אם לא מסופק
-    const finalDeviceId = deviceId && deviceId.trim() 
-      ? deviceId.trim() 
-      : `LOC${String(locker.id).padStart(3, '0')}`
+    // יצירת deviceId אוטומטי
+    const finalDeviceId = `LOC${String(locker.id).padStart(3, '0')}`
 
     // עדכון הlוקר עם deviceId הסופי
     const updatedLocker = await prisma.locker.update({
@@ -180,7 +178,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, id, name, location, description, ip, port, deviceId, status, isActive } = body
+    const { type, id, name, location, description, status, isActive } = body
 
     // עדכון תא
     if (type === 'cell') {
@@ -222,11 +220,9 @@ export async function PUT(request: NextRequest) {
         ...(name && { name }),
         ...(location && { location }),
         ...(description !== undefined && { description }),
-        ...(ip !== undefined && { ip }),
-        ...(port !== undefined && { port }),
-        ...(deviceId !== undefined && { deviceId }),
         ...(status && { status: status as any }),
         ...(isActive !== undefined && { isActive })
+        // ip, port ו-deviceId מתעדכנים אוטומטית כאשר Arduino מתחבר
       },
       include: {
         cells: {
