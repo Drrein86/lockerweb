@@ -1,0 +1,4 @@
+This file is created to trigger a new Vercel deployment with updated environment variables.
+Current timestamp: 2025-08-14T23:54:57.968Z
+
+Fix: Updated DATABASE_URL from switchyard.proxy.rlwy.net:21943 to maglev.proxy.rlwy.net:49217
