@@ -127,9 +127,29 @@ export async function POST(request: NextRequest) {
         
         // שליחת בקשה ל-Railway Server
         const railwayUrl = 'https://lockerweb-production.up.railway.app';
+        
+        // חיפוש deviceId הנכון במסד הנתונים
+        let deviceId = `LOC${String(lockerId).padStart(3, '0')}`;
+        try {
+          const prisma = await getPrisma();
+          if (prisma) {
+            const dbLocker = await prisma.locker.findUnique({
+              where: { id: lockerId }
+            });
+            if (dbLocker && dbLocker.deviceId) {
+              deviceId = dbLocker.deviceId;
+              console.log(`🔍 נמצא deviceId במסד: ${deviceId} עבור lockerId: ${lockerId}`);
+            } else {
+              console.log(`⚠️ לא נמצא deviceId עבור lockerId: ${lockerId}, משתמש בברירת מחדל: ${deviceId}`);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ שגיאה בחיפוש deviceId:`, error);
+        }
+        
         const requestBody = {
           type: 'unlock',
-          id: lockerId === 1 ? 'LOC632' : `LOC${String(lockerId).padStart(3, '0')}`,
+          id: deviceId,
           cell: convertCellNumberToName(cellId)
         };
         
