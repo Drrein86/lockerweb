@@ -117,7 +117,7 @@ export function registerLocker(id: string, ip?: string, cells?: any): LockerConn
   return updatedLocker;
 }
 
-export function updateLockerStatus(id: string, cells?: any, status?: string) {
+export function updateLockerStatus(id: string, cells?: any, status?: string, advancedData?: any) {
   const locker = lockerConnections.get(id);
   if (locker) {
     locker.lastSeen = new Date();
@@ -126,8 +126,17 @@ export function updateLockerStatus(id: string, cells?: any, status?: string) {
       locker.cells = { ...locker.cells, ...cells };
     }
     
+    // הוספת נתונים מתקדמים אם סופקו
+    if (advancedData) {
+      (locker as any).advancedStatus = {
+        ...(locker as any).advancedStatus,
+        ...advancedData,
+        lastUpdate: new Date().toISOString()
+      };
+    }
+    
     lockerConnections.set(id, locker);
-    console.log(`🔄 עודכן סטטוס לוקר ${id}`);
+    console.log(`🔄 עודכן סטטוס לוקר ${id}${advancedData ? ' (כולל נתונים מתקדמים)' : ''}`);
     return locker;
   }
   return null;

@@ -163,6 +163,35 @@ export async function POST(request: NextRequest) {
           timestamp: new Date().toISOString()
         })
         
+      case 'statusUpdate':
+        // עדכון מפורט של סטטוס לוקר (כולל סטטיסטיקות)
+        console.log(`📊 עדכון סטטוס מלוקר ${data.id}:`, {
+          uptime: data.uptime,
+          free_heap: data.free_heap,
+          wifi_rssi: data.wifi_rssi || data.status?.wifi_rssi,
+          stats: data.stats
+        })
+        
+        // עדכון סטטוס מתקדם בזיכרון
+        updateLockerStatus(data.id, null, {
+          uptime: data.uptime,
+          free_heap: data.free_heap,
+          wifi_rssi: data.wifi_rssi || data.status?.wifi_rssi,
+          stats: data.stats,
+          last_update: new Date().toISOString()
+        })
+        
+        // שידור עדכון לכל הלקוחות
+        const { broadcastStatus: broadcastStatusUpdate } = await import('@/lib/broadcast-status')
+        broadcastStatusUpdate()
+        
+        return Response.json({
+          type: 'statusUpdateSuccess',
+          id: data.id,
+          message: 'סטטוס עודכן בהצלחה',
+          timestamp: new Date().toISOString()
+        })
+
       case 'ping':
         // עדכון זמן חיבור אחרון (כמו בשרת הישן)
         updateLockerStatus(data.id)
