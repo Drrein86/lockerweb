@@ -2,6 +2,71 @@ import { NextRequest } from 'next/server'
 import { registerLocker, updateLockerStatus, markLockerOffline } from '@/lib/locker-connections'
 import { handleESP32Response } from '@/lib/pending-requests'
 
+// פונקציה ליצירת תאים מנתוני Arduino
+async function createCellsFromArduino(deviceId: string, cells: any) {
+  try {
+    // קודם נמצא את הלוקר במסד הנתונים
+    const { prisma } = await import('@/lib/prisma')
+    
+    const locker = await prisma.locker.findUnique({
+      where: { deviceId: deviceId },
+      include: { cells: true }
+    })
+    
+    if (!locker) {
+      console.log(`⚠️ לא נמצא לוקר עם deviceId: ${deviceId}`)
+      return
+    }
+    
+    // בדיקה אילו תאים כבר קיימים
+    const existingCells = locker.cells.map(c => c.cellNumber)
+    
+    // יצירת תאים חדשים שלא קיימים
+    for (const [cellName, cellData] of Object.entries(cells) as [string, any][]) {
+      // המרת שם תא למספר (A1 -> 1, A2 -> 2, וכו')
+      const cellNumber = convertCellNameToNumber(cellName)
+      
+      if (!existingCells.includes(cellNumber)) {
+        console.log(`➕ יוצר תא חדש: ${cellName} (מספר: ${cellNumber})`)
+        
+        await prisma.cell.create({
+          data: {
+            lockerId: locker.id,
+            cellNumber: cellNumber,
+            code: `${deviceId}_CELL${String(cellNumber).padStart(2, '0')}`,
+            name: `תא ${cellName}`,
+            size: 'MEDIUM', // ברירת מחדל
+            status: 'AVAILABLE',
+            isLocked: cellData.locked ?? true,
+            isActive: true, // תאים מהArduino פעילים
+            openCount: 0
+          }
+        })
+      } else {
+        console.log(`✅ תא ${cellName} כבר קיים`)
+      }
+    }
+    
+    console.log(`✅ סיום יצירת תאים עבור לוקר ${deviceId}`)
+    
+  } catch (error) {
+    console.error(`❌ שגיאה ביצירת תאים עבור ${deviceId}:`, error)
+    throw error
+  }
+}
+
+// פונקציה להמרת שם תא למספר
+function convertCellNameToNumber(cellName: string): number {
+  // A1 -> 1, A2 -> 2, B1 -> 27, וכו'
+  if (cellName.length < 2) return 1
+  
+  const letter = cellName.charAt(0).toUpperCase()
+  const number = parseInt(cellName.slice(1)) || 1
+  
+  const letterIndex = letter.charCodeAt(0) - 65 // A=0, B=1, וכו'
+  return (letterIndex * 26) + number
+}
+
 // WebSocket upgrade לא נתמך ב-Next.js API routes
 // במקום זה, נשתמש ב-Server-Sent Events (SSE) או polling
 
@@ -67,22 +132,32 @@ export async function POST(request: NextRequest) {
     
     // טיפול בהודעות שונות
     switch (data.type) {
-              case 'register':
-          // Arduino נרשם למערכת (כמו בשרת הישן)
-          console.log(`📝 Arduino נרשם: ${data.id} (IP: ${data.ip})`)
-          
-                  // רישום בזיכרון (כמו בשרת הישן)
+                    case 'register':
+        // Arduino נרשם למערכת (כמו בשרת הישן)
+        console.log(`📝 Arduino נרשם: ${data.id} (IP: ${data.ip})`)
+        
+        // רישום בזיכרון (כמו בשרת הישן)
         const registeredLocker = registerLocker(data.id, data.ip, data.cells)
+        
+        // יצירת תאים אוטומטית במסד הנתונים אם הם לא קיימים
+        if (data.cells && Object.keys(data.cells).length > 0) {
+          try {
+            console.log(`🔄 יוצר תאים אוטומטית עבור לוקר ${data.id}`)
+            await createCellsFromArduino(data.id, data.cells)
+          } catch (error) {
+            console.error(`❌ שגיאה ביצירת תאים עבור ${data.id}:`, error)
+          }
+        }
         
         // שידור הודעת חיבור לכל הלקוחות
         const { broadcastLockerConnection } = await import('@/lib/broadcast-status')
         broadcastLockerConnection(data.id, true, data.ip)
-          
-          return Response.json({
-            type: 'registerSuccess',
-            message: `נרשמת בהצלחה כלוקר ${data.id}`,
-            timestamp: new Date().toISOString()
-          })
+        
+        return Response.json({
+          type: 'registerSuccess',
+          message: `נרשמת בהצלחה כלוקר ${data.id}`,
+          timestamp: new Date().toISOString()
+        })
         
       case 'cellClosed':
         // Arduino מדווח על סגירת תא (כמו בשרת הישן)

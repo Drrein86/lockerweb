@@ -61,11 +61,42 @@ export async function GET() {
   }
 }
 
-// POST - יצירת לוקר חדש
+// POST - יצירת לוקר חדש או תא חדש
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, location, description, ip, port, deviceId, cellsCount = 6 } = body
+    const { type, name, location, description, ip, port, deviceId, cellsCount = 0 } = body
+
+    // יצירת תא חדש
+    if (type === 'cell') {
+      const { lockerId, cellNumber, code, name: cellName, size, isActive = true } = body
+
+      if (!lockerId || !cellNumber) {
+        return NextResponse.json(
+          { error: 'מזהה לוקר ומספר תא נדרשים' },
+          { status: 400 }
+        )
+      }
+
+      const cell = await prisma.cell.create({
+        data: {
+          lockerId: parseInt(lockerId),
+          cellNumber: parseInt(cellNumber),
+          code: code || `LOC${String(lockerId).padStart(3, '0')}_CELL${String(cellNumber).padStart(2, '0')}`,
+          name: cellName || `תא ${cellNumber}`,
+          size: size || 'MEDIUM',
+          status: 'AVAILABLE',
+          isLocked: true,
+          isActive: isActive,
+          openCount: 0
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        cell
+      })
+    }
 
     if (!name || !location) {
       return NextResponse.json(
@@ -88,25 +119,27 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // יצירת התאים
+    // יצירת התאים (רק אם מבוקש)
     const cells = []
-    for (let i = 1; i <= cellsCount; i++) {
-      const cellCode = `${deviceId || locker.id}-${String(i).padStart(2, '0')}`
-      
-      const cell = await prisma.cell.create({
-        data: {
-          cellNumber: i,
-          code: cellCode,
-          name: `תא ${i}`,
-          size: (i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE') as any,
-          status: 'AVAILABLE' as any,
-          isLocked: true,
-          isActive: true,
-          lockerId: locker.id,
-          openCount: 0
-        }
-      })
-      cells.push(cell)
+    if (cellsCount > 0) {
+      for (let i = 1; i <= cellsCount; i++) {
+        const cellCode = `${deviceId || locker.id}-${String(i).padStart(2, '0')}`
+        
+        const cell = await prisma.cell.create({
+          data: {
+            cellNumber: i,
+            code: cellCode,
+            name: `תא ${i}`,
+            size: (i <= 2 ? 'SMALL' : i <= 4 ? 'MEDIUM' : 'LARGE') as any,
+            status: 'AVAILABLE' as any,
+            isLocked: true,
+            isActive: true,
+            lockerId: locker.id,
+            openCount: 0
+          }
+        })
+        cells.push(cell)
+      }
     }
 
     return NextResponse.json({
@@ -132,12 +165,39 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - עדכון לוקר
+// PUT - עדכון לוקר או תא
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, location, description, ip, port, deviceId, status, isActive } = body
+    const { type, id, name, location, description, ip, port, deviceId, status, isActive } = body
 
+    // עדכון תא
+    if (type === 'cell') {
+      const { size, name: cellName, isActive: cellIsActive } = body
+
+      if (!id) {
+        return NextResponse.json(
+          { error: 'מזהה תא נדרש' },
+          { status: 400 }
+        )
+      }
+
+      const updatedCell = await prisma.cell.update({
+        where: { id: parseInt(id) },
+        data: {
+          ...(size && { size }),
+          ...(cellName && { name: cellName }),
+          ...(cellIsActive !== undefined && { isActive: cellIsActive })
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        cell: updatedCell
+      })
+    }
+
+    // עדכון לוקר
     if (!id) {
       return NextResponse.json(
         { error: 'מזהה לוקר נדרש' },
@@ -174,10 +234,10 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error updating locker:', error)
+    console.error('Error updating:', error)
     return NextResponse.json(
       { 
-        error: 'שגיאה בעדכון לוקר',
+        error: 'שגיאה בעדכון',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -185,19 +245,33 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - מחיקת לוקר
+// DELETE - מחיקת לוקר או תא
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
+    const type = url.searchParams.get('type')
 
     if (!id) {
       return NextResponse.json(
-        { error: 'מזהה לוקר נדרש' },
+        { error: 'מזהה נדרש' },
         { status: 400 }
       )
     }
 
+    // מחיקת תא
+    if (type === 'cell') {
+      await prisma.cell.delete({
+        where: { id: parseInt(id) }
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'תא נמחק בהצלחה'
+      })
+    }
+
+    // מחיקת לוקר
     // מחיקת כל התאים קודם
     await prisma.cell.deleteMany({
       where: { lockerId: parseInt(id) }
@@ -213,10 +287,10 @@ export async function DELETE(request: NextRequest) {
       message: 'לוקר נמחק בהצלחה'
     })
   } catch (error) {
-    console.error('Error deleting locker:', error)
+    console.error('Error deleting:', error)
     return NextResponse.json(
       { 
-        error: 'שגיאה במחיקת לוקר',
+        error: 'שגיאה במחיקה',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

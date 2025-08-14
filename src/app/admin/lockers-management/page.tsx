@@ -1203,42 +1203,6 @@ export default function LockersManagementPage() {
                           >
                             {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
                           </button>
-                          
-                          {/* כפתור סגירה ידנית - במיוחד עבור תאים בלי חיישן */}
-                          <button
-                            onClick={() => {
-                              const cellNumber = cell.cellNumber || cell.id
-                              const lockerId = locker.id
-                              
-                              console.log('🔒 כפתור "סגור תא" נלחץ:', { 
-                                cellNumber, 
-                                lockerId, 
-                                lockerName: locker.name,
-                                cellName: cell.name 
-                              })
-                              
-                              if (!cellNumber || !lockerId) {
-                                console.error('❌ חסרים פרמטרים:', { cellNumber, lockerId })
-                                alert('❌ שגיאה: חסרים פרטי תא או לוקר')
-                                return
-                              }
-                              
-                              if (loading) {
-                                console.log('⚠️ הדף בטעינה, לא מבצע פעולה')
-                                alert('⚠️ הדף בטעינה, נסה שוב בעוד רגע')
-                                return
-                              }
-                              
-                              // סגירה ידנית - עובדת גם עבור תאים בלי חיישן
-                              controlCell(cellNumber, lockerId, 'close')
-                            }}
-                            disabled={controlLoading[`${cell.cellNumber || cell.id}-close`]}
-                            className="w-full text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all mb-2"
-                            title={`סגירה ידנית - מתאים לתאים בלי חיישן (A2-A16). תא A${cell.cellNumber || cell.id}${(cell.cellNumber || cell.id) === 1 ? ' יש חיישן' : ' אין חיישן'}`}
-                          >
-                            {controlLoading[`${cell.cellNumber || cell.id}-close`] ? 'סוגר...' : '🔒 סמן כסגור'}
-                          </button>
-                          
                           <div className="flex gap-1">
                             <button
                               onClick={() => {
