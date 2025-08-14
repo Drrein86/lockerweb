@@ -1149,19 +1149,30 @@ export default function LockersManagementPage() {
                             <span className="font-medium text-white text-sm truncate block">{String(cell.name || `תא ${cell.cellNumber || cell.id}`)}</span>
                             <span className="text-xs text-white/60">#{String(cell.cellNumber || cell.id)}</span>
                           </div>
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${cell.status === 'AVAILABLE' ? 'bg-green-400' : cell.status === 'OCCUPIED' ? 'bg-red-400' : 'bg-orange-400'}`}></div>
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            !cell.isActive ? 'bg-red-400' : 
+                            cell.status === 'AVAILABLE' ? 'bg-green-400' : 
+                            cell.status === 'OCCUPIED' ? 'bg-orange-400' : 'bg-gray-400'
+                          }`}></div>
                         </div>
                         
                         <div className="space-y-1 text-xs text-white/70 mb-3">
                           <div>גודל: {String(cell.size || 'לא מוגדר')}</div>
-                          <div>סטטוס: {String(cell.status || 'לא מוגדר')}</div>
+                          <div className={`${!cell.isActive ? 'text-red-400 font-semibold' : ''}`}>
+                            {!cell.isActive ? '🔴 לא פעיל' : `סטטוס: ${String(cell.status || 'לא מוגדר')}`}
+                          </div>
                           <div>נעול: {cell.isLocked ? 'כן' : 'לא'}</div>
-                          <div>פעיל: {cell.isActive ? 'כן' : 'לא'}</div>
                         </div>
 
-                        <div className="flex flex-col gap-2">
+                        <div className={`flex flex-col gap-2 ${!cell.isActive ? 'opacity-50' : ''}`}>
                           <button
                             onClick={() => {
+                              // בדיקה שהתא פעיל
+                              if (!cell.isActive) {
+                                alert('❌ תא זה לא פעיל. יש להפעיל אותו תחילה.')
+                                return
+                              }
+                              
                               const cellNumber = cell.cellNumber || cell.id
                               const lockerId = locker.id
                               console.log('🔓 כפתור "פתח תא" נלחץ:', { 
@@ -1170,7 +1181,8 @@ export default function LockersManagementPage() {
                                 lockerName: locker.name,
                                 cellName: cell.name,
                                 cellStatus: cell.status,
-                                lockerStatus: locker.status
+                                lockerStatus: locker.status,
+                                isActive: cell.isActive
                               })
                               
                               if (!cellNumber || !lockerId) {
@@ -1197,11 +1209,15 @@ export default function LockersManagementPage() {
                               
                               controlCell(cellNumber, lockerId, 'open')
                             }}
-                            disabled={controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
-                            className="w-full text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded transition-all"
-                            title={`סטטוס: ${controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'טוען...' : 'מוכן'} | לוקר: ${locker.status}`}
+                            disabled={!cell.isActive || controlLoading[`${cell.cellNumber || cell.id}-open`] || locker.status !== 'ONLINE'}
+                            className={`w-full text-xs px-2 py-1 rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                              !cell.isActive 
+                                ? 'bg-gray-500/20 text-gray-400' 
+                                : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300'
+                            }`}
+                            title={!cell.isActive ? 'תא לא פעיל - יש להפעיל תחילה' : `סטטוס: ${controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'טוען...' : 'מוכן'} | לוקר: ${locker.status}`}
                           >
-                            {controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח'}
+                            {!cell.isActive ? '🚫 לא פעיל' : (controlLoading[`${cell.cellNumber || cell.id}-open`] ? 'פותח...' : '🔓 פתח')}
                           </button>
                           <div className="flex gap-1">
                             <button
