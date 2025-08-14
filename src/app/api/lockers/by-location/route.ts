@@ -125,11 +125,12 @@ export async function GET(request: Request) {
 
     // חישוב סטטיסטיקות לכל לוקר
     const lockersWithStats = availableLockers.map((locker: any) => {
+      const cells = locker.cells || [];
       const cellsBySize = {
-        SMALL: locker.cells.filter((c: any) => c.size === 'SMALL').length,
-        MEDIUM: locker.cells.filter((c: any) => c.size === 'MEDIUM').length,
-        LARGE: locker.cells.filter((c: any) => c.size === 'LARGE').length,
-        WIDE: locker.cells.filter((c: any) => c.size === 'WIDE').length
+        SMALL: cells.filter((c: any) => c.size === 'SMALL').length,
+        MEDIUM: cells.filter((c: any) => c.size === 'MEDIUM').length,
+        LARGE: cells.filter((c: any) => c.size === 'LARGE').length,
+        WIDE: cells.filter((c: any) => c.size === 'WIDE').length
       }
 
       return {
@@ -169,12 +170,12 @@ export async function GET(request: Request) {
       },
       summary: {
         totalLockers: lockersWithStats.length,
-        totalAvailableCells: lockersWithStats.reduce((sum: any, l: any) => sum + l.totalAvailableCells, 0),
+        totalAvailableCells: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalAvailableCells || 0), 0),
         cellsBySize: {
-          SMALL: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.SMALL, 0),
-          MEDIUM: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.MEDIUM, 0),
-          LARGE: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.LARGE, 0),
-          WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + l.cellsBySize.WIDE, 0)
+          SMALL: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.SMALL || 0), 0),
+          MEDIUM: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.MEDIUM || 0), 0),
+          LARGE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.LARGE || 0), 0),
+          WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.WIDE || 0), 0)
         }
       }
     };
@@ -183,9 +184,14 @@ export async function GET(request: Request) {
     return NextResponse.json(result)
 
   } catch (error) {
-    console.error('שגיאה בחיפוש לוקרים לפי מיקום:', error)
+    console.error('❌ שגיאה בחיפוש לוקרים לפי מיקום:', error)
+    console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'שגיאה בשרת', details: error instanceof Error ? error.message : 'שגיאה לא ידועה' },
+      { 
+        error: 'שגיאה בשרת', 
+        details: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
   } finally {
