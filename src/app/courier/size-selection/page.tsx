@@ -31,6 +31,8 @@ function SizeSelectionPageContent() {
 
   const lockerId = searchParams.get('lockerId')
   const location = searchParams.get('location')
+  const city = searchParams.get('city')
+  const street = searchParams.get('street')
 
   useEffect(() => {
     if (lockerId) {
@@ -43,7 +45,26 @@ function SizeSelectionPageContent() {
 
   const loadLockerInfo = async () => {
     try {
-      const response = await fetch(`/api/lockers/by-location?location=${encodeURIComponent(location || '')}`)
+      // בניית URL לפי הפרמטרים הזמינים
+      const params = new URLSearchParams()
+      
+      if (location) {
+        params.append('location', location)
+      }
+      if (city) {
+        params.append('city', city)
+      }
+      if (street) {
+        params.append('street', street)
+      }
+      
+      // אם אין פרמטרי חיפוש, אולי צריך לחזור לדף החיפוש
+      if (!location && !city && !street) {
+        router.push('/courier/location-search')
+        return
+      }
+      
+      const response = await fetch(`/api/lockers/by-location?${params.toString()}`)
       const data = await response.json()
       
       if (data.found) {
@@ -120,7 +141,15 @@ function SizeSelectionPageContent() {
       
       if (data.available && data.cells.length > 0) {
         // מעבר לדף בחירת תא ספציפי
-        router.push(`/courier/select-cell?lockerId=${lockerId}&size=${size}&location=${encodeURIComponent(location || '')}`)
+        const params = new URLSearchParams()
+        params.append('lockerId', lockerId)
+        params.append('size', size)
+        
+        if (location) params.append('location', location)
+        if (city) params.append('city', city)
+        if (street) params.append('street', street)
+        
+        router.push(`/courier/select-cell?${params.toString()}`)
       } else {
         alert(`אין תאים זמינים בגודל ${getSizeDisplayName(size)} בלוקר זה כרגע`)
       }
