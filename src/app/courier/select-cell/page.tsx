@@ -133,33 +133,33 @@ function SelectCellPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-2 md:p-4">
+      <div className="max-w-4xl mx-auto overflow-hidden">
         {/* כותרת */}
         <div className="text-center mb-8">
-          <Link href={`/courier/size-selection?lockerId=${searchParams.get('lockerId')}&location=${encodeURIComponent(location)}`} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
+          <Link href={`/courier/size-selection?lockerId=${searchParams.get('lockerId')}&location=${encodeURIComponent(location)}`} className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 mb-6">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span>חזרה לבחירת גודל</span>
+            <span className="text-sm md:text-base">חזרה לבחירת גודל</span>
           </Link>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
             בחירת תא ספציפי
           </h1>
           
           {/* מידע על הלוקר והגודל */}
           {locker && (
             <div className="glass-card-sm max-w-2xl mx-auto">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-right">
-                  <h3 className="text-lg font-bold text-white mb-1">{locker.name}</h3>
-                  <p className="text-white/70 text-sm">{locker.location}</p>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                <div className="text-center md:text-right flex-1 min-w-0">
+                  <h3 className="text-base md:text-lg font-bold text-white mb-1 truncate">{locker.name}</h3>
+                  <p className="text-white/70 text-xs md:text-sm truncate">{locker.location}</p>
                   {locker.description && (
-                    <p className="text-white/60 text-xs">{locker.description}</p>
+                    <p className="text-white/60 text-xs truncate">{locker.description}</p>
                   )}
                 </div>
-                <div className="text-left">
-                  <span className="bg-purple-500/20 px-3 py-1 rounded-full text-purple-200 text-sm font-semibold">
+                <div className="text-center md:text-left flex-shrink-0">
+                  <span className="bg-purple-500/20 px-2 md:px-3 py-1 rounded-full text-purple-200 text-xs md:text-sm font-semibold">
                     גודל: {size}
                   </span>
                 </div>
@@ -173,54 +173,54 @@ function SelectCellPageContent() {
         </div>
 
         {/* אפשרויות בחירה */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
           <button
             onClick={handleChangeLocker}
-            className="btn-secondary text-center p-4"
+            className="btn-secondary text-center p-2 md:p-4"
           >
-            <div className="flex flex-col items-center gap-2">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center gap-1 md:gap-2">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span>החלף לוקר</span>
+              <span className="text-xs md:text-sm">החלף לוקר</span>
             </div>
           </button>
           
           <button
             onClick={handleChangeSize}
-            className="btn-secondary text-center p-4"
+            className="btn-secondary text-center p-2 md:p-4"
           >
-            <div className="flex flex-col items-center gap-2">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center gap-1 md:gap-2">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4a1 1 0 011-1h4m5 0h4a1 1 0 011 1v4m0 5v4a1 1 0 01-1 1h-4m-5 0H5a1 1 0 01-1-1v-4m1-5a2 2 0 100-4 2 2 0 000 4zm0 0c1 0 2 1 2 2v1H4v-1a2 2 0 012-2zM20 15a2 2 0 10-4 0 2 2 0 004 0zm-4 0c0-1-1-2-2-2v-1h4v1c-1 0-2 1-2 2z" />
               </svg>
-              <span>החלף גודל</span>
+              <span className="text-xs md:text-sm">החלף גודל</span>
             </div>
           </button>
           
           <Link
             href={`/courier/change-cell?location=${encodeURIComponent(location)}`}
-            className="btn-outline text-center p-4"
+            className="btn-outline text-center p-2 md:p-4 col-span-2 md:col-span-1"
           >
-            <div className="flex flex-col items-center gap-2">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center gap-1 md:gap-2">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
-              <span>אפשרויות מתקדמות</span>
+              <span className="text-xs md:text-sm">אפשרויות מתקדמות</span>
             </div>
           </Link>
 
           {selectedCell && (
             <button
               onClick={handleGoToCell}
-              className="btn-primary text-center p-4"
+              className="btn-primary text-center p-2 md:p-4 col-span-2 md:col-span-3"
             >
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center gap-1 md:gap-2">
+                <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                <span>בחר תא {selectedCell.code}</span>
+                <span className="text-sm md:text-base">בחר תא {selectedCell.code}</span>
               </div>
             </button>
           )}
@@ -228,7 +228,7 @@ function SelectCellPageContent() {
 
         {/* רשימת תאים זמינים */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-white mb-4">תאים זמינים בגודל {size}</h2>
+          <h2 className="text-lg md:text-xl font-bold text-white mb-4">תאים זמינים בגודל {size}</h2>
           
           {availableCells.length === 0 ? (
             <div className="glass-card text-center">
@@ -248,19 +248,19 @@ function SelectCellPageContent() {
                 }`}
                 onClick={() => handleCellSelect(cell)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white/20 rounded-lg flex items-center justify-center">
-                      <span className="text-2xl font-bold">{cell.code}</span>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                    <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg md:text-2xl font-bold truncate">{cell.code}</span>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-1">
-                        תא מספר {cell.cellNumber} ({cell.code})
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg md:text-xl font-bold text-white mb-1 truncate">
+                        תא מספר {cell.cellNumber}
                       </h3>
-                      <p className="text-white/70 mb-1">
+                      <p className="text-white/70 mb-1 text-sm md:text-base">
                         גודל: <span className="font-semibold text-purple-300">{cell.sizeDisplay}</span>
                       </p>
-                      <p className="text-white/60 text-sm">
+                      <p className="text-white/60 text-xs md:text-sm truncate">
                         לוקר: {cell.lockerName}
                       </p>
                       <p className="text-white/50 text-xs">
@@ -269,13 +269,13 @@ function SelectCellPageContent() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-row md:flex-col gap-2 flex-shrink-0">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         handleCellSelect(cell)
                       }}
-                      className="btn-secondary text-sm px-4 py-2"
+                      className="btn-secondary text-xs md:text-sm px-3 py-2 md:px-4 flex-1 md:flex-none"
                     >
                       בחר תא
                     </button>
@@ -286,7 +286,7 @@ function SelectCellPageContent() {
                           e.stopPropagation()
                           handleGoToCell()
                         }}
-                        className="btn-primary text-sm px-4 py-2"
+                        className="btn-primary text-xs md:text-sm px-3 py-2 md:px-4 flex-1 md:flex-none"
                       >
                         הולך לקחת
                       </button>
