@@ -173,29 +173,47 @@ function CellVerificationContent() {
       checkCount++
       
       try {
-        const response = await fetch(`/api/lockers/cell-status?lockerId=${lockerId}&cellNumber=${cellNumber}`)
-        const data = await response.json()
+        console.log(`🔍 בדיקת סטטוס תא #${checkCount}`)
         
+        const response = await fetch(`/api/lockers/cell-status?lockerId=${lockerId}&cellNumber=${cellNumber}`)
+        
+        // בדיקה אם התגובה תקינה
+        if (!response.ok) {
+          console.log(`⚠️ שגיאת HTTP ${response.status} - המשך במעקב`)
+          return // המשך בלולאה
+        }
+
+        // בדיקה אם התוכן הוא JSON תקין
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          console.log('⚠️ תגובה לא JSON - כנראה שגיאת שרת, המשך במעקב')
+          return // המשך בלולאה
+        }
+
+        const data = await response.json()
         console.log(`📊 בדיקת סטטוס תא #${checkCount}:`, data)
         
         if (data.success && data.cellClosed) {
           console.log('🔒 התא נסגר - עובר לשלב פרטי חבילה')
           clearInterval(checkInterval)
           setCurrentStep('package-info')
+        } else if (data.success) {
+          console.log(`📊 תא עדיין ${data.cellOpen ? 'פתוח' : 'לא ברור'} - ממשיך במעקב`)
         }
+        
       } catch (error) {
         console.error('❌ שגיאה בבדיקת סטטוס התא:', error)
+        // לא עוצרים את המעקב בגלל שגיאה - ממשיכים
       }
       
-      // אחרי 30 שניות (10 בדיקות) ללא חיבור ESP32 - מעבר אוטומטי למצב סימולציה
-      if (checkCount >= 10) {
-        console.log('⚠️ מעבר למצב סימולציה - לחץ על כפתור "המשך" כדי לעבור לשלב הבא')
-        clearInterval(checkInterval)
-        // לא עוברים אוטומטית - נותנים למשתמש לבחור
+      // אחרי 30 שניות (10 בדיקות) - הראה הודעה למשתמש
+      if (checkCount === 10) {
+        console.log('⚠️ 30 שניות ללא זיהוי סגירה - הצג אפשרות המשך ידני')
       }
       
       // מנקה אחרי מקסימום בדיקות
       if (checkCount >= maxChecks) {
+        console.log('⏰ הגעתי למקסימום בדיקות - עוצר מעקב')
         clearInterval(checkInterval)
       }
     }, 3000) // בדיקה כל 3 שניות

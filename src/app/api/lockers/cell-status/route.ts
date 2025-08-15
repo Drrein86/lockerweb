@@ -46,67 +46,52 @@ export async function GET(request: Request) {
       )
     }
 
-    // בדיקת סטטוס התא דרך ESP32
-    const esp32Status = await checkCellStatusFromESP32(locker.ip, locker.port, cellNumberString)
+    // בדיקת סטטוס התא דרך Railway Server
+    console.log(`🔍 בודק סטטוס תא ${cellNumberString} בלוקר ${lockerId}`)
+    
+    const railwayStatus = await checkCellStatusViaRailway(locker.deviceId, cellNumberString)
 
-    if (esp32Status.success) {
-      // עדכון סטטוס התא במסד הנתונים לפי התגובה מה-ESP32
-      let updatedCell = cell
-      
-      if (esp32Status.cellClosed && !cell.isLocked) {
-        // התא נסגר - עדכון במסד הנתונים
-        updatedCell = await prisma.cell.update({
-          where: { id: cell.id },
-          data: {
-            isLocked: true,
-            lastClosedAt: new Date()
-          }
-        })
-
-        // יצירת לוג
-        try {
-          console.log('נוצר לוג: תא נסגר', { 
-            action: 'CELL_CLOSED',
-            entityType: 'CELL',
-            entityId: cell.id.toString(),
-              lockerId: parseInt(lockerId),
-              cellNumber: parseInt(cellNumberString),
-              esp32Data: esp32Status
-          })
-        } catch (logError) {
-          console.error('שגיאה ביצירת לוג:', logError)
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        cellId: cell.id,
-        cellNumber: cell.cellNumber,
-        cellCode: cell.code,
-        isLocked: updatedCell.isLocked,
-        cellClosed: esp32Status.cellClosed,
-        cellOpen: !esp32Status.cellClosed,
-        lastOpenedAt: cell.lastOpenedAt,
-        lastClosedAt: updatedCell.lastClosedAt,
-        esp32Data: esp32Status
-      })
-
+    // תמיד נחזיר תגובה מוצלחת, גם אם Railway לא זמין
+    let cellClosed = false
+    let dataSource = 'database'
+    
+    if (railwayStatus.success) {
+      cellClosed = railwayStatus.cellClosed || false
+      dataSource = 'railway'
+      console.log(`✅ נתונים מ-Railway: תא ${cellClosed ? 'סגור' : 'פתוח'}`)
     } else {
-      // אם ESP32 לא זמין, החזר מידע מהמסד הנתונים
-      return NextResponse.json({
-        success: true,
-        cellId: cell.id,
-        cellNumber: cell.cellNumber,
-        cellCode: cell.code,
-        isLocked: cell.isLocked,
-        cellClosed: cell.isLocked, // נניח שנעול = סגור
-        cellOpen: !cell.isLocked,
-        lastOpenedAt: cell.lastOpenedAt,
-        lastClosedAt: cell.lastClosedAt,
-        warning: 'לא ניתן להתחבר ל-ESP32, מחזיר נתונים ממסד הנתונים',
-        esp32Error: esp32Status.message
+      // אם Railway לא זמין, נשתמש בנתונים מהמסד הנתונים
+      cellClosed = cell.isLocked
+      console.log(`⚠️ Railway לא זמין, משתמש בנתוני DB: תא ${cellClosed ? 'סגור' : 'פתוח'}`)
+    }
+
+    // עדכון במסד הנתונים אם התא נסגר
+    let updatedCell = cell
+    if (cellClosed && !cell.isLocked) {
+      console.log(`🔒 מעדכן במסד נתונים: תא ${cellNumberString} נסגר`)
+      updatedCell = await prisma.cell.update({
+        where: { id: cell.id },
+        data: {
+          isLocked: true,
+          lastClosedAt: new Date()
+        }
       })
     }
+
+    return NextResponse.json({
+      success: true,
+      cellId: cell.id,
+      cellNumber: cell.cellNumber,
+      cellCode: cell.code,
+      isLocked: updatedCell.isLocked,
+      cellClosed: cellClosed,
+      cellOpen: !cellClosed,
+      lastOpenedAt: cell.lastOpenedAt,
+      lastClosedAt: updatedCell.lastClosedAt,
+      dataSource: dataSource,
+      railwayAvailable: railwayStatus.success,
+      timestamp: new Date().toISOString()
+    })
 
   } catch (error) {
     console.error('שגיאה בבדיקת סטטוס תא:', error)
@@ -119,49 +104,62 @@ export async function GET(request: Request) {
   }
 }
 
-// פונקציה לבדיקת סטטוס תא דרך ESP32
-async function checkCellStatusFromESP32(ip: string | null, port: number | null, cellNumber: string) {
+// פונקציה לבדיקת סטטוס תא דרך Railway Server
+async function checkCellStatusViaRailway(deviceId: string | null, cellNumber: string) {
   try {
-    if (!ip) {
-      return { success: false, message: 'כתובת IP לא זמינה' }
+    if (!deviceId) {
+      console.log('⚠️ לא נמצא deviceId עבור הלוקר')
+      return { success: false, message: 'deviceId חסר' }
     }
 
-    const esp32Url = `http://${ip}${port ? `:${port}` : ''}/locker`
+    const railwayUrl = 'https://lockerweb-production.up.railway.app'
+    console.log(`📡 בודק סטטוס תא דרך Railway: ${railwayUrl}`)
     
-    const response = await fetch(esp32Url, {
+    // יצירת timeout של 5 שניות
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    
+    const response = await fetch(`${railwayUrl}/api/cell-status`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        action: 'checkCell',
+        type: 'checkCellStatus',
+        id: deviceId,
         cellId: cellNumber
-      })
+      }),
+      signal: controller.signal
     })
 
+    clearTimeout(timeoutId)
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      console.log(`❌ Railway Server החזיר שגיאה: ${response.status}`)
+      return { success: false, message: `HTTP ${response.status}` }
     }
 
     const data = await response.json()
+    console.log('📥 תגובה מ-Railway:', data)
     
     if (data.success) {
       return {
         success: true,
-        cellClosed: data.cellClosed,
-        locked: data.locked,
+        cellClosed: data.cellClosed || false,
         sensorState: data.sensorState || null,
         timestamp: data.timestamp || Date.now()
       }
     } else {
-      return { success: false, message: data.message || 'תגובה לא תקינה מ-ESP32' }
+      return { success: false, message: data.message || 'תגובה לא תקינה מ-Railway' }
     }
 
   } catch (error) {
-    console.error('שגיאה בחיבור ל-ESP32:', error)
+    console.error('❌ שגיאה בחיבור ל-Railway:', error)
+    
+    // Fallback graceful - לא נחזיר שגיאה אלא נודיע שהשירות לא זמין
     return { 
       success: false, 
-              message: `שגיאה בחיבור ל-ESP32: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` 
+      message: `Railway לא זמין: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}` 
     }
   }
 } 
