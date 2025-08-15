@@ -16,11 +16,11 @@ interface CellInfo {
   location: string
 }
 
-type VerificationStep = 'opening' | 'waiting-closure' | 'package-info' | 'success' | 'timeout' | 'error'
+type VerificationStep = 'initializing' | 'opening' | 'cell-opened' | 'waiting-closure' | 'package-info' | 'success' | 'timeout' | 'error'
 
 function CellVerificationContent() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 דקות
-  const [currentStep, setCurrentStep] = useState<VerificationStep>('opening')
+  const [currentStep, setCurrentStep] = useState<VerificationStep>('initializing')
   const [loading, setLoading] = useState(false)
   const [cellInfo, setCellInfo] = useState<CellInfo | null>(null)
   const [packageData, setPackageData] = useState({
@@ -31,15 +31,18 @@ function CellVerificationContent() {
     notes: ''
   })
   const [error, setError] = useState<string>('')
+  const [unlockAttempts, setUnlockAttempts] = useState(0)
   
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    console.log('🔄 מתחיל טעינת דף cell-verification')
+    
     // טעינת פרמטרים מ-URL
     const params = {
       cellId: searchParams.get('cellId'),
-      cellCode: searchParams.get('cellCode'),
+      cellCode: searchParams.get('cellCode'), 
       cellNumber: searchParams.get('cellNumber'),
       lockerId: searchParams.get('lockerId'),
       lockerName: searchParams.get('lockerName'),
@@ -47,8 +50,11 @@ function CellVerificationContent() {
       location: searchParams.get('location')
     }
 
+    console.log('📋 פרמטרים שהתקבלו:', params)
+
     // בדיקת תקינות פרמטרים
     if (!params.cellId || !params.cellCode || !params.lockerId || !params.cellNumber) {
+      console.log('❌ חסרים פרמטרים נדרשים, מפנה לדף חיפוש')
       router.push('/courier/location-search')
       return
     }
@@ -58,9 +64,14 @@ function CellVerificationContent() {
     // יצירת קוד מעקב אוטומטי
     const trackingCode = generateTrackingCode()
     setPackageData(prev => ({ ...prev, trackingCode }))
+    console.log('🏷️ נוצר קוד מעקב:', trackingCode)
 
-    // התחלת תהליך פתיחת התא
-    initiateUnlockCell(params.lockerId, params.cellNumber)
+    // המתנה קצרה לפני פתיחת התא
+    setTimeout(() => {
+      setCurrentStep('opening')
+      initiateUnlockCell(params.lockerId, params.cellNumber)
+    }, 1000)
+
   }, [searchParams, router])
 
   const generateTrackingCode = () => {
@@ -73,9 +84,10 @@ function CellVerificationContent() {
   const initiateUnlockCell = async (lockerId: string, cellNumber: string) => {
     setLoading(true)
     setError('')
+    setUnlockAttempts(prev => prev + 1)
     
     try {
-      console.log('🔓 מנסה לפתוח תא:', { lockerId, cellNumber })
+      console.log(`🔓 ניסיון פתיחת תא #${unlockAttempts + 1}:`, { lockerId, cellNumber })
       
       // קריאה ל-API לפתיחת התא דרך ESP32
       const response = await fetch('/api/lockers/unlock-cell', {
@@ -94,19 +106,28 @@ function CellVerificationContent() {
       const data = await response.json()
       console.log('📡 תגובת API:', data)
       
-      if (response.ok && data.success) {
+      if (response.ok && data.status === 'success') {
         console.log('✅ התא נפתח בהצלחה')
-        setCurrentStep('waiting-closure')
-        startTimer()
-        startCellStatusMonitoring(lockerId, cellNumber)
-      } else {
-        console.error('❌ שגיאה בפתיחת התא:', data)
-        // במקרה של ESP32 לא מחובר, נמשיך בכל זאת (מצב סימולציה)
-        if (data.message && data.message.includes('ESP32')) {
-          console.log('⚠️ ESP32 לא מחובר - מעבר למצב סימולציה')
+        setCurrentStep('cell-opened')
+        
+        // המתנה קצרה כדי להראות שהתא נפתח
+        setTimeout(() => {
           setCurrentStep('waiting-closure')
           startTimer()
           startCellStatusMonitoring(lockerId, cellNumber)
+        }, 2000)
+        
+      } else {
+        console.error('❌ שגיאה בפתיחת התא:', data)
+        // במקרה של ESP32 לא מחובר, נמשיך בכל זאת (מצב סימולציה)
+        if (data.message && (data.message.includes('ESP32') || data.message.includes('Railway'))) {
+          console.log('⚠️ שרת לא זמין - מעבר למצב סימולציה')
+          setCurrentStep('cell-opened')
+          setTimeout(() => {
+            setCurrentStep('waiting-closure')
+            startTimer()
+            startCellStatusMonitoring(lockerId, cellNumber)
+          }, 2000)
         } else {
           setError(data.message || 'שגיאה בפתיחת התא')
           setCurrentStep('error')
@@ -116,9 +137,12 @@ function CellVerificationContent() {
       console.error('❌ שגיאה בקריאת API:', error)
       // במקרה של שגיאת רשת, נמשיך למצב סימולציה
       console.log('⚠️ בעיית רשת - מעבר למצב סימולציה')
-      setCurrentStep('waiting-closure')
-      startTimer()
-      startCellStatusMonitoring(lockerId, cellNumber)
+      setCurrentStep('cell-opened')
+      setTimeout(() => {
+        setCurrentStep('waiting-closure')
+        startTimer()
+        startCellStatusMonitoring(lockerId, cellNumber)
+      }, 2000)
     } finally {
       setLoading(false)
     }
@@ -238,14 +262,36 @@ function CellVerificationContent() {
 
   const getStepInfo = () => {
     switch (currentStep) {
+      case 'initializing':
+        return {
+          title: '🚀 מכין את המערכת...',
+          subtitle: 'טוען פרטי התא ומכין את תהליך הפתיחה',
+          color: 'text-cyan-400',
+          icon: (
+            <svg className="w-8 h-8 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )
+        }
       case 'opening':
         return {
-          title: '🔄 פותח תא...',
-          subtitle: 'המערכת שולחת פקודה לפתיחת התא - אנא המתן',
+          title: '🔄 שולח פקודת פתיחה...',
+          subtitle: `המערכת מתחברת ללוקר ושולחת פקודה לפתיחת התא (ניסיון ${unlockAttempts})`,
           color: 'text-blue-400',
           icon: (
             <svg className="w-8 h-8 text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )
+        }
+      case 'cell-opened':
+        return {
+          title: '🎉 התא נפתח בהצלחה!',
+          subtitle: 'התא נפתח - עבור אליו כעת והכנס את החבילה',
+          color: 'text-green-400',
+          icon: (
+            <svg className="w-8 h-8 text-green-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           )
         }
@@ -494,50 +540,124 @@ function CellVerificationContent() {
 
         {/* כפתורי פעולה */}
         <div className="space-y-4">
-          {currentStep === 'opening' && loading && (
-            <div className="glass-card-sm">
-              <p className="text-blue-300 text-center text-sm">
-                המערכת מתחברת ל-ESP32 ופותחת את התא... אנא המתן.
-              </p>
+          {currentStep === 'initializing' && (
+            <div className="glass-card">
+              <div className="text-center">
+                <div className="animate-pulse">
+                  <svg className="w-12 h-12 text-cyan-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-cyan-300 mb-2">מכין את המערכת</h3>
+                <p className="text-cyan-100 text-sm">טוען את פרטי התא הנבחר ומכין את תהליך הפתיחה...</p>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'opening' && (
+            <div className="glass-card">
+              <div className="text-center">
+                <div className="animate-spin mb-4">
+                  <svg className="w-12 h-12 text-blue-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-blue-300 mb-2">שולח פקודת פתיחה</h3>
+                <p className="text-blue-100 text-sm mb-4">
+                  המערכת מתחברת ללוקר דרך Railway ושולחת פקודה לפתיחת התא...
+                </p>
+                <div className="bg-blue-900/30 rounded-lg p-3">
+                  <p className="text-blue-200 text-xs">
+                    ניסיון פתיחה מספר: {unlockAttempts}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'cell-opened' && (
+            <div className="glass-card bg-green-900/20 border-green-400/30">
+              <div className="text-center">
+                <div className="animate-bounce mb-4">
+                  <svg className="w-16 h-16 text-green-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-green-300 mb-2">🎉 התא נפתח בהצלחה!</h3>
+                <p className="text-green-100 mb-4">
+                  התא זמין כעת - עבור אליו והכנס את החבילה
+                </p>
+                <div className="bg-green-800/30 rounded-lg p-4">
+                  <div className="flex items-center justify-center gap-2 text-green-200">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="font-semibold">עבור ללוקר עכשיו!</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {currentStep === 'waiting-closure' && (
             <div className="space-y-4">
-              <div className="glass-card-sm">
-                <h4 className="text-lg font-semibold text-white mb-3 text-center">
+              <div className="glass-card">
+                <h4 className="text-lg font-semibold text-white mb-4 text-center">
                   🎯 הוראות לשליח
                 </h4>
-                <ol className="space-y-2 text-white/70 text-sm">
-                  <li className="flex items-start gap-3">
-                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
-                    <span>התא נפתח אוטומטית - גש אליו כעת</span>
+                <ol className="space-y-3 text-white/80 text-sm mb-6">
+                  <li className="flex items-start gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-400/30">
+                    <span className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">1</span>
+                    <span className="pt-1">התא נפתח אוטומטית - גש אליו כעת</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
-                    <span>הכנס את החבילה לתוך התא</span>
+                  <li className="flex items-start gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-400/30">
+                    <span className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">2</span>
+                    <span className="pt-1">הכנס את החבילה לתוך התא בזהירות</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <span className="bg-emerald-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
-                    <span>סגור את התא בחוזקה - המערכת תזהה את הסגירה</span>
+                  <li className="flex items-start gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-400/30">
+                    <span className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">3</span>
+                    <span className="pt-1">סגור את התא בחוזקה - המערכת תזהה את הסגירה</span>
                   </li>
                 </ol>
+
+                {/* טיימר גדול */}
+                {timeLeft > 0 && (
+                  <div className="text-center mb-6">
+                    <div className="text-5xl font-mono text-yellow-400 mb-2">
+                      {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                    </div>
+                    <p className="text-white/70">זמן נותר לסגירת התא</p>
+                  </div>
+                )}
               </div>
               
-              {/* כפתור מעבר ידני למצב סימולציה */}
-              <div className="bg-orange-500/20 border border-orange-400/50 rounded-lg p-4">
-                <h4 className="text-orange-300 font-semibold mb-2 text-center">
-                  ⚠️ המערכת לא מזהה סגירת תא?
-                </h4>
-                <p className="text-orange-200 text-sm mb-3 text-center">
-                  אם הכבל לא מחובר או שהחיישן לא עובד, ניתן להמשיך במצב ידני
-                </p>
-                <button
-                  onClick={handleSimulationContinue}
-                  className="w-full btn-outline border-orange-400 text-orange-300 hover:bg-orange-500/20"
-                >
-                  המשך להזנת פרטי חבילה (מצב ידני)
-                </button>
+              {/* כפתור מעבר ידני למצב סימולציה - מעוצב יותר */}
+              <div className="glass-card bg-orange-500/10 border-orange-400/30">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-lg font-semibold text-orange-300 mb-2">
+                    המערכת לא מזהה סגירת תא?
+                  </h4>
+                  <p className="text-orange-200 text-sm mb-4">
+                    אם הכבל לא מחובר או שהחיישן לא עובד, המשך במצב ידני
+                  </p>
+                  <button
+                    onClick={handleSimulationContinue}
+                    className="w-full btn-primary bg-orange-500 hover:bg-orange-600 text-white text-lg py-4 rounded-xl font-semibold shadow-lg transition-all duration-300"
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                      <span>המשך להזנת פרטי חבילה</span>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -572,38 +692,85 @@ function CellVerificationContent() {
 
           {(currentStep === 'timeout' || currentStep === 'error') && (
             <div className="space-y-4">
-              <div className="bg-orange-500/20 border border-orange-400/50 rounded-lg p-4">
-                <h4 className="text-orange-300 font-semibold mb-2 text-center">
-                  💡 אפשרויות המשך
-                </h4>
-                <p className="text-orange-200 text-sm mb-4 text-center">
-                  {currentStep === 'timeout' 
-                    ? 'הזמן פג לזיהוי סגירת התא. אולי החיישן לא מחובר?'
-                    : 'לא ניתן להתחבר למערכת הלוקר. ניתן להמשיך במצב ידני.'}
-                </p>
-                
-                <div className="space-y-3">
+              {/* כפתור פתיחה ידנית - גדול ובולט */}
+              <div className="glass-card bg-red-500/10 border-red-400/30">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-3a1 1 0 011-1h2.586l6.243-6.243A6 6 0 0121 9z" />
+                    </svg>
+                  </div>
+                  
+                  <h4 className="text-xl font-bold text-red-300 mb-3">
+                    🔧 פתיחה ידנית נדרשת
+                  </h4>
+                  
+                  <p className="text-red-200 text-sm mb-6 max-w-md mx-auto">
+                    {currentStep === 'timeout' 
+                      ? 'הזמן פג לזיהוי סגירת התא. אולי החיישן לא מחובר?' 
+                      : 'לא ניתן להתחבר למערכת הלוקר אוטומטית. פתח את התא ידנית במפתח.'}
+                  </p>
+                  
+                  {/* הוראות לפתיחה ידנית */}
+                  <div className="bg-red-800/20 rounded-lg p-4 mb-6">
+                    <h5 className="font-semibold text-red-300 mb-3">📋 הוראות:</h5>
+                    <ol className="text-red-200 text-sm space-y-2 text-right">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                        <span>השתמש במפתח הראשי לפתיחת התא</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                        <span>הכנס את החבילה לתוך התא</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                        <span>סגור את התא ונעל אותו</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">4</span>
+                        <span>לחץ על "המשך" כדי להזין פרטי חבילה</span>
+                      </li>
+                    </ol>
+                  </div>
+                  
+                  {/* כפתור המשך גדול */}
                   <button
                     onClick={handleSimulationContinue}
-                    className="w-full btn-primary text-lg py-3 bg-orange-500 hover:bg-orange-600"
+                    className="w-full btn-primary bg-green-600 hover:bg-green-700 text-white text-xl py-5 rounded-xl font-bold shadow-xl transition-all duration-300 transform hover:scale-105"
                   >
-                    המשך במצב ידני (מומלץ)
+                    <div className="flex items-center justify-center gap-4">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>המשך להזנת פרטי חבילה</span>
+                    </div>
                   </button>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleRetry}
-                      className="flex-1 btn-secondary text-sm py-2"
-                    >
-                      נסה שוב
-                    </button>
-                    <button
-                      onClick={handleSelectAnotherCell}
-                      className="flex-1 btn-outline text-sm py-2"
-                    >
-                      בחר תא אחר
-                    </button>
-                  </div>
+                </div>
+              </div>
+              
+              {/* אפשרויות נוספות */}
+              <div className="glass-card bg-blue-500/5 border-blue-400/20">
+                <h5 className="text-blue-300 font-semibold mb-3 text-center">🔄 אפשרויות נוספות</h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={handleRetry}
+                    className="btn-secondary text-sm py-3 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>נסה פתיחה אוטומטית שוב</span>
+                  </button>
+                  <button
+                    onClick={handleSelectAnotherCell}
+                    className="btn-secondary text-sm py-3 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>בחר תא אחר</span>
+                  </button>
                 </div>
               </div>
             </div>
