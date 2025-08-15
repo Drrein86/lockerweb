@@ -69,7 +69,9 @@ function CellVerificationContent() {
     // המתנה קצרה לפני פתיחת התא
     setTimeout(() => {
       setCurrentStep('opening')
-      initiateUnlockCell(params.lockerId, params.cellNumber)
+      if (params.lockerId && params.cellNumber) {
+        initiateUnlockCell(params.lockerId, params.cellNumber)
+      }
     }, 1000)
 
   }, [searchParams, router])
@@ -240,7 +242,7 @@ function CellVerificationContent() {
   }
 
   const handleRetry = () => {
-    if (cellInfo) {
+    if (cellInfo && cellInfo.lockerId && cellInfo.cellNumber) {
       setCurrentStep('opening')
       setError('')
       initiateUnlockCell(cellInfo.lockerId, cellInfo.cellNumber)
