@@ -59,6 +59,7 @@ function CellVerificationContent() {
   const [error, setError] = useState<string>('')
   const [unlockAttempts, setUnlockAttempts] = useState(0)
   const [qrScanActive, setQrScanActive] = useState(false)
+  const [qrScanSuccess, setQrScanSuccess] = useState(false)
   const [notificationResults, setNotificationResults] = useState<any>(null)
   
   const router = useRouter()
@@ -352,10 +353,17 @@ function CellVerificationContent() {
     }))
     
     setQrScanActive(false)
-    setInputMethod('qr')
+    setQrScanSuccess(true)
     setError('')
     
     console.log('✅ נתוני חבילה עודכנו מ-QR')
+    
+    // הצגת הודעת הצלחה והעברה לטופס אחרי 2 שניות
+    setTimeout(() => {
+      setInputMethod('manual') // מעבר לטופס עם הנתונים ממולאים
+      setQrScanSuccess(false) // איפוס הודעת ההצלחה
+      console.log('🎯 עובר לטופס הזנת פרטי חבילה עם נתונים ממולאים')
+    }, 2000)
   }
 
   const handleQRScanError = (errorMessage: string) => {
@@ -645,7 +653,27 @@ function CellVerificationContent() {
                   isActive={qrScanActive}
                 />
 
-                {inputMethod === 'qr' && packageData.customerName && (
+                {/* הודעת הצלחה מיד אחרי סריקת QR */}
+                {qrScanSuccess && (
+                  <div className="mt-6 bg-green-500/20 border border-green-400/50 rounded-xl p-6 text-center animate-pulse">
+                    <div className="w-16 h-16 bg-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-green-300 mb-2">🎉 QR נסרק בהצלחה!</h3>
+                    <div className="space-y-1 text-green-200 mb-4">
+                      <p>✅ נתוני החבילה נקלטו במערכת</p>
+                      <p className="text-sm text-green-300">🔄 עובר לטופס הזנת פרטים...</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
+                      <span>טוען טופס עם הנתונים ממולאים</span>
+                    </div>
+                  </div>
+                )}
+
+                {inputMethod === 'qr' && packageData.customerName && !qrScanSuccess && (
                   <div className="mt-6 bg-green-500/10 border border-green-400/30 rounded-lg p-4">
                     <h4 className="font-semibold text-green-300 mb-3">✅ נתונים נסרקו בהצלחה:</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -680,6 +708,23 @@ function CellVerificationContent() {
                     <span>חזרה</span>
                   </button>
                 </div>
+
+                {/* הודעה שהנתונים באו מ-QR */}
+                {packageData.customerName && packageData.packageId && (
+                  <div className="mb-6 bg-blue-500/10 border border-blue-400/30 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1zm12 0h2a1 1 0 001-1V6a1 1 0 00-1-1h-2a1 1 0 00-1 1v1a1 1 0 001 1zM5 20h2a1 1 0 001-1v-1a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-blue-300">📱 נתונים מ-QR Code</h4>
+                        <p className="text-blue-200 text-sm">הטופס מולא אוטומטית מסריקת הQR. ניתן לערוך את הפרטים לפי הצורך.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <form onSubmit={handlePackageSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
