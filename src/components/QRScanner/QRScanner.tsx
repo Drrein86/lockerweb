@@ -27,19 +27,27 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const elementId = 'qr-code-scanner'
 
   useEffect(() => {
+    let isMounted = true
+    
     if (isActive && !isScanning) {
       startScanner().catch((error) => {
-        console.error('שגיאה בהפעלת הסורק:', error)
-        const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
-        setError(errorMsg)
-        onError?.(errorMsg)
+        if (isMounted) {
+          console.error('שגיאה בהפעלת הסורק:', error)
+          const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
+          setError(errorMsg)
+          onError?.(errorMsg)
+        }
       })
     } else if (!isActive && isScanning) {
       stopScanner()
     }
 
     return () => {
-      stopScanner()
+      isMounted = false
+      // הוספת delay קטן כדי לוודא שה-DOM מוכן לניקוי
+      setTimeout(() => {
+        stopScanner()
+      }, 100)
     }
   }, [isActive])
 
@@ -122,10 +130,17 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
         }
       }
 
+      // בדיקה שהelement קיים לפני יצירת הסורק
+      const element = document.getElementById(elementId)
+      if (!element) {
+        throw new Error('לא נמצא element עבור הסורק במזהה: ' + elementId)
+      }
+
       scannerRef.current = new Html5QrcodeScanner(elementId, config, false)
       scannerRef.current.render(onQrCodeScanSuccess, onQrCodeScanError)
       setIsScanning(true)
       setError('')
+      console.log('✅ סורק QR הופעל בהצלחה')
       
     } catch (scannerError) {
       console.error('❌ שגיאה בהפעלת סורק QR:', scannerError)
@@ -139,13 +154,30 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
     if (scannerRef.current) {
       try {
         console.log('🛑 עוצר סורק QR...')
-        scannerRef.current.clear()
-        scannerRef.current = null
-        setIsScanning(false)
-        console.log('✅ סורק QR נעצר בהצלחה')
+        
+        // בדיקה שהelement עדיין קיים ב-DOM
+        const element = document.getElementById(elementId)
+        if (element && element.parentNode) {
+          scannerRef.current.clear()
+          console.log('✅ סורק QR נעצר בהצלחה')
+        } else {
+          console.log('⚠️ Element כבר לא קיים ב-DOM, מדלג על clear()')
+        }
       } catch (clearError) {
         console.error('❌ שגיאה בעצירת סורק:', clearError)
-        // אפילו אם יש שגיאה, נאפס את הref והstate
+        
+        // ניסיון ניקוי ידני של הelement
+        try {
+          const element = document.getElementById(elementId)
+          if (element) {
+            element.innerHTML = ''
+            console.log('🧹 ניקוי ידני של element הושלם')
+          }
+        } catch (manualCleanError) {
+          console.error('❌ גם ניקוי ידני נכשל:', manualCleanError)
+        }
+      } finally {
+        // תמיד נאפס את הref והstate
         scannerRef.current = null
         setIsScanning(false)
       }
