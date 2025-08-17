@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
+import dynamicImport from 'next/dynamic'
 
 // טעינה דינמית של QR Scanner (client-side only)
-const QRScanner = dynamic(() => import('@/components/QRScanner/QRScanner'), {
+const QRScanner = dynamicImport(() => import('@/components/QRScanner/QRScanner'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center p-8">
