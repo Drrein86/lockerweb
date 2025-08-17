@@ -15,6 +15,32 @@ export async function GET(request: Request) {
 
     console.log('🔍 API by-location קיבל:', { location, city, street, radius });
 
+    // דיבוג: בואו נראה מה יש במסד הנתונים בכלל
+    const allLockers = await prisma.locker.findMany({
+      where: {
+        status: 'ONLINE',
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        city: true,
+        street: true,
+        description: true,
+        status: true
+      }
+    });
+
+    console.log('📋 כל הלוקרים הפעילים במסד הנתונים:');
+    allLockers.forEach(locker => {
+      console.log(`   לוקר ${locker.id}: ${locker.name}`);
+      console.log(`      מיקום: "${locker.location || 'לא מוגדר'}"`);
+      console.log(`      עיר: "${locker.city || 'לא מוגדר'}"`);
+      console.log(`      רחוב: "${locker.street || 'לא מוגדר'}"`);
+      console.log(`      תיאור: "${locker.description || 'לא מוגדר'}"`);
+    });
+
     if (!location && !city && !street) {
       console.log('❌ לא צוינו פרמטרי חיפוש');
       return NextResponse.json(
@@ -70,6 +96,8 @@ export async function GET(request: Request) {
       });
     }
     
+    console.log('🔎 תנאי חיפוש שנבנו:', JSON.stringify(searchConditions, null, 2));
+
     const lockers = await prisma.locker.findMany({
       where: {
         status: 'ONLINE',
@@ -129,10 +157,33 @@ export async function GET(request: Request) {
     });
 
     console.log('📊 לוקרים שנמצאו לפני סינון:', lockers.length);
-    lockers.forEach(l => {
-      console.log(`   - ${l.name} (ID: ${l.id}): ${l._count.cells} תאים זמינים, סטטוס: ${l.status}`);
-      console.log(`     כל התאים: ${l.cells ? l.cells.length : 0} זמינים מתוך סך התאים`);
-    });
+    
+    if (lockers.length === 0) {
+      console.log('❌ לא נמצא אף לוקר שמתאים לתנאי החיפוש!');
+      console.log('🔍 בואו נבדוק אם יש התאמה ידנית:');
+      
+      allLockers.forEach(locker => {
+        const matchLocation = location && locker.location && locker.location.toLowerCase().includes(location.toLowerCase());
+        const matchCity = city && locker.city && locker.city.toLowerCase().includes(city.toLowerCase());
+        const matchStreet = street && locker.street && locker.street.toLowerCase().includes(street.toLowerCase());
+        const matchName = location && locker.name && locker.name.toLowerCase().includes(location.toLowerCase());
+        const matchDescription = location && locker.description && locker.description.toLowerCase().includes(location.toLowerCase());
+        
+        console.log(`\n   לוקר ${locker.name}:`);
+        console.log(`      מיקום מתאים: ${matchLocation ? '✅' : '❌'} (מחפש: "${location}", יש: "${locker.location}")`);
+        console.log(`      עיר מתאימה: ${matchCity ? '✅' : '❌'} (מחפש: "${city}", יש: "${locker.city}")`);
+        console.log(`      רחוב מתאים: ${matchStreet ? '✅' : '❌'} (מחפש: "${street}", יש: "${locker.street}")`);
+        if (location) {
+          console.log(`      שם מתאים: ${matchName ? '✅' : '❌'} (מחפש: "${location}", יש: "${locker.name}")`);
+          console.log(`      תיאור מתאים: ${matchDescription ? '✅' : '❌'} (מחפש: "${location}", יש: "${locker.description}")`);
+        }
+      });
+    } else {
+      lockers.forEach(l => {
+        console.log(`   - ${l.name} (ID: ${l.id}): ${l._count.cells} תאים זמינים, סטטוס: ${l.status}`);
+        console.log(`     כל התאים: ${l.cells ? l.cells.length : 0} זמינים מתוך סך התאים`);
+      });
+    }
 
     // סינון לוקרים שיש להם לפחות תא אחד פנוי
     const availableLockers = lockers.filter((locker: any) => locker._count.cells > 0)
@@ -141,15 +192,47 @@ export async function GET(request: Request) {
     if (availableLockers.length === 0) {
       const searchTerm = location || city || street;
       console.log('❌ לא נמצאו לוקרים זמינים');
+      
+      // בדיקה אם יש לוקרים אבל ללא תאים זמינים
+      const lockersWithoutCells = lockers.filter((locker: any) => locker._count.cells === 0);
+      const hasLockersButNoCells = lockersWithoutCells.length > 0;
+      
+      if (hasLockersButNoCells) {
+        console.log(`📦 נמצאו ${lockersWithoutCells.length} לוקרים אבל כולם ללא תאים זמינים`);
+        lockersWithoutCells.forEach(l => {
+          console.log(`   - ${l.name}: כל התאים תפוסים`);
+        });
+      }
+      
       return NextResponse.json({
         found: false,
-        message: `לא נמצאו לוקרים פעילים עם תאים זמינים עבור "${searchTerm}"`,
+        message: hasLockersButNoCells 
+          ? `נמצאו לוקרים באזור "${searchTerm}" אבל כל התאים תפוסים כרגע`
+          : `לא נמצאו לוקרים פעילים עבור "${searchTerm}"`,
         lockers: [],
-        suggestions: [
-          'בדוק אם הכתובת נכתבה נכון',
-          'נסה חיפוש רחב יותר (למשל רק שם העיר)',
-          'צור קשר עם התמיכה לעדכון על לוקרים חדשים באזור'
-        ]
+        debugInfo: {
+          totalLockersInDB: allLockers.length,
+          lockersMatchingSearch: lockers.length,
+          lockersWithAvailableCells: availableLockers.length,
+          searchParams: { location, city, street },
+          allLockers: allLockers.map(l => ({
+            name: l.name,
+            location: l.location,
+            city: l.city,
+            street: l.street
+          }))
+        },
+        suggestions: hasLockersButNoCells 
+          ? [
+              'נסה שוב מאוחר יותר - ייתכן שתאים ישתחררו',
+              'בדוק לוקרים באזורים סמוכים',
+              'צור קשר עם התמיכה לעדכון על זמינות'
+            ]
+          : [
+              'בדוק אם הכתובת נכתבה נכון',
+              'נסה חיפוש רחב יותר (למשל רק שם העיר)',
+              'צור קשר עם התמיכה לעדכון על לוקרים חדשים באזור'
+            ]
       })
     }
 
@@ -216,6 +299,12 @@ export async function GET(request: Request) {
         city,
         street,
         radius
+      },
+      debugInfo: {
+        totalLockersInDB: allLockers.length,
+        lockersMatchingSearch: lockers.length,
+        lockersWithAvailableCells: availableLockers.length,
+        searchParams: { location, city, street }
       },
       summary: {
         totalLockers: lockersWithStats.length,
