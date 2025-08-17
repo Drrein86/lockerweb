@@ -243,8 +243,15 @@ async function sendNotifications(data: any) {
   }
 }
 
-// יצירת תוכן ההודעות
+// יצירת תוכן ההודעות - דינאמי לפי הנתונים שהתקבלו
 function createMessageContent(data: any) {
+  // בניית התיאור בצורה דינאמית
+  const packageDescription = data.description || 'חבילה'
+  const locationDetails = data.location || 'ליד הכניסה הראשית'
+  const streetAddress = data.street || 'כתובת לא צוינה'
+  const cityName = data.city || 'עיר לא צוינה'
+  const lockerDisplayName = data.lockerName || `לוקר #${data.lockerId}`
+  
   const baseMessage = `
 שלום ${data.customerName}!
 
@@ -253,21 +260,22 @@ function createMessageContent(data: any) {
 📦 פרטי החבילה:
 • קוד מעקב: ${data.trackingCode}
 • קוד פתיחה: ${data.unlockCode}
-• תיאור: ${data.description}
+• תיאור: ${packageDescription}
 
 📍 מיקום הלוקר:
-• עיר: ${data.city}
-• כתובת: ${data.street}
-• מיקום מדויק: ${data.location}
-• לוקר: ${data.lockerName}
+• עיר: ${cityName}
+• כתובת: ${streetAddress}
+• מיקום מדויק: ${locationDetails}
+• לוקר: ${lockerDisplayName}
 • תא: ${data.cellCode}
 
 🔓 הוראות איסוף:
-1. הגע למיקום הלוקר
-2. הזן את קוד המעקב: ${data.trackingCode}
-3. הזן את קוד הפתיחה: ${data.unlockCode}
-4. התא ייפתח אוטומטית
-5. אסוף את החבילה
+1. הגע למיקום הלוקר בכתובת: ${streetAddress}, ${cityName}
+2. מצא את ${lockerDisplayName} ${locationDetails}
+3. הזן את קוד המעקב: ${data.trackingCode}
+4. הזן את קוד הפתיחה: ${data.unlockCode}
+5. התא ${data.cellCode} ייפתח אוטומטית
+6. אסוף את החבילה: ${packageDescription}
 
 ⏰ החבילה תהיה זמינה לאיסוף במשך 7 ימים.
 
@@ -275,15 +283,18 @@ function createMessageContent(data: any) {
 📧 אימייל: ${data.companyEmail}
 
 תודה על השימוש בשירות ${data.companyName}!
-  `
+  `.trim()
+
+  // הודעת SMS קצרה יותר עם הנתונים החשובים
+  const smsMessage = `שלום ${data.customerName}! החבילה "${packageDescription}" הופקדה בלוקר. קוד מעקב: ${data.trackingCode}, קוד פתיחה: ${data.unlockCode}. מיקום: ${streetAddress}, ${cityName} - ${lockerDisplayName}, תא ${data.cellCode}. ${data.companyName}`
 
   return {
     email: {
-      subject: `החבילה שלך מחכה - קוד מעקב ${data.trackingCode}`,
+      subject: `החבילה "${packageDescription}" מחכה לך - קוד מעקב ${data.trackingCode}`,
       html: baseMessage.replace(/\n/g, '<br>'),
       text: baseMessage
     },
-    sms: `שלום ${data.customerName}! החבילה שלך הופקדה בלוקר. קוד מעקב: ${data.trackingCode}, קוד פתיחה: ${data.unlockCode}. מיקום: ${data.street}, ${data.city}. ${data.companyName}`,
+    sms: smsMessage,
     whatsapp: baseMessage
   }
 }

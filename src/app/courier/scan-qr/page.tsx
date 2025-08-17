@@ -380,7 +380,14 @@ function ScanQRContent() {
           customerName: customerData.name,
           customerPhone: customerData.phone,
           packageSaved: 'true',
-          notificationsSent: result.notificationsSent ? 'true' : 'false'
+          notificationsSent: result.notificationsSent ? 'true' : 'false',
+          // הנתונים הדינמיים החדשים
+          description: customerData.description || '',
+          city: lockerInfo.city || '',
+          street: lockerInfo.street || '',
+          location: lockerInfo.location || '',
+          lockerName: lockerInfo.lockerName || '',
+          unlockCode: result.unlockCode || ''
         })
         
         router.push(`/courier/success?${successParams.toString()}`)
@@ -402,9 +409,27 @@ function ScanQRContent() {
         console.error('❌ שגיאה גם בפתיחת התא:', unlockError)
       }
       
-      // מעבר לדף הצלחה עם אזהרה
+      // מעבר לדף הצלחה עם אזהרה - עם כל הנתונים
       alert(`⚠️ החבילה נשמרה חלקית. שגיאה: ${error instanceof Error ? error.message : 'לא ידועה'}`)
-      router.push(`/courier/success?trackingCode=${customerData.tracking_code}&cellCode=${cellCode}&fallback=true`)
+      
+      const fallbackParams = new URLSearchParams({
+        trackingCode: customerData.tracking_code,
+        cellCode: cellCode,
+        lockerId: lockerId,
+        customerName: customerData.name,
+        customerPhone: customerData.phone,
+        fallback: 'true',
+        packageSaved: 'false',
+        notificationsSent: 'false',
+        // הנתונים הדינמיים
+        description: customerData.description || '',
+        city: lockerInfo?.city || '',
+        street: lockerInfo?.street || '',
+        location: lockerInfo?.location || '',
+        lockerName: lockerInfo?.lockerName || ''
+      })
+      
+      router.push(`/courier/success?${fallbackParams.toString()}`)
       
     } finally {
       setLoading(false)

@@ -84,8 +84,16 @@ function SuccessContent() {
     }
   }, [countdown])
 
-  // יצירת הודעת SMS
-  const smsMessage = `שלום ${customerName || 'לקוח יקר'}! החבילה שלך הופקדה בלוקר. קוד מעקב: ${trackingCode}. מיקום: לוקר #${lockerId}, תא ${cellCode}. Smart Lockers`
+  // קבלת נתונים נוספים מה-URL
+  const packageDescription = searchParams.get('description') || 'החבילה שלך'
+  const city = searchParams.get('city') || 'תל אביב'
+  const street = searchParams.get('street') || 'הכתובת'
+  const location = searchParams.get('location') || 'ליד הכניסה'
+  const lockerName = searchParams.get('lockerName') || `לוקר #${lockerId}`
+  const unlockCode = searchParams.get('unlockCode') || 'קוד-פתיחה'
+
+  // יצירת הודעת SMS דינאמית
+  const smsMessage = `שלום ${customerName || 'לקוח יקר'}! החבילה "${packageDescription}" הופקדה בלוקר. קוד מעקב: ${trackingCode}, קוד פתיחה: ${unlockCode}. מיקום: ${street}, ${city} - ${lockerName}, תא ${cellCode}. Smart Lockers`
   
   // יצירת קישור WhatsApp
   const whatsappUrl = customerPhone ? `https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(smsMessage)}` : null
