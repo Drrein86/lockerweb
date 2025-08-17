@@ -2,16 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 
-// Dynamic import for html5-qrcode with fallback
-let Html5QrcodeScanner: any;
-
-// Try to import html5-qrcode
-try {
-  const qrCodeModule = require('html5-qrcode');
-  Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner;
-} catch (importError) {
-  console.warn('Failed to import html5-qrcode:', importError);
-}
+// Dynamic import for html5-qrcode will be done at runtime
 
 interface PackageData {
   package_id: number
@@ -47,23 +38,28 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
     }
   }, [isActive])
 
-  const startScanner = () => {
+  const startScanner = async () => {
     try {
       if (scannerRef.current) {
         stopScanner()
       }
 
-      // בדיקה שהמודול html5-qrcode נטען כראוי
-      if (!Html5QrcodeScanner) {
-        const errorMsg = 'סורק QR לא זמין - המודול לא נטען כראוי'
+      // בדיקה שהדפדפן תומך במצלמה
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = 'הדפדפן לא תומך בגישה למצלמה'
         setError(errorMsg)
         onError?.(errorMsg)
         return
       }
 
-      // בדיקה שהדפדפן תומך במצלמה
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        const errorMsg = 'הדפדפן לא תומך בגישה למצלמה'
+      // טעינה דינמית של המודול html5-qrcode
+      let Html5QrcodeScanner: any
+      try {
+        const qrCodeModule = await import('html5-qrcode')
+        Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner
+      } catch (importError) {
+        console.error('Failed to load html5-qrcode:', importError)
+        const errorMsg = 'סורק QR לא זמין - נכשל בטעינת המודול'
         setError(errorMsg)
         onError?.(errorMsg)
         return
@@ -209,39 +205,27 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
 
         {/* אזור הסורק */}
         <div className="mb-4">
-          {!Html5QrcodeScanner ? (
-            <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
+          <div 
+            id={elementId}
+            className="qr-scanner-container"
+            style={{
+              width: '100%',
+              border: '2px dashed rgba(59, 130, 246, 0.5)',
+              borderRadius: '12px',
+              minHeight: '300px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)'
+            }}
+          >
+            {!isScanning && !error && (
+              <div className="text-center text-white/70">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                <p className="text-sm">טוען סורק QR...</p>
               </div>
-              <h3 className="text-white font-medium mb-2">סורק QR לא זמין</h3>
-              <p className="text-white/70 text-sm">המודול לא נטען כראוי. אנא בחר בהזנה ידנית.</p>
-            </div>
-          ) : (
-            <div 
-              id={elementId}
-              className="qr-scanner-container"
-              style={{
-                width: '100%',
-                border: '2px dashed rgba(59, 130, 246, 0.5)',
-                borderRadius: '12px',
-                minHeight: '300px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(0, 0, 0, 0.2)'
-              }}
-            >
-              {!isScanning && !error && (
-                <div className="text-center text-white/70">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
-                  <p className="text-sm">מאתחל מצלמה...</p>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* הוראות שימוש */}
