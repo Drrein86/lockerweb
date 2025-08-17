@@ -5,6 +5,17 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+// טעינה דינמית של QR Scanner (client-side only)
+const QRScanner = dynamic(() => import('@/components/QRScanner/QRScanner'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  )
+})
 
 interface CellInfo {
   cellId: string
@@ -16,22 +27,38 @@ interface CellInfo {
   location: string
 }
 
+interface QRPackageData {
+  package_id?: number
+  pckage_id?: number // תמיכה בשני הכתבים
+  user_name: string
+  phone: string | number
+  email: string
+  description: string
+  active: boolean
+}
+
 type VerificationStep = 'initializing' | 'opening' | 'cell-opened' | 'waiting-closure' | 'package-info' | 'success' | 'timeout' | 'error'
+type InputMethod = 'selection' | 'qr' | 'manual'
 
 function CellVerificationContent() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 דקות
   const [currentStep, setCurrentStep] = useState<VerificationStep>('initializing')
   const [loading, setLoading] = useState(false)
   const [cellInfo, setCellInfo] = useState<CellInfo | null>(null)
+  const [inputMethod, setInputMethod] = useState<InputMethod>('selection')
   const [packageData, setPackageData] = useState({
+    packageId: '',
     customerName: '',
     customerPhone: '',
     customerEmail: '',
     trackingCode: '',
+    description: '',
     notes: ''
   })
   const [error, setError] = useState<string>('')
   const [unlockAttempts, setUnlockAttempts] = useState(0)
+  const [qrScanActive, setQrScanActive] = useState(false)
+  const [notificationResults, setNotificationResults] = useState<any>(null)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -225,34 +252,63 @@ function CellVerificationContent() {
     setError('')
 
     try {
-      // שמירת החבילה במסד הנתונים
-      const response = await fetch('/api/packages/create', {
+      console.log('📦 שומר חבילה חדשה עם הנתונים:', packageData)
+      
+      // שמירת החבילה במסד הנתונים עם שליחת הודעות
+      const response = await fetch('/api/packages/create-with-notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          // נתוני חבילה
           trackingCode: packageData.trackingCode,
+          packageId: packageData.packageId,
+          description: packageData.description,
+          size: cellInfo?.size,
+          
+          // נתוני לקוח
           customerName: packageData.customerName,
           customerPhone: packageData.customerPhone,
           customerEmail: packageData.customerEmail,
-          size: cellInfo?.size,
+          
+          // נתוני לוקר ותא
           lockerId: parseInt(cellInfo?.lockerId || '0'),
           cellId: parseInt(cellInfo?.cellId || '0'),
-          notes: packageData.notes
+          cellNumber: parseInt(cellInfo?.cellNumber || '0'),
+          cellCode: cellInfo?.cellCode,
+          lockerName: cellInfo?.lockerName,
+          location: cellInfo?.location,
+          
+          // הערות
+          notes: packageData.notes,
+          inputMethod: inputMethod, // QR או ידני
+          
+          // נתוני שליח (יתווסף בשרת)
+          // courierId יתקבל מהsession
         })
       })
 
       const data = await response.json()
+      console.log('📡 תגובת שרת:', data)
       
       if (data.success) {
+        console.log('✅ חבילה נשמרה והודעות נשלחו בהצלחה')
         setCurrentStep('success')
-        // שליחת הודעה ללקוח יתבצע ב-API
+        
+        // שמירת תוצאות ההודעות
+        setNotificationResults(data.notifications)
+        
+        // עדכון קוד המעקב אם התקבל חדש מהשרת
+        if (data.trackingCode && data.trackingCode !== packageData.trackingCode) {
+          setPackageData(prev => ({ ...prev, trackingCode: data.trackingCode }))
+        }
       } else {
+        console.error('❌ שגיאה בשמירת חבילה:', data.message)
         setError(data.message || 'שגיאה בשמירת החבילה')
       }
     } catch (error) {
-      console.error('שגיאה בשמירת החבילה:', error)
+      console.error('❌ שגיאה בקריאת API:', error)
       setError('שגיאה בשמירת החבילה. נסה שוב.')
     } finally {
       setLoading(false)
@@ -278,6 +334,56 @@ function CellVerificationContent() {
   const handleSimulationContinue = () => {
     console.log('🎭 המשתמש בחר להמשיך במצב סימולציה')
     setCurrentStep('package-info')
+  }
+
+  // טיפול בנתונים מ-QR
+  const handleQRScanSuccess = (qrData: QRPackageData) => {
+    console.log('📱 נתוני QR התקבלו:', qrData)
+    
+    setPackageData(prev => ({
+      ...prev,
+      packageId: String(qrData.package_id || qrData.pckage_id || ''),
+      customerName: qrData.user_name || '',
+      customerPhone: String(qrData.phone || ''),
+      customerEmail: qrData.email || '',
+      description: qrData.description || '',
+      notes: `פעיל: ${qrData.active ? 'כן' : 'לא'}`
+    }))
+    
+    setQrScanActive(false)
+    setInputMethod('qr')
+    setError('')
+    
+    console.log('✅ נתוני חבילה עודכנו מ-QR')
+  }
+
+  const handleQRScanError = (errorMessage: string) => {
+    console.error('❌ שגיאה בסריקת QR:', errorMessage)
+    setError(errorMessage)
+  }
+
+  const selectInputMethod = (method: InputMethod) => {
+    setInputMethod(method)
+    setError('')
+    
+    if (method === 'qr') {
+      setQrScanActive(true)
+    } else {
+      setQrScanActive(false)
+    }
+    
+    if (method === 'manual') {
+      // ניקוי נתוני QR אם עוברים להזנה ידנית
+      setPackageData(prev => ({
+        ...prev,
+        packageId: '',
+        customerName: '',
+        customerPhone: '',
+        customerEmail: '',
+        description: '',
+        notes: ''
+      }))
+    }
   }
 
   const getStepInfo = () => {
@@ -461,100 +567,242 @@ function CellVerificationContent() {
 
         {/* טופס פרטי חבילה */}
         {currentStep === 'package-info' && (
-          <div className="glass-card mb-8">
-            <h3 className="text-lg font-semibold text-white mb-6">פרטי חבילה ולקוח</h3>
-            <form onSubmit={handlePackageSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-white/80 text-sm font-medium mb-2">
-                    שם הלקוח *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={packageData.customerName}
-                    onChange={(e) => setPackageData(prev => ({ ...prev, customerName: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="הזן שם מלא"
-                  />
-                </div>
+          <div className="space-y-6 mb-8">
+            {/* בחירת אופן הזנה */}
+            {inputMethod === 'selection' && (
+              <div className="glass-card">
+                <h3 className="text-lg font-semibold text-white mb-6 text-center">
+                  📋 כיצד תרצה להזין את פרטי החבילה?
+                </h3>
                 
-                <div>
-                  <label className="block text-white/80 text-sm font-medium mb-2">
-                    טלפון *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={packageData.customerPhone}
-                    onChange={(e) => setPackageData(prev => ({ ...prev, customerPhone: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="05X-XXXXXXX"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* אפשרות QR */}
+                  <button
+                    onClick={() => selectInputMethod('qr')}
+                    className="group p-6 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-400/30 hover:border-blue-400/50 rounded-xl transition-all duration-300"
+                  >
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1zm12 0h2a1 1 0 001-1V6a1 1 0 00-1-1h-2a1 1 0 00-1 1v1a1 1 0 001 1zM5 20h2a1 1 0 001-1v-1a1 1 0 00-1-1H5a1 1 0 00-1 1v1a1 1 0 001 1z" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-semibold text-blue-300 mb-2">סריקת QR Code</h4>
+                      <p className="text-blue-200 text-sm">מהיר ונוח - סרוק את ה-QR ומלא את כל הפרטים אוטומטית</p>
+                    </div>
+                  </button>
+
+                  {/* אפשרות הזנה ידנית */}
+                  <button
+                    onClick={() => selectInputMethod('manual')}
+                    className="group p-6 bg-green-500/10 hover:bg-green-500/20 border border-green-400/30 hover:border-green-400/50 rounded-xl transition-all duration-300"
+                  >
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-semibold text-green-300 mb-2">הזנה ידנית</h4>
+                      <p className="text-green-200 text-sm">מלא את פרטי החבילה והלקוח בעצמך</p>
+                    </div>
+                  </button>
                 </div>
-                
-                <div>
-                  <label className="block text-white/80 text-sm font-medium mb-2">
-                    אימייל (אופציונלי)
-                  </label>
-                  <input
-                    type="email"
-                    value={packageData.customerEmail}
-                    onChange={(e) => setPackageData(prev => ({ ...prev, customerEmail: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="example@email.com"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-white/80 text-sm font-medium mb-2">
-                    קוד מעקב
-                  </label>
-                  <input
-                    type="text"
-                    value={packageData.trackingCode}
-                    onChange={(e) => setPackageData(prev => ({ ...prev, trackingCode: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="קוד מעקב אוטומטי"
-                  />
+
+                <div className="mt-6 bg-amber-500/10 border border-amber-400/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h5 className="font-semibold text-amber-300 mb-1">💡 טיפ:</h5>
+                      <p className="text-amber-200 text-sm">אם יש לך QR Code על החבילה, השתמש בסריקה למילוי אוטומטי מהיר ודיוק</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-white/80 text-sm font-medium mb-2">
-                  הערות (אופציונלי)
-                </label>
-                <textarea
-                  rows={3}
-                  value={packageData.notes}
-                  onChange={(e) => setPackageData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
-                  placeholder="הערות נוספות על החבילה..."
+            )}
+
+            {/* סריקת QR */}
+            {inputMethod === 'qr' && (
+              <div className="glass-card">
+                <div className="mb-4 text-center">
+                  <button
+                    onClick={() => selectInputMethod('selection')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>חזרה לבחירת אופן הזנה</span>
+                  </button>
+                </div>
+
+                <QRScanner
+                  onScanSuccess={handleQRScanSuccess}
+                  onError={handleQRScanError}
+                  isActive={qrScanActive}
                 />
+
+                {inputMethod === 'qr' && packageData.customerName && (
+                  <div className="mt-6 bg-green-500/10 border border-green-400/30 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-300 mb-3">✅ נתונים נסרקו בהצלחה:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-green-200">שם:</span> <span className="text-white">{packageData.customerName}</span></div>
+                      <div><span className="text-green-200">טלפון:</span> <span className="text-white">{packageData.customerPhone}</span></div>
+                      <div><span className="text-green-200">מייל:</span> <span className="text-white">{packageData.customerEmail}</span></div>
+                      <div><span className="text-green-200">תיאור:</span> <span className="text-white">{packageData.description}</span></div>
+                    </div>
+                    <button
+                      onClick={() => selectInputMethod('manual')}
+                      className="mt-4 w-full btn-primary text-lg py-3"
+                    >
+                      המשך לטופס השלמת פרטים
+                    </button>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex gap-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 btn-primary text-lg py-3 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>שומר...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>שמור חבילה ושלח הודעה ללקוח</span>
-                    </>
-                  )}
-                </button>
+            )}
+
+            {/* טופס הזנה ידנית */}
+            {inputMethod === 'manual' && (
+              <div className="glass-card">
+                <div className="mb-6 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">פרטי חבילה ולקוח</h3>
+                  <button
+                    onClick={() => selectInputMethod('selection')}
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-all duration-300 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>חזרה</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handlePackageSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        מזהה חבילה
+                      </label>
+                      <input
+                        type="text"
+                        value={packageData.packageId}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, packageId: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="מזהה חבילה (אופציונלי)"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        שם הלקוח *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={packageData.customerName}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, customerName: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="הזן שם מלא"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        טלפון *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={packageData.customerPhone}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="05X-XXXXXXX"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        אימייל *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={packageData.customerEmail}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, customerEmail: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="example@email.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        תיאור חבילה *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={packageData.description}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="תיאור החבילה"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-white/80 text-sm font-medium mb-2">
+                        קוד מעקב
+                      </label>
+                      <input
+                        type="text"
+                        value={packageData.trackingCode}
+                        onChange={(e) => setPackageData(prev => ({ ...prev, trackingCode: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="קוד מעקב אוטומטי"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-white/80 text-sm font-medium mb-2">
+                      הערות (אופציונלי)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={packageData.notes}
+                      onChange={(e) => setPackageData(prev => ({ ...prev, notes: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
+                      placeholder="הערות נוספות על החבילה..."
+                    />
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 btn-primary text-lg py-4 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          <span>שומר ושולח הודעות...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>שמור חבילה ושלח הודעות ללקוח</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            )}
           </div>
         )}
 
@@ -683,30 +931,164 @@ function CellVerificationContent() {
           )}
 
           {currentStep === 'success' && (
-            <div className="space-y-4">
-              <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-6 text-center">
-                <h4 className="text-xl font-bold text-green-300 mb-2">
-                  🎉 המשלוח הושלם בהצלחה!
-                </h4>
-                <p className="text-green-200 mb-4">
-                  החבילה נשמרה במערכת והלקוח יקבל הודעה עם קוד השחרור.
-                </p>
-                <div className="bg-green-600/30 rounded-lg p-3 mb-4">
-                  <p className="text-green-100 text-sm">
-                    קוד מעקב: <span className="font-mono font-bold">{packageData.trackingCode}</span>
+            <div className="space-y-6">
+              {/* הודעת הצלחה עיקרית */}
+              <div className="glass-card bg-green-500/10 border-green-400/30">
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  
+                  <h4 className="text-2xl font-bold text-green-300 mb-3">
+                    🎉 המשלוח הושלם בהצלחה!
+                  </h4>
+                  
+                  <p className="text-green-200 mb-6 text-lg">
+                    החבילה נשמרה במערכת והודעות נשלחו ללקוח
                   </p>
+
+                  {/* פרטי החבילה */}
+                  <div className="bg-green-600/20 rounded-xl p-6 mb-6">
+                    <h5 className="font-bold text-green-300 mb-4">📦 פרטי החבילה</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-green-200">קוד מעקב:</span>
+                        <span className="font-mono font-bold text-white bg-green-800/30 px-2 py-1 rounded">{packageData.trackingCode}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-200">לקוח:</span>
+                        <span className="text-white">{packageData.customerName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-200">טלפון:</span>
+                        <span className="text-white">{packageData.customerPhone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-200">תא:</span>
+                        <span className="text-white">{cellInfo?.cellCode} (#{cellInfo?.cellNumber})</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              <button
-                onClick={handleNewDelivery}
-                className="w-full btn-primary text-lg py-3 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>משלוח חדש</span>
-              </button>
+
+              {/* סטטוס שליחת הודעות */}
+              {notificationResults && (
+                <div className="glass-card">
+                  <h5 className="text-lg font-semibold text-white mb-4 text-center">📱 סטטוס שליחת הודעות</h5>
+                  
+                  <div className="space-y-4">
+                    {/* מייל */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${notificationResults.email?.success ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        <div>
+                          <span className="text-white font-medium">📧 מייל</span>
+                          <p className="text-white/70 text-sm">{packageData.customerEmail}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {notificationResults.email?.success ? (
+                          <span className="text-green-400 text-sm">✅ נשלח</span>
+                        ) : (
+                          <span className="text-red-400 text-sm">❌ נכשל</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* וואטסאפ */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${notificationResults.whatsapp?.success ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        <div>
+                          <span className="text-white font-medium">💬 וואטסאפ</span>
+                          <p className="text-white/70 text-sm">{packageData.customerPhone}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {notificationResults.whatsapp?.success ? (
+                          <>
+                            <span className="text-green-400 text-sm">✅ מוכן</span>
+                            {notificationResults.whatsapp?.url && (
+                              <a
+                                href={notificationResults.whatsapp.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary text-xs px-3 py-1 bg-green-600 hover:bg-green-700"
+                              >
+                                שלח עכשיו
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-red-400 text-sm">❌ נכשל</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* SMS */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${notificationResults.sms?.success ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        <div>
+                          <span className="text-white font-medium">📱 SMS</span>
+                          <p className="text-white/70 text-sm">{packageData.customerPhone}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {notificationResults.sms?.success ? (
+                          <>
+                            <span className="text-green-400 text-sm">✅ מוכן</span>
+                            {notificationResults.sms?.url && (
+                              <a
+                                href={notificationResults.sms.url}
+                                className="btn-primary text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700"
+                              >
+                                שלח עכשיו
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-red-400 text-sm">❌ נכשל</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* קישור ללקוח */}
+                  <div className="mt-6 bg-blue-500/10 border border-blue-400/30 rounded-lg p-4">
+                    <h6 className="font-semibold text-blue-300 mb-2">🔗 קישור ללקוח:</h6>
+                    <div className="bg-blue-800/20 rounded-lg p-3">
+                      <p className="text-blue-200 text-sm break-all">
+                        https://lockerweb-alpha.vercel.app/customer/unlock/{packageData.trackingCode}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(`https://lockerweb-alpha.vercel.app/customer/unlock/${packageData.trackingCode}`)}
+                      className="mt-2 btn-secondary text-xs px-3 py-1"
+                    >
+                      📋 העתק קישור
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* כפתור משלוח חדש */}
+              <div className="text-center">
+                <button
+                  onClick={handleNewDelivery}
+                  className="btn-primary text-xl py-4 px-8 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-xl transform hover:scale-105 transition-all duration-300"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>משלוח חדש</span>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
 

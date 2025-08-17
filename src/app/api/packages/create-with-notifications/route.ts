@@ -1,185 +1,160 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PrismaClient } from '@prisma/client'
 
-// Dynamic import של Prisma כדי לא לשבור את הבניה
-let prisma: any = null
-
-async function getPrisma() {
-  if (!prisma) {
-    try {
-      const { PrismaClient } = await import('@prisma/client')
-      prisma = new PrismaClient()
-      await prisma.$connect()
-      return prisma
-    } catch (error) {
-      console.error('❌ שגיאה בהתחברות למסד הנתונים:', error)
-      return null
-    }
-  }
-  return prisma
-}
+const prisma = new PrismaClient()
 
 export const dynamic = 'force-dynamic'
 
+interface PackageCreateRequest {
+  // נתוני חבילה
+  trackingCode: string
+  packageId?: string
+  description: string
+  size: string
+  
+  // נתוני לקוח
+  customerName: string
+  customerPhone: string
+  customerEmail: string
+  
+  // נתוני לוקר ותא
+  lockerId: number
+  cellId: number
+  cellNumber: number
+  cellCode?: string
+  lockerName?: string
+  location?: string
+  
+  // הערות ומידע נוסף
+  notes?: string
+  inputMethod: 'qr' | 'manual'
+}
+
 export async function POST(request: NextRequest) {
   try {
-    console.log('📦 התקבלה בקשה ליצירת חבילה עם הודעות')
-    
-    const body = await request.json()
-    console.log('📋 נתוני החבילה:', body)
-    
-    const {
-      customerName,
-      customerPhone,
-      customerEmail,
-      trackingCode,
-      description,
-      packageId,
-      lockerId,
-      cellId,
-      cellCode,
-      cellNumber,
-      size,
-      city,
-      street,
-      location,
-      lockerName,
-      active,
-      deliveryType
-    } = body
+    const body: PackageCreateRequest = await request.json()
+    console.log('📦 התקבלה בקשה ליצירת חבילה:', body)
 
     // בדיקת פרמטרים נדרשים
-    if (!customerName || !customerPhone || !trackingCode || !lockerId || !cellId) {
+    if (!body.customerName || !body.customerPhone || !body.customerEmail || 
+        !body.lockerId || !body.cellId || !body.trackingCode) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'חסרים פרמטרים נדרשים: customerName, customerPhone, trackingCode, lockerId, cellId' 
-        },
+        { success: false, message: 'חסרים פרמטרים נדרשים' },
         { status: 400 }
       )
     }
 
-    const prismaClient = await getPrisma()
-    if (!prismaClient) {
+    // יצירת או עדכון לקוח
+    console.log('👤 מטפל בנתוני לקוח...')
+    let customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { email: body.customerEmail },
+          { phone: body.customerPhone }
+        ]
+      }
+    })
+
+    if (customer) {
+      // עדכון לקוח קיים
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          firstName: body.customerName.split(' ')[0] || body.customerName,
+          lastName: body.customerName.split(' ').slice(1).join(' ') || '',
+          phone: body.customerPhone,
+          email: body.customerEmail
+        }
+      })
+      console.log('✅ לקוח קיים עודכן:', customer.id)
+    } else {
+      // יצירת לקוח חדש
+      customer = await prisma.customer.create({
+        data: {
+          firstName: body.customerName.split(' ')[0] || body.customerName,
+          lastName: body.customerName.split(' ').slice(1).join(' ') || '',
+          phone: body.customerPhone,
+          email: body.customerEmail
+        }
+      })
+      console.log('✅ לקוח חדש נוצר:', customer.id)
+    }
+
+    // בדיקה שהתא קיים ופנוי
+    const cell = await prisma.cell.findUnique({
+      where: { id: body.cellId },
+      include: { locker: true }
+    })
+
+    if (!cell) {
       return NextResponse.json(
-        { success: false, message: 'שגיאה בחיבור למסד הנתונים' },
-        { status: 500 }
+        { success: false, message: 'התא לא נמצא במערכת' },
+        { status: 404 }
       )
     }
 
-    try {
-      // שלב 1: יצירת החבילה במסד הנתונים
-      console.log('💾 יוצר חבילה במסד הנתונים...')
-      
-      const packageRecord = await prismaClient.package.create({
-        data: {
-          trackingCode: trackingCode,
-          customerName: customerName,
-          customerPhone: customerPhone,
-          customerEmail: customerEmail || '',
-          size: size || 'MEDIUM',
-          status: 'DEPOSITED',
-          isActive: active !== false,
-          notes: description || '',
-          packageId: packageId ? String(packageId) : null,
-          lockerId: lockerId,
-          cellId: cellId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      })
-
-      console.log('✅ חבילה נוצרה במסד הנתונים:', packageRecord.id)
-
-      // שלב 2: עדכון סטטוס התא כתפוס
-      console.log('🔒 מעדכן סטטוס התא כתפוס...')
-      
-      await prismaClient.cell.update({
-        where: { id: cellId },
-        data: {
-          isLocked: true,
-          isOccupied: true,
-          packageId: packageRecord.id,
-          lastClosedAt: new Date()
-        }
-      })
-
-      console.log('✅ התא עודכן כתפוס')
-
-      // שלב 3: יצירת רשומת לוג
-      try {
-        await prismaClient.auditLog.create({
-          data: {
-            action: 'PACKAGE_CREATED',
-            entityType: 'PACKAGE',
-            entityId: packageRecord.id.toString(),
-            userId: null, // אין משתמש מחובר - זה שליח
-            details: JSON.stringify({
-              trackingCode,
-              lockerId,
-              cellId,
-              cellCode,
-              customerName,
-              deliveryType: 'COURIER_DEPOSIT'
-            }),
-            createdAt: new Date()
-          }
-        })
-      } catch (logError) {
-        console.error('⚠️ שגיאה ביצירת לוג (לא קריטי):', logError)
-      }
-
-      // שלב 4: יצירת נתוני ההודעות
-      const notificationData = {
-        customerName,
-        customerPhone,
-        customerEmail,
-        trackingCode,
-        city: city || 'תל אביב',
-        street: street || 'רחוב הטכנולוגיה 1',
-        location: location || 'ליד הכניסה הראשית',
-        lockerName: lockerName || `לוקר #${lockerId}`,
-        cellCode: cellCode,
-        lockerId,
-        cellId,
-        packageId: packageRecord.id,
-        description: description || 'חבילה',
-        unlockCode: generateUnlockCode(packageRecord.id, trackingCode),
-        companyName: 'Smart Lockers',
-        companyPhone: '072-123-4567',
-        companyEmail: 'support@smartlockers.co.il'
-      }
-
-      // שלב 5: שליחת הודעות
-      console.log('📨 מתחיל שליחת הודעות...')
-      
-      const notificationResults = await sendNotifications(notificationData)
-
-      // תגובה סופית
-      return NextResponse.json({
-        success: true,
-        message: 'החבילה נשמרה בהצלחה והודעות נשלחו',
-        packageId: packageRecord.id,
-        trackingCode: trackingCode,
-        cellCode: cellCode,
-        notificationsSent: notificationResults.sent,
-        notificationErrors: notificationResults.errors,
-        unlockCode: notificationData.unlockCode
-      })
-
-    } catch (dbError) {
-      console.error('❌ שגיאה במסד הנתונים:', dbError)
+    if (cell.status !== 'AVAILABLE') {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'שגיאה בשמירת החבילה במסד הנתונים',
-          details: dbError instanceof Error ? dbError.message : 'שגיאה לא ידועה'
-        },
-        { status: 500 }
+        { success: false, message: 'התא לא זמין כרגע' },
+        { status: 409 }
       )
     }
+
+    // יצירת החבילה
+    console.log('📦 יוצר חבילה חדשה...')
+    const newPackage = await prisma.package.create({
+      data: {
+        trackingCode: body.trackingCode,
+        customerId: customer.id,
+        courierId: 1, // TODO: לקבל מה-session
+        size: body.size,
+        status: 'WAITING',
+        lockerId: body.lockerId,
+        cellId: body.cellId
+      },
+      include: {
+        customer: true,
+        locker: true,
+        cell: true
+      }
+    })
+
+    // עדכון סטטוס התא לתפוס
+    await prisma.cell.update({
+      where: { id: body.cellId },
+      data: {
+        status: 'OCCUPIED',
+        isLocked: true
+      }
+    })
+
+    console.log('✅ חבילה נוצרה בהצלחה:', newPackage.id)
+
+    // שליחת הודעות ללקוח
+    console.log('📱 שולח הודעות ללקוח...')
+    const notificationResult = await sendNotificationsToCustomer({
+      customer,
+      package: newPackage,
+      cell,
+      locker: cell.locker,
+      location: body.location,
+      lockerName: body.lockerName
+    })
+
+    console.log('📡 תוצאות שליחת הודעות:', notificationResult)
+
+    return NextResponse.json({
+      success: true,
+      message: 'החבילה נשמרה והודעות נשלחו בהצלחה',
+      packageId: newPackage.id,
+      trackingCode: newPackage.trackingCode,
+      customerId: customer.id,
+      cellId: cell.id,
+      notifications: notificationResult
+    })
 
   } catch (error) {
-    console.error('❌ שגיאה כללית ב-API:', error)
+    console.error('❌ שגיאה ביצירת חבילה:', error)
     return NextResponse.json(
       { 
         success: false, 
@@ -188,135 +163,126 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
-// פונקציה ליצירת קוד פתיחה
-function generateUnlockCode(packageId: number, trackingCode: string): string {
-  // יצירת קוד פתיחה מבוסס על מזהה החבילה וקוד המעקב
-  const hash = require('crypto').createHash('md5').update(`${packageId}-${trackingCode}`).digest('hex')
-  return hash.substring(0, 8).toUpperCase()
-}
-
-// פונקציה לשליחת הודעות
-async function sendNotifications(data: any) {
+// פונקציה לשליחת הודעות ללקוח
+async function sendNotificationsToCustomer({
+  customer,
+  package: pkg,
+  cell,
+  locker,
+  location,
+  lockerName
+}: {
+  customer: any
+  package: any
+  cell: any
+  locker: any
+  location?: string
+  lockerName?: string
+}) {
   const results = {
-    sent: 0,
-    errors: [] as string[]
+    email: { success: false, message: '' },
+    whatsapp: { success: false, message: '' },
+    sms: { success: false, message: '' }
   }
 
-  try {
-    // יצירת תוכן ההודעות
-    const messageContent = createMessageContent(data)
-    
-    console.log('📧 שולח הודעות:', {
-      email: data.customerEmail,
-      phone: data.customerPhone,
-      trackingCode: data.trackingCode
-    })
-
-    // שליחת אימייל (אם יש אימייל)
-    if (data.customerEmail) {
-      try {
-        await sendEmail(data.customerEmail, messageContent.email)
-        console.log('✅ אימייל נשלח בהצלחה')
-        results.sent++
-      } catch (emailError) {
-        console.error('❌ שגיאה בשליחת אימייל:', emailError)
-        results.errors.push('שגיאה בשליחת אימייל')
-      }
-    }
-
-    // הכנת הודעת SMS (לא שולחים אוטומטית - מכינים רק)
-    console.log('📱 הכנת הודעת SMS:', messageContent.sms)
-    
-    // יצירת קישור ל-WhatsApp
-    const whatsappUrl = createWhatsAppUrl(data.customerPhone, messageContent.whatsapp)
-    console.log('💬 קישור WhatsApp:', whatsappUrl)
-
-    return results
-
-  } catch (error) {
-    console.error('❌ שגיאה בשליחת הודעות:', error)
-    results.errors.push('שגיאה כללית בשליחת הודעות')
-    return results
-  }
-}
-
-// יצירת תוכן ההודעות - דינאמי לפי הנתונים שהתקבלו
-function createMessageContent(data: any) {
-  // בניית התיאור בצורה דינאמית
-  const packageDescription = data.description || 'חבילה'
-  const locationDetails = data.location || 'ליד הכניסה הראשית'
-  const streetAddress = data.street || 'כתובת לא צוינה'
-  const cityName = data.city || 'עיר לא צוינה'
-  const lockerDisplayName = data.lockerName || `לוקר #${data.lockerId}`
+  // יצירת הודעה מותאמת אישית
+  const locationText = location || locker.location || 'המיקום יימסר בנפרד'
+  const lockerDisplayName = lockerName || locker.name || `לוקר ${locker.id}`
   
-  const baseMessage = `
-שלום ${data.customerName}!
-
-החבילה שלך הופקדה בהצלחה בלוקר החכם שלנו.
+  const message = `
+🎉 החבילה שלך הגיעה!
 
 📦 פרטי החבילה:
-• קוד מעקב: ${data.trackingCode}
-• קוד פתיחה: ${data.unlockCode}
-• תיאור: ${packageDescription}
+• קוד מעקב: ${pkg.trackingCode}
+• גודל: ${pkg.size}
 
-📍 מיקום הלוקר:
-• עיר: ${cityName}
-• כתובת: ${streetAddress}
-• מיקום מדויק: ${locationDetails}
+📍 מיקום איסוף:
+• כתובת: ${locationText}
 • לוקר: ${lockerDisplayName}
-• תא: ${data.cellCode}
+• תא מספר: ${cell.cellNumber}
+• קוד תא: ${cell.code}
 
-🔓 הוראות איסוף:
-1. הגע למיקום הלוקר בכתובת: ${streetAddress}, ${cityName}
-2. מצא את ${lockerDisplayName} ${locationDetails}
-3. הזן את קוד המעקב: ${data.trackingCode}
-4. הזן את קוד הפתיחה: ${data.unlockCode}
-5. התא ${data.cellCode} ייפתח אוטומטית
-6. אסוף את החבילה: ${packageDescription}
+🔑 קוד פתיחה: ${pkg.trackingCode}
 
-⏰ החבילה תהיה זמינה לאיסוף במשך 7 ימים.
+📱 הוראות איסוף:
+1. הגע למיקום הלוקר
+2. לחץ על "פתיחת תא" באתר
+3. הזן את קוד המעקב
+4. התא ייפתח אוטומטית
+5. קח את החבילה וסגור את התא
 
-📞 שירות לקוחות: ${data.companyPhone}
-📧 אימייל: ${data.companyEmail}
+💻 קישור למערכת: https://lockerweb-alpha.vercel.app/customer/unlock/${pkg.trackingCode}
 
-תודה על השימוש בשירות ${data.companyName}!
+בברכה,
+צוות הלוקרים החכמים 🚀
   `.trim()
 
-  // הודעת SMS קצרה יותר עם הנתונים החשובים
-  const smsMessage = `שלום ${data.customerName}! החבילה "${packageDescription}" הופקדה בלוקר. קוד מעקב: ${data.trackingCode}, קוד פתיחה: ${data.unlockCode}. מיקום: ${streetAddress}, ${cityName} - ${lockerDisplayName}, תא ${data.cellCode}. ${data.companyName}`
+  // שליחת מייל
+  try {
+    console.log('📧 שולח מייל ל:', customer.email)
+    const emailResult = await sendEmailNotification(customer.email, customer.firstName, message, pkg.trackingCode)
+    results.email = emailResult
+  } catch (error) {
+    console.error('❌ שגיאה בשליחת מייל:', error)
+    results.email = { success: false, message: error instanceof Error ? error.message : 'שגיאה בשליחת מייל' }
+  }
 
-  return {
-    email: {
-      subject: `החבילה "${packageDescription}" מחכה לך - קוד מעקב ${data.trackingCode}`,
-      html: baseMessage.replace(/\n/g, '<br>'),
-      text: baseMessage
-    },
-    sms: smsMessage,
-    whatsapp: baseMessage
+  // הכנת הודעת וואטסאפ
+  try {
+    console.log('📱 מכין הודעת וואטסאפ ל:', customer.phone)
+    const whatsappUrl = createWhatsAppMessage(customer.phone, message)
+    results.whatsapp = { success: true, message: 'הודעת וואטסאפ מוכנה', url: whatsappUrl }
+  } catch (error) {
+    console.error('❌ שגיאה בהכנת וואטסאפ:', error)
+    results.whatsapp = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת וואטסאפ' }
+  }
+
+  // הכנת הודעת SMS
+  try {
+    console.log('💬 מכין הודעת SMS ל:', customer.phone)
+    const smsText = `החבילה שלך הגיעה! קוד מעקב: ${pkg.trackingCode}. מיקום: ${locationText}, ${lockerDisplayName}, תא ${cell.cellNumber}. קישור: https://lockerweb-alpha.vercel.app/customer/unlock/${pkg.trackingCode}`
+    const smsUrl = createSMSMessage(customer.phone, smsText)
+    results.sms = { success: true, message: 'הודעת SMS מוכנה', url: smsUrl }
+  } catch (error) {
+    console.error('❌ שגיאה בהכנת SMS:', error)
+    results.sms = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת SMS' }
+  }
+
+  return results
+}
+
+// פונקציה לשליחת מייל (תצטרך הגדרה של שירות מייל)
+async function sendEmailNotification(email: string, name: string, message: string, trackingCode: string) {
+  // כאן תהיה אינטגרציה עם שירות מייל (Gmail, SendGrid, וכו')
+  console.log('📧 [SIMULATION] שליחת מייל ל:', email)
+  console.log('📧 [SIMULATION] תוכן:', message)
+  
+  // סימולציה של שליחת מייל מוצלחת
+  return { 
+    success: true, 
+    message: 'מייל נשלח בהצלחה (סימולציה)',
+    recipient: email
   }
 }
 
-// שליחת אימייל (stub - ניתן להחליף בשירות אמיתי)
-async function sendEmail(to: string, content: any) {
-  console.log('📧 [STUB] שליחת אימייל ל:', to)
-  console.log('📧 [STUB] נושא:', content.subject)
+// פונקציה ליצירת קישור וואטסאפ
+function createWhatsAppMessage(phone: string, message: string): string {
+  // ניקוי מספר טלפון
+  const cleanPhone = phone.replace(/[^\d]/g, '')
+  const phoneWithCountryCode = cleanPhone.startsWith('972') ? cleanPhone : `972${cleanPhone.substring(1)}`
   
-  // כאן ניתן להוסיף אינטגרציה עם SendGrid, Mailgun וכו'
-  // לעת עתה - סימולציה
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('✅ [STUB] אימייל נשלח (סימולציה)')
-      resolve(true)
-    }, 1000)
-  })
+  // יצירת URL לוואטסאפ
+  const encodedMessage = encodeURIComponent(message)
+  return `https://wa.me/${phoneWithCountryCode}?text=${encodedMessage}`
 }
 
-// יצירת קישור WhatsApp
-function createWhatsAppUrl(phone: string, message: string): string {
-  const cleanPhone = phone.replace(/\D/g, '')
+// פונקציה ליצירת קישור SMS
+function createSMSMessage(phone: string, message: string): string {
   const encodedMessage = encodeURIComponent(message)
-  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`
+  return `sms:${phone}?body=${encodedMessage}`
 }
