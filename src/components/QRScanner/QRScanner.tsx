@@ -28,7 +28,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
 
   useEffect(() => {
     if (isActive && !isScanning) {
-      startScanner()
+      startScanner().catch((error) => {
+        console.error('שגיאה בהפעלת הסורק:', error)
+        const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
+        setError(errorMsg)
+        onError?.(errorMsg)
+      })
     } else if (!isActive && isScanning) {
       stopScanner()
     }
@@ -56,10 +61,15 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
       let Html5QrcodeScanner: any
       try {
         const qrCodeModule = await import('html5-qrcode')
+        console.log('🔍 נטען מודול html5-qrcode:', qrCodeModule)
         Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner
+        
+        if (!Html5QrcodeScanner) {
+          throw new Error('Html5QrcodeScanner לא נמצא במודול')
+        }
       } catch (importError) {
-        console.error('Failed to load html5-qrcode:', importError)
-        const errorMsg = 'סורק QR לא זמין - נכשל בטעינת המודול'
+        console.error('❌ נכשל בטעינת html5-qrcode:', importError)
+        const errorMsg = 'סורק QR לא זמין - נכשל בטעינת המודול: ' + (importError instanceof Error ? importError.message : 'שגיאה לא ידועה')
         setError(errorMsg)
         onError?.(errorMsg)
         return
@@ -128,11 +138,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const stopScanner = () => {
     if (scannerRef.current) {
       try {
+        console.log('🛑 עוצר סורק QR...')
         scannerRef.current.clear()
         scannerRef.current = null
         setIsScanning(false)
+        console.log('✅ סורק QR נעצר בהצלחה')
       } catch (clearError) {
-        console.error('שגיאה בעצירת סורק:', clearError)
+        console.error('❌ שגיאה בעצירת סורק:', clearError)
+        // אפילו אם יש שגיאה, נאפס את הref והstate
+        scannerRef.current = null
+        setIsScanning(false)
       }
     }
   }
@@ -153,7 +168,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const retryScanning = () => {
     setError('')
     setScanResult('')
-    startScanner()
+    startScanner().catch((error) => {
+      console.error('שגיאה בחזרה על הסריקה:', error)
+      const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
+      setError(errorMsg)
+      onError?.(errorMsg)
+    })
   }
 
   return (
