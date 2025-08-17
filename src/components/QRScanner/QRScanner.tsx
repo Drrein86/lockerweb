@@ -53,7 +53,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
       }
     }
 
-    const onScanSuccess: QrcodeSuccessCallback = (decodedText, decodedResult) => {
+    const onQrCodeScanSuccess: QrcodeSuccessCallback = (decodedText, decodedResult) => {
       console.log('🔍 QR נסרק בהצלחה:', decodedText)
       
       try {
@@ -80,7 +80,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
       }
     }
 
-    const onScanError: QrcodeErrorCallback = (error) => {
+    const onQrCodeScanError: QrcodeErrorCallback = (error) => {
       // לא נציג שגיאות סריקה רגילות - רק כשיש בעיה חמורה
       if (error.includes('NotAllowedError')) {
         const errorMsg = 'נדרשת הרשאה למצלמה'
@@ -91,7 +91,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
 
     try {
       scannerRef.current = new Html5QrcodeScanner(elementId, config, false)
-      scannerRef.current.render(onScanSuccess, onScanError)
+      scannerRef.current.render(onQrCodeScanSuccess, onQrCodeScanError)
       setIsScanning(true)
       setError('')
     } catch (scannerError) {
