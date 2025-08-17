@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamicImport from 'next/dynamic'
@@ -64,12 +64,16 @@ function CellVerificationContent() {
   const [showNotificationAlert, setShowNotificationAlert] = useState(false)
   const [savingProgress, setSavingProgress] = useState('')
   const [packageSaved, setPackageSaved] = useState(false)
+  const cellMonitoringIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
     console.log('🔄 מתחיל טעינת דף cell-verification')
+    
+    // איפוס מצב בתחילת התהליך
+    setPackageSaved(false)
     
     // טעינת פרמטרים מ-URL
     const params = {
@@ -114,6 +118,17 @@ function CellVerificationContent() {
       setShowNotificationAlert(true)
     }
   }, [currentStep, notificationResults])
+
+  // ניקוי intervals כשעוזבים את הקומפוננט
+  useEffect(() => {
+    return () => {
+      if (cellMonitoringIntervalRef.current) {
+        clearInterval(cellMonitoringIntervalRef.current)
+        cellMonitoringIntervalRef.current = null
+        console.log('🧹 ניקוי - מעקב התא נעצר')
+      }
+    }
+  }, [])
 
   const generateTrackingCode = () => {
     const prefix = 'PKG'
@@ -206,10 +221,20 @@ function CellVerificationContent() {
 
   const startCellStatusMonitoring = (lockerId: string, cellNumber: string) => {
     let checkCount = 0
-    const maxChecks = 100 // מקסימום 100 בדיקות (5 דקות)
+    const maxChecks = 40 // מקסימום 40 בדיקות (2 דקות)
     
-    const checkInterval = setInterval(async () => {
+    cellMonitoringIntervalRef.current = setInterval(async () => {
       checkCount++
+      
+      // בדיקה אם עברו למצב ידני או שהחבילה נשמרה
+      if (packageSaved || currentStep === 'package-info') {
+        console.log('🛑 עוצר מעקב התא - עבר למצב ידני')
+        if (cellMonitoringIntervalRef.current) {
+          clearInterval(cellMonitoringIntervalRef.current)
+          cellMonitoringIntervalRef.current = null
+        }
+        return
+      }
       
       try {
         console.log(`🔍 בדיקת סטטוס תא #${checkCount}`)
@@ -234,7 +259,10 @@ function CellVerificationContent() {
         
         if (data.success && data.cellClosed) {
           console.log('🔒 התא נסגר - עובר לשלב פרטי חבילה')
-          clearInterval(checkInterval)
+          if (cellMonitoringIntervalRef.current) {
+            clearInterval(cellMonitoringIntervalRef.current)
+            cellMonitoringIntervalRef.current = null
+          }
           // בדיקה שהחבילה לא נשמרה כבר ידנית
           if (!packageSaved) {
             setCurrentStep('package-info')
@@ -256,7 +284,10 @@ function CellVerificationContent() {
       // מנקה אחרי מקסימום בדיקות
       if (checkCount >= maxChecks) {
         console.log('⏰ הגעתי למקסימום בדיקות - עוצר מעקב')
-        clearInterval(checkInterval)
+        if (cellMonitoringIntervalRef.current) {
+          clearInterval(cellMonitoringIntervalRef.current)
+          cellMonitoringIntervalRef.current = null
+        }
       }
     }, 3000) // בדיקה כל 3 שניות
   }
@@ -376,6 +407,14 @@ function CellVerificationContent() {
 
   const handleSimulationContinue = () => {
     console.log('🎭 המשתמש בחר להמשיך במצב סימולציה')
+    
+    // עצירת מעקב התא
+    if (cellMonitoringIntervalRef.current) {
+      clearInterval(cellMonitoringIntervalRef.current)
+      cellMonitoringIntervalRef.current = null
+      console.log('🛑 מעקב התא נעצר - מעבר ידני')
+    }
+    
     setPackageSaved(true) // מניעת מעבר אוטומטי מזיהוי סגירת תא
     setCurrentStep('package-info')
   }
@@ -713,8 +752,18 @@ function CellVerificationContent() {
                     </div>
                     <button
                       onClick={() => {
+                        console.log('📝 עובר לטופס עם נתוני QR')
+                        
+                        // עצירת מעקב התא
+                        if (cellMonitoringIntervalRef.current) {
+                          clearInterval(cellMonitoringIntervalRef.current)
+                          cellMonitoringIntervalRef.current = null
+                          console.log('🛑 מעקב התא נעצר - מעבר לטופס')
+                        }
+                        
                         setInputMethod('manual')
                         setQrScanSuccess(false)
+                        setCurrentStep('package-info')
                       }}
                       className="w-full btn-primary text-lg py-3 bg-green-600 hover:bg-green-700"
                     >
