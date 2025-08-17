@@ -4,15 +4,11 @@ import React, { useEffect, useRef, useState } from 'react'
 
 // Dynamic import for html5-qrcode with fallback
 let Html5QrcodeScanner: any;
-let QrcodeSuccessCallback: any;
-let QrcodeErrorCallback: any;
 
 // Try to import html5-qrcode
 try {
   const qrCodeModule = require('html5-qrcode');
   Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner;
-  QrcodeSuccessCallback = qrCodeModule.QrcodeSuccessCallback;
-  QrcodeErrorCallback = qrCodeModule.QrcodeErrorCallback;
 } catch (importError) {
   console.warn('Failed to import html5-qrcode:', importError);
 }
@@ -84,7 +80,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
         }
       }
 
-      const onQrCodeScanSuccess: QrcodeSuccessCallback = (decodedText, decodedResult) => {
+      const onQrCodeScanSuccess = (decodedText: string, decodedResult: any) => {
         console.log('🔍 QR נסרק בהצלחה:', decodedText)
         
         try {
@@ -111,7 +107,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
         }
       }
 
-      const onQrCodeScanError: QrcodeErrorCallback = (error) => {
+      const onQrCodeScanError = (error: string) => {
         // לא נציג שגיאות סריקה רגילות - רק כשיש בעיה חמורה
         if (error.includes('NotAllowedError')) {
           const errorMsg = 'נדרשת הרשאה למצלמה'
