@@ -422,13 +422,45 @@ export default function LocationSearchPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">לא נמצאו לוקרים</h3>
+                    <h3 className="text-xl font-bold text-white mb-2">לא נמצאו לוקרים זמינים</h3>
                     <p className="text-white/70 mb-4">{searchResult.message}</p>
+                    
+                    {/* הצגת מידע דיבוג אם יש */}
+                    {(searchResult as any).debugInfo && (
+                      <div className="bg-white/5 rounded-xl p-4 mb-4 text-right">
+                        <h4 className="text-lg font-semibold text-white mb-3">📊 מידע מפורט:</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="text-white/80">
+                            סה"כ לוקרים במערכת: <span className="text-blue-300 font-semibold">{(searchResult as any).debugInfo.totalLockersInDB}</span>
+                          </div>
+                          <div className="text-white/80">
+                            לוקרים שמתאימים לחיפוש: <span className="text-yellow-300 font-semibold">{(searchResult as any).debugInfo.lockersMatchingSearch}</span>
+                          </div>
+                          <div className="text-white/80">
+                            לוקרים עם תאים זמינים: <span className="text-green-300 font-semibold">{(searchResult as any).debugInfo.lockersWithAvailableCells}</span>
+                          </div>
+                          
+                          {(searchResult as any).debugInfo.allLockers && (searchResult as any).debugInfo.allLockers.length > 0 && (
+                            <div className="mt-3">
+                              <div className="text-white/80 mb-2">🏢 לוקרים קיימים במערכת:</div>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {(searchResult as any).debugInfo.allLockers.map((locker: any, index: number) => (
+                                  <div key={index} className="text-xs text-white/60 bg-white/5 rounded px-2 py-1">
+                                    <div className="font-semibold">{locker.name}</div>
+                                    <div>📍 {locker.city || locker.location || 'אין מיקום מוגדר'}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     
                     {searchResult.suggestions && (
                       <div className="text-right">
-                        <h4 className="text-lg font-semibold text-white mb-2">הצעות:</h4>
-                        <ul className="space-y-1 text-white/70">
+                        <h4 className="text-lg font-semibold text-white mb-2">💡 הצעות:</h4>
+                        <ul className="space-y-1 text-white/70 mb-4">
                           {searchResult.suggestions.map((suggestion, index) => (
                             <li key={index} className="flex items-start gap-2">
                               <span className="text-blue-400">•</span>
@@ -436,6 +468,34 @@ export default function LocationSearchPage() {
                             </li>
                           ))}
                         </ul>
+                        
+                        {/* כפתור לשחרור תאים (לפיתוח) */}
+                        {(searchResult as any).debugInfo?.lockersMatchingSearch > 0 && (
+                          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-400/30 rounded-lg">
+                            <div className="text-yellow-300 text-sm mb-2">🔧 למפתחים:</div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/admin/packages/clear-occupied-cells', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' }
+                                  });
+                                  if (response.ok) {
+                                    alert('תאים שוחררו בהצלחה! נסה לחפש שוב.');
+                                    window.location.reload();
+                                  } else {
+                                    alert('שגיאה בשחרור התאים');
+                                  }
+                                } catch (error) {
+                                  alert('שגיאה: ' + error);
+                                }
+                              }}
+                              className="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/50 text-yellow-300 px-3 py-1 rounded text-xs transition-colors"
+                            >
+                              שחרר כל התאים התפוסים
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
