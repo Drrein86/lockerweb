@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner, Html5QrcodeScannerConfig, QrcodeSuccessCallback, QrcodeErrorCallback } from 'html5-qrcode'
+import { Html5QrcodeScanner, QrcodeSuccessCallback, QrcodeErrorCallback } from 'html5-qrcode'
 
 interface PackageData {
   package_id: number
@@ -42,7 +42,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
       stopScanner()
     }
 
-    const config: Html5QrcodeScannerConfig = {
+    const config = {
       fps: 10,
       qrbox: { width: 250, height: 250 },
       aspectRatio: 1.0,
