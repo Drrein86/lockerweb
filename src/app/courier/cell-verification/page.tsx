@@ -114,7 +114,9 @@ function CellVerificationContent() {
 
   // הצגת התראה על הודעות אחרי הצלחה (ללא מגבלת זמן)
   useEffect(() => {
+    console.log('🔍 בדיקת מצב Success:', { currentStep, notificationResults })
     if (currentStep === 'success' && notificationResults) {
+      console.log('✅ מציג התראת הודעות במסך Success')
       setShowNotificationAlert(true)
     }
   }, [currentStep, notificationResults])
@@ -351,21 +353,24 @@ function CellVerificationContent() {
       if (data.success) {
         console.log('✅ חבילה נשמרה והודעות נשלחו בהצלחה')
         setPackageSaved(true) // סימון שהחבילה נשמרה
-        setSavingProgress('✅ הצלחה! הודעות נשלחו ללקוח')
         
-        // המתנה של 3 שניות כדי שהמשתמש יראה את הודעת ההצלחה
-        setTimeout(() => {
-          setCurrentStep('success')
-          setSavingProgress('')
-        }, 3000)
-        
-        // שמירת תוצאות ההודעות
+        // שמירת תוצאות ההודעות מיד
+        console.log('📊 תוצאות ההודעות מהשרת:', data.notifications)
         setNotificationResults(data.notifications)
         
         // עדכון קוד המעקב אם התקבל חדש מהשרת
         if (data.trackingCode && data.trackingCode !== packageData.trackingCode) {
           setPackageData(prev => ({ ...prev, trackingCode: data.trackingCode }))
         }
+        
+        setSavingProgress('✅ הצלחה! הודעות נשלחו ללקוח')
+        
+        // מעבר ישיר למסך ההצלחה (בלי השהייה)
+        setTimeout(() => {
+          console.log('🎯 עובר למסך הסיכום עם ההודעות')
+          setCurrentStep('success')
+          setSavingProgress('')
+        }, 2000) // הקטנת הזמן ל-2 שניות
       } else {
         console.error('❌ שגיאה בשמירת חבילה:', data.message)
         // אם זה 409 - חבילה כבר קיימת, זה לא באמת שגיאה
@@ -1066,6 +1071,17 @@ function CellVerificationContent() {
                         <p className="text-lg">💬 וואטסאפ מוכן</p>
                         <p className="text-lg">📱 SMS מוכן</p>
                         <p className="text-sm text-green-300 mt-4">עובר למסך הסיכום...</p>
+                        
+                        <button
+                          onClick={() => {
+                            console.log('⏭️ המשתמש דילג על ההמתנה - עובר למסך סיכום')
+                            setCurrentStep('success')
+                            setSavingProgress('')
+                          }}
+                          className="mt-4 btn-secondary text-sm px-4 py-2"
+                        >
+                          🚀 עבור למסך הסיכום עכשיו
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1104,6 +1120,9 @@ function CellVerificationContent() {
 
           {currentStep === 'success' && (
             <div className="space-y-6">
+              {/* דיבוג - וידוא שמסך ההצלחה נטען */}
+              {console.log('🎉 מציג מסך הצלחה! notificationResults:', notificationResults)}
+              
               {/* הודעת הצלחה עיקרית */}
               <div className="glass-card bg-green-500/10 border-green-400/30">
                 <div className="text-center">
