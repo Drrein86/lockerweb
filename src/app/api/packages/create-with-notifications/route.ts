@@ -30,6 +30,19 @@ interface PackageCreateRequest {
   inputMethod: 'qr' | 'manual'
 }
 
+interface NotificationResult {
+  success: boolean
+  message: string
+  recipient?: string
+  url?: string
+}
+
+interface NotificationResults {
+  email: NotificationResult
+  whatsapp: NotificationResult
+  sms: NotificationResult
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: PackageCreateRequest = await request.json()
@@ -183,8 +196,8 @@ async function sendNotificationsToCustomer({
   locker: any
   location?: string
   lockerName?: string
-}) {
-  const results = {
+}): Promise<NotificationResults> {
+  const results: NotificationResults = {
     email: { success: false, message: '', recipient: '' },
     whatsapp: { success: false, message: '', url: '' },
     sms: { success: false, message: '', url: '' }
@@ -257,7 +270,7 @@ async function sendNotificationsToCustomer({
 }
 
 // פונקציה לשליחת מייל (תצטרך הגדרה של שירות מייל)
-async function sendEmailNotification(email: string, name: string, message: string, trackingCode: string) {
+async function sendEmailNotification(email: string, name: string, message: string, trackingCode: string): Promise<NotificationResult> {
   // כאן תהיה אינטגרציה עם שירות מייל (Gmail, SendGrid, וכו')
   console.log('📧 [SIMULATION] שליחת מייל ל:', email)
   console.log('📧 [SIMULATION] תוכן:', message)
