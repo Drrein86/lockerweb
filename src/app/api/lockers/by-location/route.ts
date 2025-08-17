@@ -99,9 +99,39 @@ export async function GET(request: Request) {
       }
     })
 
+    // חיפוש נוסף לדיבוג - כל התאים בלוקרים
+    const allCellsForDebugging = await prisma.locker.findMany({
+      where: {
+        status: 'ONLINE',
+        isActive: true,
+        OR: searchConditions
+      },
+      include: {
+        cells: true, // כל התאים ללא סינון
+        _count: {
+          select: {
+            cells: true // כל התאים
+          }
+        }
+      }
+    })
+
+    console.log('🔍 דיבוג - מצב כל התאים בלוקרים:');
+    allCellsForDebugging.forEach(locker => {
+      console.log(`\n📦 לוקר: ${locker.name} (ID: ${locker.id})`);
+      if (locker.cells && locker.cells.length > 0) {
+        locker.cells.forEach(cell => {
+          console.log(`   תא ${cell.cellNumber}: ${cell.status} (גודל: ${cell.size}, פעיל: ${cell.isActive})`);
+        });
+      } else {
+        console.log('   אין תאים');
+      }
+    });
+
     console.log('📊 לוקרים שנמצאו לפני סינון:', lockers.length);
     lockers.forEach(l => {
-      console.log(`   - ${l.name}: ${l._count.cells} תאים זמינים, סטטוס: ${l.status}`);
+      console.log(`   - ${l.name} (ID: ${l.id}): ${l._count.cells} תאים זמינים, סטטוס: ${l.status}`);
+      console.log(`     כל התאים: ${l.cells ? l.cells.length : 0} זמינים מתוך סך התאים`);
     });
 
     // סינון לוקרים שיש להם לפחות תא אחד פנוי
@@ -125,13 +155,27 @@ export async function GET(request: Request) {
 
     // חישוב סטטיסטיקות לכל לוקר
     const lockersWithStats = availableLockers.map((locker: any) => {
-      const cells = locker.cells || [];
+      const availableCells = locker.cells || [];
+      
+      // חיפוש הלוקר המקביל עם כל התאים לקבלת סטטיסטיקות מלאות
+      const fullLocker = allCellsForDebugging.find(l => l.id === locker.id);
+      const allCells = fullLocker?.cells || [];
+      
       const cellsBySize = {
-        SMALL: cells.filter((c: any) => c.size === 'SMALL').length,
-        MEDIUM: cells.filter((c: any) => c.size === 'MEDIUM').length,
-        LARGE: cells.filter((c: any) => c.size === 'LARGE').length,
-        WIDE: cells.filter((c: any) => c.size === 'WIDE').length
+        SMALL: availableCells.filter((c: any) => c.size === 'SMALL').length,
+        MEDIUM: availableCells.filter((c: any) => c.size === 'MEDIUM').length,
+        LARGE: availableCells.filter((c: any) => c.size === 'LARGE').length,
+        WIDE: availableCells.filter((c: any) => c.size === 'WIDE').length
       }
+
+      const totalCellsBySize = {
+        SMALL: allCells.filter((c: any) => c.size === 'SMALL').length,
+        MEDIUM: allCells.filter((c: any) => c.size === 'MEDIUM').length,
+        LARGE: allCells.filter((c: any) => c.size === 'LARGE').length,
+        WIDE: allCells.filter((c: any) => c.size === 'WIDE').length
+      }
+
+      const occupiedCells = allCells.filter((c: any) => c.status === 'OCCUPIED').length;
 
       return {
         id: locker.id,
@@ -145,13 +189,18 @@ export async function GET(request: Request) {
         port: locker.port,
         status: locker.status,
         totalAvailableCells: locker._count.cells,
+        totalCells: allCells.length,
+        occupiedCells: occupiedCells,
         cellsBySize,
+        totalCellsBySize,
         hasSmall: cellsBySize.SMALL > 0,
         hasMedium: cellsBySize.MEDIUM > 0,
         hasLarge: cellsBySize.LARGE > 0,
         hasWide: cellsBySize.WIDE > 0,
         // דירוג לפי מספר תאים זמינים
-        priority: locker._count.cells
+        priority: locker._count.cells,
+        // אחוז תפוסה
+        occupancyRate: allCells.length > 0 ? Math.round((occupiedCells / allCells.length) * 100) : 0
       }
     })
 
@@ -171,11 +220,23 @@ export async function GET(request: Request) {
       summary: {
         totalLockers: lockersWithStats.length,
         totalAvailableCells: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalAvailableCells || 0), 0),
-        cellsBySize: {
+        totalCells: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCells || 0), 0),
+        totalOccupiedCells: lockersWithStats.reduce((sum: any, l: any) => sum + (l.occupiedCells || 0), 0),
+        overallOccupancyRate: Math.round(
+          (lockersWithStats.reduce((sum: any, l: any) => sum + (l.occupiedCells || 0), 0) / 
+           Math.max(lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCells || 0), 0), 1)) * 100
+        ),
+        availableCellsBySize: {
           SMALL: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.SMALL || 0), 0),
           MEDIUM: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.MEDIUM || 0), 0),
           LARGE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.LARGE || 0), 0),
           WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.cellsBySize?.WIDE || 0), 0)
+        },
+        totalCellsBySize: {
+          SMALL: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCellsBySize?.SMALL || 0), 0),
+          MEDIUM: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCellsBySize?.MEDIUM || 0), 0),
+          LARGE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCellsBySize?.LARGE || 0), 0),
+          WIDE: lockersWithStats.reduce((sum: any, l: any) => sum + (l.totalCellsBySize?.WIDE || 0), 0)
         }
       }
     };

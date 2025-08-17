@@ -13,7 +13,16 @@ interface LockerInfo {
   description: string
   deviceId: string
   totalAvailableCells: number
+  totalCells: number
+  occupiedCells: number
+  occupancyRate: number
   cellsBySize: {
+    SMALL: number
+    MEDIUM: number
+    LARGE: number
+    WIDE: number
+  }
+  totalCellsBySize: {
     SMALL: number
     MEDIUM: number
     LARGE: number
@@ -34,7 +43,16 @@ interface SearchResult {
   summary?: {
     totalLockers: number
     totalAvailableCells: number
-    cellsBySize: {
+    totalCells: number
+    totalOccupiedCells: number
+    overallOccupancyRate: number
+    availableCellsBySize: {
+      SMALL: number
+      MEDIUM: number
+      LARGE: number
+      WIDE: number
+    }
+    totalCellsBySize: {
       SMALL: number
       MEDIUM: number
       LARGE: number
@@ -309,8 +327,11 @@ export default function LocationSearchPage() {
                         נמצאו {searchResult.total} לוקרים
                       </h3>
                       {searchResult.summary && (
-                        <div className="text-sm text-white/70">
-                          סה"כ {searchResult.summary.totalAvailableCells} תאים זמינים
+                        <div className="text-sm text-white/70 space-y-1">
+                          <div>
+                            סה"כ {searchResult.summary.totalAvailableCells} זמינים מתוך {searchResult.summary.totalCells} תאים 
+                            ({searchResult.summary.totalOccupiedCells} תפוסים - {searchResult.summary.overallOccupancyRate}% תפוסה)
+                          </div>
                         </div>
                       )}
                     </div>
@@ -334,18 +355,35 @@ export default function LocationSearchPage() {
                                 <p className="text-white/60 text-sm mb-3">{locker.description}</p>
                               )}
                               
-                              <div className="flex items-center gap-4 text-sm">
-                                <span className="text-white/80">
-                                  {locker.totalAvailableCells} תאים זמינים
-                                </span>
-                                <div className="flex gap-2">
-                                  {Object.entries(locker.cellsBySize).map(([size, count]) => (
-                                    count > 0 && (
-                                      <span key={size} className="bg-white/10 px-2 py-1 rounded text-xs text-white/70">
-                                        {getSizeDisplayName(size)}: {count}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="text-white/80">
+                                    {locker.totalAvailableCells}/{locker.totalCells} תאים זמינים
+                                  </span>
+                                  {locker.occupiedCells > 0 && (
+                                    <span className="text-orange-300 text-xs">
+                                      {locker.occupancyRate}% תפוסה
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                <div className="flex gap-2 flex-wrap">
+                                  {Object.entries(locker.cellsBySize).map(([size, availableCount]) => {
+                                    const totalCount = locker.totalCellsBySize[size as keyof typeof locker.totalCellsBySize];
+                                    return availableCount > 0 && (
+                                      <span key={size} className="bg-green-500/20 border border-green-400/30 px-2 py-1 rounded text-xs text-green-300">
+                                        {getSizeDisplayName(size)}: {availableCount}/{totalCount}
                                       </span>
                                     )
-                                  ))}
+                                  })}
+                                  {Object.entries(locker.totalCellsBySize).map(([size, totalCount]) => {
+                                    const availableCount = locker.cellsBySize[size as keyof typeof locker.cellsBySize];
+                                    return totalCount > 0 && availableCount === 0 && (
+                                      <span key={size} className="bg-red-500/20 border border-red-400/30 px-2 py-1 rounded text-xs text-red-300">
+                                        {getSizeDisplayName(size)}: 0/{totalCount} (תפוס)
+                                      </span>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             </div>
