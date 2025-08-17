@@ -63,8 +63,19 @@ const HomeIcon = () => (
 
 function SuccessContent() {
   const searchParams = useSearchParams()
+  
+  // קבלת כל הפרמטרים מה-URL
   const trackingCode = searchParams.get('trackingCode')
-  const [countdown, setCountdown] = useState(5)
+  const cellCode = searchParams.get('cellCode')
+  const lockerId = searchParams.get('lockerId')
+  const customerName = searchParams.get('customerName')
+  const customerPhone = searchParams.get('customerPhone')
+  const packageSaved = searchParams.get('packageSaved') === 'true'
+  const notificationsSent = searchParams.get('notificationsSent') === 'true'
+  const fallback = searchParams.get('fallback') === 'true'
+  
+  const [countdown, setCountdown] = useState(10)
+  const [showSMSPreview, setShowSMSPreview] = useState(false)
 
   useEffect(() => {
     if (countdown > 0) {
@@ -73,21 +84,36 @@ function SuccessContent() {
     }
   }, [countdown])
 
+  // יצירת הודעת SMS
+  const smsMessage = `שלום ${customerName || 'לקוח יקר'}! החבילה שלך הופקדה בלוקר. קוד מעקב: ${trackingCode}. מיקום: לוקר #${lockerId}, תא ${cellCode}. Smart Lockers`
+  
+  // יצירת קישור WhatsApp
+  const whatsappUrl = customerPhone ? `https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(smsMessage)}` : null
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* הודעת הצלחה */}
         <div className="glass-card text-center">
           <div className="mb-6">
-            <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <div className={`w-20 h-20 bg-gradient-to-r ${packageSaved && !fallback ? 'from-green-500 to-emerald-500' : 'from-orange-500 to-yellow-500'} rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg`}>
               <CheckIcon />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              החבילה הוזנה בהצלחה!
+              {packageSaved && !fallback ? 'החבילה הוזנה בהצלחה!' : 'החבילה הוזנה (מצב חלקי)'}
             </h1>
             <p className="text-white/70 text-lg">
-              התא נפתח, הודעה נשלחה ללקוח
+              {packageSaved && notificationsSent 
+                ? 'התא נפתח והודעות נשלחו ללקוח'
+                : fallback 
+                  ? 'התא נפתח, אנא שלח הודעה ללקוח ידנית'
+                  : 'התא נפתח, בדוק סטטוס ההודעות'}
             </p>
+            {customerName && (
+              <p className="text-emerald-300 font-medium mt-2">
+                📦 חבילה עבור: {customerName}
+              </p>
+            )}
           </div>
 
           {/* פרטי הצלחה */}
@@ -96,17 +122,17 @@ function SuccessContent() {
               סיכום התהליך
             </h3>
             <div className="space-y-3 text-center">
-              <div className="flex items-center justify-center gap-2 text-green-300">
+              <div className={`flex items-center justify-center gap-2 ${packageSaved ? 'text-green-300' : 'text-orange-300'}`}>
                 <PackageIcon />
-                <span>החבילה נשמרה במערכת</span>
+                <span>{packageSaved ? 'החבילה נשמרה במערכת' : 'בעיה בשמירת החבילה'}</span>
               </div>
               <div className="flex items-center justify-center gap-2 text-green-300">
                 <UnlockIcon />
                 <span>התא נפתח בהצלחה</span>
               </div>
-              <div className="flex items-center justify-center gap-2 text-green-300">
+              <div className={`flex items-center justify-center gap-2 ${notificationsSent ? 'text-green-300' : 'text-orange-300'}`}>
                 <EmailIcon />
-                <span>הודעת אימייל נשלחה ללקוח</span>
+                <span>{notificationsSent ? 'הודעות נשלחו ללקוח' : 'הודעות לא נשלחו - נדרש שליחה ידנית'}</span>
               </div>
               <div className="flex items-center justify-center gap-2 text-green-300">
                 <LockIcon />
@@ -114,6 +140,81 @@ function SuccessContent() {
               </div>
             </div>
           </div>
+
+          {/* פרטי לקוח ומיקום */}
+          {(customerName || cellCode) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* פרטי לקוח */}
+              {customerName && (
+                <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-400/30">
+                  <h4 className="font-semibold text-blue-300 mb-2">פרטי לקוח</h4>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-white"><span className="text-blue-300">שם:</span> {customerName}</p>
+                    {customerPhone && (
+                      <p className="text-white"><span className="text-blue-300">טלפון:</span> {customerPhone}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* פרטי מיקום */}
+              {(lockerId || cellCode) && (
+                <div className="bg-purple-500/20 rounded-lg p-4 border border-purple-400/30">
+                  <h4 className="font-semibold text-purple-300 mb-2">מיקום חבילה</h4>
+                  <div className="space-y-1 text-sm">
+                    {lockerId && <p className="text-white"><span className="text-purple-300">לוקר:</span> #{lockerId}</p>}
+                    {cellCode && <p className="text-white"><span className="text-purple-300">תא:</span> {cellCode}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* הודעות ללקוח - רק אם לא נשלחו אוטומטית */}
+          {(!notificationsSent || fallback) && customerPhone && (
+            <div className="bg-orange-500/20 rounded-lg p-6 mb-6 border border-orange-400/30">
+              <h4 className="font-semibold text-orange-300 mb-4 text-center">
+                📱 שליחת הודעות ללקוח (ידנית)
+              </h4>
+              
+              <div className="space-y-4">
+                {/* כפתור WhatsApp */}
+                {whatsappUrl && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>💬</span>
+                    <span>שלח הודעת WhatsApp</span>
+                  </a>
+                )}
+                
+                {/* כפתור הצגת הודעת SMS */}
+                <button
+                  onClick={() => setShowSMSPreview(!showSMSPreview)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>📱</span>
+                  <span>{showSMSPreview ? 'הסתר' : 'הראה'} הודעת SMS</span>
+                </button>
+                
+                {/* תצוגת הודעת SMS */}
+                {showSMSPreview && (
+                  <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
+                    <p className="text-gray-300 text-sm mb-2">טקסט ההודעה:</p>
+                    <div className="bg-gray-900 rounded p-3 text-gray-100 text-sm font-mono">
+                      {smsMessage}
+                    </div>
+                    <p className="text-gray-400 text-xs mt-2">
+                      העתק את הטקסט ושלח ל-{customerPhone}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* קוד מעקב */}
           {trackingCode && (
@@ -146,7 +247,7 @@ function SuccessContent() {
 
           {/* מעבר אוטומטי */}
           <div className="mt-6 text-sm text-white/60">
-            מעבר אוטומטי לדף הראשי בעוד {countdown} שניות...
+            מעבר אוטומטי לדף השליח בעוד {countdown} שניות...
           </div>
         </div>
 
