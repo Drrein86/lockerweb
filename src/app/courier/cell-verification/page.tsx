@@ -13,6 +13,7 @@ const QRScanner = dynamicImport(() => import('@/components/QRScanner/QRScanner')
   loading: () => (
     <div className="flex items-center justify-center p-8">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <span className="text-white/70 ml-3">טוען סורק QR...</span>
     </div>
   )
 })

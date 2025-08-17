@@ -1,7 +1,21 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner, QrcodeSuccessCallback, QrcodeErrorCallback } from 'html5-qrcode'
+
+// Dynamic import for html5-qrcode with fallback
+let Html5QrcodeScanner: any;
+let QrcodeSuccessCallback: any;
+let QrcodeErrorCallback: any;
+
+// Try to import html5-qrcode
+try {
+  const qrCodeModule = require('html5-qrcode');
+  Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner;
+  QrcodeSuccessCallback = qrCodeModule.QrcodeSuccessCallback;
+  QrcodeErrorCallback = qrCodeModule.QrcodeErrorCallback;
+} catch (importError) {
+  console.warn('Failed to import html5-qrcode:', importError);
+}
 
 interface PackageData {
   package_id: number
@@ -38,65 +52,82 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   }, [isActive])
 
   const startScanner = () => {
-    if (scannerRef.current) {
-      stopScanner()
-    }
-
-    const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0,
-      showTorchButtonIfSupported: true,
-      supportedScanTypes: [],
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true
+    try {
+      if (scannerRef.current) {
+        stopScanner()
       }
-    }
 
-    const onQrCodeScanSuccess: QrcodeSuccessCallback = (decodedText, decodedResult) => {
-      console.log('🔍 QR נסרק בהצלחה:', decodedText)
-      
-      try {
-        // ניסיון לפענח JSON
-        const parsedData = JSON.parse(decodedText)
-        console.log('📋 נתונים שנפענחו:', parsedData)
+      // בדיקה שהמודול html5-qrcode נטען כראוי
+      if (!Html5QrcodeScanner) {
+        const errorMsg = 'סורק QR לא זמין - המודול לא נטען כראוי'
+        setError(errorMsg)
+        onError?.(errorMsg)
+        return
+      }
+
+      // בדיקה שהדפדפן תומך במצלמה
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = 'הדפדפן לא תומך בגישה למצלמה'
+        setError(errorMsg)
+        onError?.(errorMsg)
+        return
+      }
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        showTorchButtonIfSupported: true,
+        supportedScanTypes: [],
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      }
+
+      const onQrCodeScanSuccess: QrcodeSuccessCallback = (decodedText, decodedResult) => {
+        console.log('🔍 QR נסרק בהצלחה:', decodedText)
         
-        // בדיקת תקינות הנתונים
-        if (validatePackageData(parsedData)) {
-          setScanResult(decodedText)
-          setError('')
-          onScanSuccess(parsedData)
-          stopScanner()
-        } else {
-          const errorMsg = 'QR Code לא מכיל נתוני חבילה תקינים'
+        try {
+          // ניסיון לפענח JSON
+          const parsedData = JSON.parse(decodedText)
+          console.log('📋 נתונים שנפענחו:', parsedData)
+          
+          // בדיקת תקינות הנתונים
+          if (validatePackageData(parsedData)) {
+            setScanResult(decodedText)
+            setError('')
+            onScanSuccess(parsedData)
+            stopScanner()
+          } else {
+            const errorMsg = 'QR Code לא מכיל נתוני חבילה תקינים'
+            setError(errorMsg)
+            onError?.(errorMsg)
+          }
+        } catch (jsonError) {
+          console.error('❌ שגיאה בפענוח JSON:', jsonError)
+          const errorMsg = 'QR Code לא מכיל JSON תקין'
           setError(errorMsg)
           onError?.(errorMsg)
         }
-      } catch (jsonError) {
-        console.error('❌ שגיאה בפענוח JSON:', jsonError)
-        const errorMsg = 'QR Code לא מכיל JSON תקין'
-        setError(errorMsg)
-        onError?.(errorMsg)
       }
-    }
 
-    const onQrCodeScanError: QrcodeErrorCallback = (error) => {
-      // לא נציג שגיאות סריקה רגילות - רק כשיש בעיה חמורה
-      if (error.includes('NotAllowedError')) {
-        const errorMsg = 'נדרשת הרשאה למצלמה'
-        setError(errorMsg)
-        onError?.(errorMsg)
+      const onQrCodeScanError: QrcodeErrorCallback = (error) => {
+        // לא נציג שגיאות סריקה רגילות - רק כשיש בעיה חמורה
+        if (error.includes('NotAllowedError')) {
+          const errorMsg = 'נדרשת הרשאה למצלמה'
+          setError(errorMsg)
+          onError?.(errorMsg)
+        }
       }
-    }
 
-    try {
       scannerRef.current = new Html5QrcodeScanner(elementId, config, false)
       scannerRef.current.render(onQrCodeScanSuccess, onQrCodeScanError)
       setIsScanning(true)
       setError('')
+      
     } catch (scannerError) {
       console.error('❌ שגיאה בהפעלת סורק QR:', scannerError)
-      const errorMsg = 'לא ניתן להפעיל את סורק QR'
+      const errorMsg = 'לא ניתן להפעיל את סורק QR: ' + (scannerError instanceof Error ? scannerError.message : 'שגיאה לא ידועה')
       setError(errorMsg)
       onError?.(errorMsg)
     }
@@ -182,30 +213,39 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
 
         {/* אזור הסורק */}
         <div className="mb-4">
-          <div 
-            id={elementId}
-            className="qr-scanner-container"
-            style={{
-              width: '100%',
-              border: '2px dashed rgba(59, 130, 246, 0.5)',
-              borderRadius: '12px',
-              minHeight: '300px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.2)'
-            }}
-          >
-            {!isScanning && !error && (
-              <div className="text-center text-white/50">
-                <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          {!Html5QrcodeScanner ? (
+            <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-6 text-center">
+              <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-                <p>לחץ להפעלת המצלמה</p>
               </div>
-            )}
-          </div>
+              <h3 className="text-white font-medium mb-2">סורק QR לא זמין</h3>
+              <p className="text-white/70 text-sm">המודול לא נטען כראוי. אנא בחר בהזנה ידנית.</p>
+            </div>
+          ) : (
+            <div 
+              id={elementId}
+              className="qr-scanner-container"
+              style={{
+                width: '100%',
+                border: '2px dashed rgba(59, 130, 246, 0.5)',
+                borderRadius: '12px',
+                minHeight: '300px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              {!isScanning && !error && (
+                <div className="text-center text-white/70">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                  <p className="text-sm">מאתחל מצלמה...</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* הוראות שימוש */}
