@@ -62,6 +62,8 @@ function CellVerificationContent() {
   const [qrScanSuccess, setQrScanSuccess] = useState(false)
   const [notificationResults, setNotificationResults] = useState<any>(null)
   const [showNotificationAlert, setShowNotificationAlert] = useState(false)
+  const [savingProgress, setSavingProgress] = useState('')
+  const [packageSaved, setPackageSaved] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -233,7 +235,10 @@ function CellVerificationContent() {
         if (data.success && data.cellClosed) {
           console.log('🔒 התא נסגר - עובר לשלב פרטי חבילה')
           clearInterval(checkInterval)
-          setCurrentStep('package-info')
+          // בדיקה שהחבילה לא נשמרה כבר ידנית
+          if (!packageSaved) {
+            setCurrentStep('package-info')
+          }
         } else if (data.success) {
           console.log(`📊 תא עדיין ${data.cellOpen ? 'פתוח' : 'לא ברור'} - ממשיך במעקב`)
         }
@@ -258,11 +263,21 @@ function CellVerificationContent() {
 
   const handlePackageSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // מניעת שמירה כפולה
+    if (packageSaved || loading) {
+      console.log('⚠️ החבילה כבר נשמרה או בתהליך שמירה')
+      return
+    }
+    
     setLoading(true)
     setError('')
+    setSavingProgress('📦 שומר חבילה במערכת...')
 
     try {
       console.log('📦 שומר חבילה חדשה עם הנתונים:', packageData)
+      
+      setSavingProgress('📧 יוצר ושולח הודעות ללקוח...')
       
       // שמירת החבילה במסד הנתונים עם שליחת הודעות
       const response = await fetch('/api/packages/create-with-notifications', {
@@ -304,7 +319,14 @@ function CellVerificationContent() {
       
       if (data.success) {
         console.log('✅ חבילה נשמרה והודעות נשלחו בהצלחה')
-        setCurrentStep('success')
+        setPackageSaved(true) // סימון שהחבילה נשמרה
+        setSavingProgress('✅ הצלחה! הודעות נשלחו ללקוח')
+        
+        // המתנה של 3 שניות כדי שהמשתמש יראה את הודעת ההצלחה
+        setTimeout(() => {
+          setCurrentStep('success')
+          setSavingProgress('')
+        }, 3000)
         
         // שמירת תוצאות ההודעות
         setNotificationResults(data.notifications)
@@ -315,7 +337,14 @@ function CellVerificationContent() {
         }
       } else {
         console.error('❌ שגיאה בשמירת חבילה:', data.message)
-        setError(data.message || 'שגיאה בשמירת החבילה')
+        // אם זה 409 - חבילה כבר קיימת, זה לא באמת שגיאה
+        if (response.status === 409) {
+          console.log('⚠️ החבילה כבר נשמרה במערכת - ממשיך לסיכום')
+          setPackageSaved(true)
+          setCurrentStep('success')
+        } else {
+          setError(data.message || 'שגיאה בשמירת החבילה')
+        }
       }
     } catch (error) {
       console.error('❌ שגיאה בקריאת API:', error)
@@ -334,15 +363,20 @@ function CellVerificationContent() {
   }
 
   const handleSelectAnotherCell = () => {
+    // איפוס מצב לפני מעבר לדף חדש
+    setPackageSaved(false)
     router.push('/courier/location-search')
   }
 
   const handleNewDelivery = () => {
+    // איפוס מצב לפני מעבר לדף חדש
+    setPackageSaved(false)
     router.push('/courier/location-search')
   }
 
   const handleSimulationContinue = () => {
     console.log('🎭 המשתמש בחר להמשיך במצב סימולציה')
+    setPackageSaved(true) // מניעת מעבר אוטומטי מזיהוי סגירת תא
     setCurrentStep('package-info')
   }
 
@@ -960,6 +994,34 @@ function CellVerificationContent() {
                   </div>
                 )}
               </div>
+
+              {/* הודעת progress למהלך השמירה */}
+              {savingProgress && (
+                <div className="glass-card bg-blue-500/20 border-blue-400/50">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      {savingProgress.includes('✅') ? (
+                        <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                      )}
+                    </div>
+                    <h3 className={`text-xl font-bold mb-2 ${savingProgress.includes('✅') ? 'text-green-300' : 'text-blue-300'}`}>
+                      {savingProgress}
+                    </h3>
+                    {savingProgress.includes('✅') && (
+                      <div className="space-y-2 text-green-200">
+                        <p className="text-lg">📧 מייל נשלח</p>
+                        <p className="text-lg">💬 וואטסאפ מוכן</p>
+                        <p className="text-lg">📱 SMS מוכן</p>
+                        <p className="text-sm text-green-300 mt-4">עובר למסך הסיכום...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {/* כפתור מעבר ידני למצב סימולציה - מעוצב יותר */}
               <div className="glass-card bg-orange-500/10 border-orange-400/30">
