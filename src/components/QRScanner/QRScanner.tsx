@@ -2,8 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 
-// Dynamic import for html5-qrcode will be done at runtime
-
 interface PackageData {
   package_id: number
   user_name: string
@@ -24,30 +22,22 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const [scanResult, setScanResult] = useState<string>('')
   const [error, setError] = useState<string>('')
   const scannerRef = useRef<any>(null)
-  const elementId = 'qr-code-scanner'
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    let isMounted = true
-    
     if (isActive && !isScanning) {
       startScanner().catch((error) => {
-        if (isMounted) {
-          console.error('שגיאה בהפעלת הסורק:', error)
-          const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
-          setError(errorMsg)
-          onError?.(errorMsg)
-        }
+        console.error('שגיאה בהפעלת הסורק:', error)
+        const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
+        setError(errorMsg)
+        onError?.(errorMsg)
       })
     } else if (!isActive && isScanning) {
       stopScanner()
     }
 
     return () => {
-      isMounted = false
-      // הוספת delay קטן כדי לוודא שה-DOM מוכן לניקוי
-      setTimeout(() => {
-        stopScanner()
-      }, 100)
+      stopScanner()
     }
   }, [isActive])
 
@@ -65,37 +55,21 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
         return
       }
 
-      // טעינה דינמית של המודול html5-qrcode
-      let Html5QrcodeScanner: any
-      try {
-        const qrCodeModule = await import('html5-qrcode')
-        console.log('🔍 נטען מודול html5-qrcode:', qrCodeModule)
-        Html5QrcodeScanner = qrCodeModule.Html5QrcodeScanner
-        
-        if (!Html5QrcodeScanner) {
-          throw new Error('Html5QrcodeScanner לא נמצא במודול')
-        }
-      } catch (importError) {
-        console.error('❌ נכשל בטעינת html5-qrcode:', importError)
-        const errorMsg = 'סורק QR לא זמין - נכשל בטעינת המודול: ' + (importError instanceof Error ? importError.message : 'שגיאה לא ידועה')
+      if (!videoRef.current) {
+        const errorMsg = 'לא נמצא video element'
         setError(errorMsg)
         onError?.(errorMsg)
         return
       }
 
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-        showTorchButtonIfSupported: true,
-        supportedScanTypes: [],
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      }
+      // טעינה דינמית של qr-scanner
+      const QrScanner = (await import('qr-scanner')).default
+      console.log('🔍 נטען מודול qr-scanner')
 
-      const onQrCodeScanSuccess = (decodedText: string, decodedResult: any) => {
-        console.log('🔍 QR נסרק בהצלחה:', decodedText)
+      // הגדרת callback לסריקה מוצלחת
+      const onScanResult = (result: any) => {
+        console.log('🔍 QR נסרק בהצלחה:', result.data || result)
+        const decodedText = result.data || result
         
         try {
           // ניסיון לפענח JSON
@@ -121,23 +95,20 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
         }
       }
 
-      const onQrCodeScanError = (error: string) => {
-        // לא נציג שגיאות סריקה רגילות - רק כשיש בעיה חמורה
-        if (error.includes('NotAllowedError')) {
-          const errorMsg = 'נדרשת הרשאה למצלמה'
-          setError(errorMsg)
-          onError?.(errorMsg)
+      // יצירת scanner חדש
+      scannerRef.current = new QrScanner(
+        videoRef.current,
+        onScanResult,
+        {
+          returnDetailedScanResult: true,
+          maxScansPerSecond: 5,
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
         }
-      }
+      )
 
-      // בדיקה שהelement קיים לפני יצירת הסורק
-      const element = document.getElementById(elementId)
-      if (!element) {
-        throw new Error('לא נמצא element עבור הסורק במזהה: ' + elementId)
-      }
-
-      scannerRef.current = new Html5QrcodeScanner(elementId, config, false)
-      scannerRef.current.render(onQrCodeScanSuccess, onQrCodeScanError)
+      // הפעלת המצלמה והסורק
+      await scannerRef.current.start()
       setIsScanning(true)
       setError('')
       console.log('✅ סורק QR הופעל בהצלחה')
@@ -154,30 +125,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
     if (scannerRef.current) {
       try {
         console.log('🛑 עוצר סורק QR...')
-        
-        // בדיקה שהelement עדיין קיים ב-DOM
-        const element = document.getElementById(elementId)
-        if (element && element.parentNode) {
-          scannerRef.current.clear()
-          console.log('✅ סורק QR נעצר בהצלחה')
-        } else {
-          console.log('⚠️ Element כבר לא קיים ב-DOM, מדלג על clear()')
-        }
+        scannerRef.current.stop()
+        scannerRef.current.destroy()
+        console.log('✅ סורק QR נעצר בהצלחה')
       } catch (clearError) {
         console.error('❌ שגיאה בעצירת סורק:', clearError)
-        
-        // ניסיון ניקוי ידני של הelement
-        try {
-          const element = document.getElementById(elementId)
-          if (element) {
-            element.innerHTML = ''
-            console.log('🧹 ניקוי ידני של element הושלם')
-          }
-        } catch (manualCleanError) {
-          console.error('❌ גם ניקוי ידני נכשל:', manualCleanError)
-        }
       } finally {
-        // תמיד נאפס את הref והstate
         scannerRef.current = null
         setIsScanning(false)
       }
@@ -200,6 +153,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const retryScanning = () => {
     setError('')
     setScanResult('')
+    setIsScanning(false)
     startScanner().catch((error) => {
       console.error('שגיאה בחזרה על הסריקה:', error)
       const errorMsg = 'נכשל בהפעלת סורק QR: ' + (error.message || 'שגיאה לא ידועה')
@@ -257,24 +211,32 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
 
         {/* אזור הסורק */}
         <div className="mb-4">
-          <div 
-            id={elementId}
-            className="qr-scanner-container"
-            style={{
-              width: '100%',
-              border: '2px dashed rgba(59, 130, 246, 0.5)',
-              borderRadius: '12px',
-              minHeight: '300px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.2)'
-            }}
-          >
+          <div className="relative">
+            <video
+              ref={videoRef}
+              className="w-full rounded-xl border-2 border-blue-400/50"
+              style={{
+                maxWidth: '400px',
+                height: '300px',
+                objectFit: 'cover',
+                backgroundColor: 'rgba(0, 0, 0, 0.9)'
+              }}
+              playsInline
+              muted
+            />
+            
             {!isScanning && !error && (
-              <div className="text-center text-white/70">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
-                <p className="text-sm">טוען סורק QR...</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                  <p className="text-sm">מאתחל מצלמה...</p>
+                </div>
+              </div>
+            )}
+            
+            {isScanning && (
+              <div className="absolute top-4 left-4 bg-green-500/80 text-white px-2 py-1 rounded text-xs">
+                🔍 סורק פעיל
               </div>
             )}
           </div>
