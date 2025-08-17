@@ -185,9 +185,9 @@ async function sendNotificationsToCustomer({
   lockerName?: string
 }) {
   const results = {
-    email: { success: false, message: '' },
-    whatsapp: { success: false, message: '' },
-    sms: { success: false, message: '' }
+    email: { success: false, message: '', recipient: '' },
+    whatsapp: { success: false, message: '', url: '' },
+    sms: { success: false, message: '', url: '' }
   }
 
   // יצירת הודעה מותאמת אישית
@@ -229,7 +229,7 @@ async function sendNotificationsToCustomer({
     results.email = emailResult
   } catch (error) {
     console.error('❌ שגיאה בשליחת מייל:', error)
-    results.email = { success: false, message: error instanceof Error ? error.message : 'שגיאה בשליחת מייל' }
+    results.email = { success: false, message: error instanceof Error ? error.message : 'שגיאה בשליחת מייל', recipient: customer.email }
   }
 
   // הכנת הודעת וואטסאפ
@@ -239,7 +239,7 @@ async function sendNotificationsToCustomer({
     results.whatsapp = { success: true, message: 'הודעת וואטסאפ מוכנה', url: whatsappUrl }
   } catch (error) {
     console.error('❌ שגיאה בהכנת וואטסאפ:', error)
-    results.whatsapp = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת וואטסאפ' }
+    results.whatsapp = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת וואטסאפ', url: '' }
   }
 
   // הכנת הודעת SMS
@@ -250,7 +250,7 @@ async function sendNotificationsToCustomer({
     results.sms = { success: true, message: 'הודעת SMS מוכנה', url: smsUrl }
   } catch (error) {
     console.error('❌ שגיאה בהכנת SMS:', error)
-    results.sms = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת SMS' }
+    results.sms = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת SMS', url: '' }
   }
 
   return results
