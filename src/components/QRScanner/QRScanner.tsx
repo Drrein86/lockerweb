@@ -36,7 +36,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onError, isActive 
   const [isScanning, setIsScanning] = useState(false)
   const [scanResult, setScanResult] = useState<string>('')
   const [error, setError] = useState<string>('')
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null)
+  const scannerRef = useRef<any>(null)
   const elementId = 'qr-code-scanner'
 
   useEffect(() => {
