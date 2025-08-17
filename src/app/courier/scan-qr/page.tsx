@@ -813,7 +813,7 @@ function ScanQRContent() {
               <button
                 onClick={() => {
                   setCustomerData(null)
-                  setFormData({name: '', email: '', phone: '', tracking_code: ''})
+                  setFormData({name: '', email: '', phone: '', tracking_code: '', description: ''})
                 }}
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm rounded-lg px-6 py-3 transition-all flex items-center gap-2"
                 disabled={loading}
