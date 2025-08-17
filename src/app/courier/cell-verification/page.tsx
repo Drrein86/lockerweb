@@ -61,6 +61,7 @@ function CellVerificationContent() {
   const [qrScanActive, setQrScanActive] = useState(false)
   const [qrScanSuccess, setQrScanSuccess] = useState(false)
   const [notificationResults, setNotificationResults] = useState<any>(null)
+  const [showNotificationAlert, setShowNotificationAlert] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -104,6 +105,13 @@ function CellVerificationContent() {
     }, 1000)
 
   }, [searchParams, router])
+
+  // הצגת התראה על הודעות אחרי הצלחה (ללא מגבלת זמן)
+  useEffect(() => {
+    if (currentStep === 'success' && notificationResults) {
+      setShowNotificationAlert(true)
+    }
+  }, [currentStep, notificationResults])
 
   const generateTrackingCode = () => {
     const prefix = 'PKG'
@@ -342,6 +350,14 @@ function CellVerificationContent() {
   const handleQRScanSuccess = (qrData: QRPackageData) => {
     console.log('📱 נתוני QR התקבלו:', qrData)
     
+    // בדיקה שהברקוד פעיל - רק ברקודים פעילים יכולים להמשיך
+    if (!qrData.active) {
+      console.log('❌ QR Code לא פעיל - מסרב לעבד')
+      setError('QR Code זה לא פעיל. אנא השתמש בברקוד פעיל או הזן פרטים ידנית.')
+      setQrScanActive(false)
+      return
+    }
+    
     setPackageData(prev => ({
       ...prev,
       packageId: String(qrData.package_id || qrData.pckage_id || ''),
@@ -358,12 +374,7 @@ function CellVerificationContent() {
     
     console.log('✅ נתוני חבילה עודכנו מ-QR')
     
-    // הצגת הודעת הצלחה והעברה לטופס אחרי 2 שניות
-    setTimeout(() => {
-      setInputMethod('manual') // מעבר לטופס עם הנתונים ממולאים
-      setQrScanSuccess(false) // איפוס הודעת ההצלחה
-      console.log('🎯 עובר לטופס הזנת פרטי חבילה עם נתונים ממולאים')
-    }, 2000)
+    // הודעת הצלחה תישאר - המשתמש ילחץ כפתור המשך
   }
 
   const handleQRScanError = (errorMessage: string) => {
@@ -655,7 +666,7 @@ function CellVerificationContent() {
 
                 {/* הודעת הצלחה מיד אחרי סריקת QR */}
                 {qrScanSuccess && (
-                  <div className="mt-6 bg-green-500/20 border border-green-400/50 rounded-xl p-6 text-center animate-pulse">
+                  <div className="mt-6 bg-green-500/20 border border-green-400/50 rounded-xl p-6 text-center">
                     <div className="w-16 h-16 bg-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
                       <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -664,12 +675,17 @@ function CellVerificationContent() {
                     <h3 className="text-xl font-bold text-green-300 mb-2">🎉 QR נסרק בהצלחה!</h3>
                     <div className="space-y-1 text-green-200 mb-4">
                       <p>✅ נתוני החבילה נקלטו במערכת</p>
-                      <p className="text-sm text-green-300">🔄 עובר לטופס הזנת פרטים...</p>
+                      <p className="text-sm text-green-300">📝 מוכן לטופס הזנת פרטים</p>
                     </div>
-                    <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
-                      <span>טוען טופס עם הנתונים ממולאים</span>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setInputMethod('manual')
+                        setQrScanSuccess(false)
+                      }}
+                      className="w-full btn-primary text-lg py-3 bg-green-600 hover:bg-green-700"
+                    >
+                      המשך לטופס השלמת פרטים
+                    </button>
                   </div>
                 )}
 
@@ -785,15 +801,14 @@ function CellVerificationContent() {
 
                     <div>
                       <label className="block text-white/80 text-sm font-medium mb-2">
-                        תיאור חבילה *
+                        תיאור חבילה
                       </label>
                       <input
                         type="text"
-                        required
                         value={packageData.description}
                         onChange={(e) => setPackageData(prev => ({ ...prev, description: e.target.value }))}
                         className="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                        placeholder="תיאור החבילה"
+                        placeholder="תיאור החבילה (אופציונלי)"
                       />
                     </div>
                     
@@ -1117,6 +1132,29 @@ function CellVerificationContent() {
                     >
                       📋 העתק קישור
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* התראה נוספת על הודעות */}
+              {showNotificationAlert && (
+                <div className="bg-gradient-to-r from-blue-600/30 to-purple-600/30 border-2 border-blue-400/50 rounded-xl p-6 mb-6 backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.828 7l2.829 2.828A4 4 0 019.828 8H13l-4-4H6.272l4.536 4.536A4 4 0 018 12.464V9H4.828z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-blue-300 mb-3">📱 הודעות נשלחו בהצלחה!</h3>
+                    <div className="text-blue-200 space-y-2">
+                      <p className="text-lg">✅ הלקוח יקבל הודעות ב:</p>
+                      <div className="flex justify-center gap-6 text-lg font-semibold">
+                        <span className="text-green-300">📧 מייל</span>
+                        <span className="text-green-300">💬 וואטסאפ</span>
+                        <span className="text-green-300">📱 SMS</span>
+                      </div>
+
+                    </div>
                   </div>
                 </div>
               )}
