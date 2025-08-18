@@ -158,6 +158,7 @@ model Cell {
 model Package {
   id            Int         @id @default(autoincrement())
   trackingCode  String      @unique
+  unlockCode    String      // קוד פתיחה של 4 ספרות
   customerId    Int
   customer      Customer    @relation(fields: [customerId], references: [id])
   courierId     Int

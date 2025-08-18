@@ -77,13 +77,14 @@ export async function POST(request: Request) {
       })
     }
 
-    // יצירת קוד שחרור
+    // יצירת קוד שחרור בן 4 ספרות
     const pickupCode = generatePickupCode()
 
     // יצירת רשומת החבילה
     const newPackage = await prisma.package.create({
       data: {
         trackingCode: finalTrackingCode,
+        unlockCode: pickupCode,
         customerId: customer.id,
         courierId: 1, // נניח שיש משתמש courier ברירת מחדל
         size: size.toUpperCase(),

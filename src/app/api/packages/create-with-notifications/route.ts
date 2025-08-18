@@ -113,11 +113,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // יצירת קוד פתיחה בן 4 ספרות
+    const unlockCode = Math.floor(1000 + Math.random() * 9000).toString()
+    
     // יצירת החבילה
-    console.log('📦 יוצר חבילה חדשה...')
+    console.log('📦 יוצר חבילה חדשה עם קוד פתיחה:', unlockCode)
     const newPackage = await prisma.package.create({
       data: {
         trackingCode: body.trackingCode,
+        unlockCode: unlockCode,
         customerId: customer.id,
         courierId: 1, // TODO: לקבל מה-session
         size: body.size,
@@ -220,14 +224,15 @@ async function sendNotificationsToCustomer({
 • תא מספר: ${cell.cellNumber}
 • קוד תא: ${cell.code}
 
-🔑 קוד פתיחה: ${pkg.trackingCode}
+🔑 קוד פתיחה: ${pkg.unlockCode}
 
 📱 הוראות איסוף:
 1. הגע למיקום הלוקר
-2. לחץ על "פתיחת תא" באתר
-3. הזן את קוד המעקב
-4. התא ייפתח אוטומטית
-5. קח את החבילה וסגור את התא
+2. לחץ על "פתיחת תא" באתר או היכנס ישירות לקישור למטה
+3. הזן את קוד המעקב: ${pkg.trackingCode}
+4. הזן את קוד הפתיחה: ${pkg.unlockCode}
+5. התא ייפתח אוטומטית
+6. קח את החבילה וסגור את התא
 
 💻 קישור למערכת: https://lockerweb-alpha.vercel.app/customer/unlock/${pkg.trackingCode}
 
