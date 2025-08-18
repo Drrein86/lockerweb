@@ -64,6 +64,7 @@ function CellVerificationContent() {
   const [showNotificationAlert, setShowNotificationAlert] = useState(false)
   const [savingProgress, setSavingProgress] = useState('')
   const [packageSaved, setPackageSaved] = useState(false)
+  const [manualModeActive, setManualModeActive] = useState(false)
   const cellMonitoringIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const router = useRouter()
@@ -72,8 +73,9 @@ function CellVerificationContent() {
   useEffect(() => {
     console.log('🔄 מתחיל טעינת דף cell-verification')
     
-    // איפוס מצב בתחילת התהליך
+    // איפוס מצבים בתחילת התהליך
     setPackageSaved(false)
+    setManualModeActive(false)
     
     // טעינת פרמטרים מ-URL
     const params = {
@@ -228,8 +230,8 @@ function CellVerificationContent() {
     cellMonitoringIntervalRef.current = setInterval(async () => {
       checkCount++
       
-      // בדיקה אם עברו למצב ידני או שהחבילה נשמרה
-      if (packageSaved || currentStep === 'package-info') {
+      // בדיקה אם עברו למצב ידני
+      if (manualModeActive || currentStep === 'package-info') {
         console.log('🛑 עוצר מעקב התא - עבר למצב ידני')
         if (cellMonitoringIntervalRef.current) {
           clearInterval(cellMonitoringIntervalRef.current)
@@ -265,8 +267,8 @@ function CellVerificationContent() {
             clearInterval(cellMonitoringIntervalRef.current)
             cellMonitoringIntervalRef.current = null
           }
-          // בדיקה שהחבילה לא נשמרה כבר ידנית
-          if (!packageSaved) {
+          // בדיקה שלא עברנו כבר למצב ידני
+          if (!manualModeActive) {
             setCurrentStep('package-info')
           }
         } else if (data.success) {
@@ -399,14 +401,16 @@ function CellVerificationContent() {
   }
 
   const handleSelectAnotherCell = () => {
-    // איפוס מצב לפני מעבר לדף חדש
+    // איפוס מצבים לפני מעבר לדף חדש
     setPackageSaved(false)
+    setManualModeActive(false)
     router.push('/courier/location-search')
   }
 
   const handleNewDelivery = () => {
-    // איפוס מצב לפני מעבר לדף חדש
+    // איפוס מצבים לפני מעבר לדף חדש
     setPackageSaved(false)
+    setManualModeActive(false)
     router.push('/courier/location-search')
   }
 
@@ -420,7 +424,9 @@ function CellVerificationContent() {
       console.log('🛑 מעקב התא נעצר - מעבר ידני')
     }
     
-    setPackageSaved(true) // מניעת מעבר אוטומטי מזיהוי סגירת תא
+    // מפעיל מצב ידני למניעת מעבר אוטומטי נוסף
+    console.log('📝 עובר לטופס במצב ידני')
+    setManualModeActive(true)
     setCurrentStep('package-info')
   }
 
@@ -768,7 +774,12 @@ function CellVerificationContent() {
                         
                         setInputMethod('manual')
                         setQrScanSuccess(false)
+                        setManualModeActive(true) // מפעיל מצב ידני
                         setCurrentStep('package-info')
+                        
+                        // ווידוא שהחבילה לא מסומנת כנשמרה (רק מעבר לטופס)
+                        console.log('🔄 איפוס מצב packageSaved - עדיין לא שמרנו')
+                        setPackageSaved(false)
                       }}
                       className="w-full btn-primary text-lg py-3 bg-green-600 hover:bg-green-700"
                     >
@@ -1128,6 +1139,8 @@ function CellVerificationContent() {
                   <p className="text-yellow-200 text-sm">notificationResults exists: {notificationResults ? 'YES' : 'NO'}</p>
                   <p className="text-yellow-200 text-sm">notificationResults content: {JSON.stringify(notificationResults)}</p>
                   <p className="text-yellow-200 text-sm">showNotificationAlert: {showNotificationAlert ? 'YES' : 'NO'}</p>
+                  <p className="text-yellow-200 text-sm">packageSaved: {packageSaved ? 'YES' : 'NO'}</p>
+                  <p className="text-yellow-200 text-sm">manualModeActive: {manualModeActive ? 'YES' : 'NO'}</p>
                 </div>
               </div>
               
