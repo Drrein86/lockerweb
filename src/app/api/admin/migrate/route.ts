@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       adminResult = {
         email: 'elior2280@gmail.com',
         password: '123',
-        error: adminError.message
+        error: adminError instanceof Error ? adminError.message : 'שגיאה לא ידועה'
       }
     }
 
