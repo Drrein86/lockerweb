@@ -458,7 +458,15 @@ function CellVerificationContent() {
     
     console.log('✅ נתוני חבילה עודכנו מ-QR')
     
-    // הודעת הצלחה תישאר - המשתמש ילחץ כפתור המשך
+    // הודעת הצלחה למשך 3 שניות ואז מעבר אוטומטי לטופס
+    setTimeout(() => {
+      console.log('📝 עובר אוטומטית לטופס אחרי סריקת QR מוצלחת')
+      setInputMethod('manual')
+      setQrScanSuccess(false)
+      setManualModeActive(true)
+      setCurrentStep('package-info')
+      setPackageSaved(false) // ווידוא שהחבילה לא מסומנת כנשמרה
+    }, 3000) // 3 שניות הודעת הצלחה
   }
 
   const handleQRScanError = (errorMessage: string) => {
@@ -759,7 +767,7 @@ function CellVerificationContent() {
                     <h3 className="text-xl font-bold text-green-300 mb-2">🎉 QR נסרק בהצלחה!</h3>
                     <div className="space-y-1 text-green-200 mb-4">
                       <p>✅ נתוני החבילה נקלטו במערכת</p>
-                      <p className="text-sm text-green-300">📝 מוכן לטופס הזנת פרטים</p>
+                      <p className="text-sm text-green-300">📝 עובר אוטומטי לטופס בעוד 3 שניות...</p>
                     </div>
                     <button
                       onClick={() => {
@@ -783,7 +791,7 @@ function CellVerificationContent() {
                       }}
                       className="w-full btn-primary text-lg py-3 bg-green-600 hover:bg-green-700"
                     >
-                      המשך לטופס השלמת פרטים
+                      🚀 עבור לטופס עכשיו
                     </button>
                   </div>
                 )}
