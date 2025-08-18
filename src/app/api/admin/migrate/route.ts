@@ -65,11 +65,13 @@ export async function POST(request: Request) {
         const admin = await prisma.user.create({
           data: {
             email: 'elior2280@gmail.com',
-            name: 'אליאור אדמין',
+            firstName: 'אליאור',
+            lastName: 'אדמין',
             role: 'ADMIN',
             phone: '0508882403',
             password: hashedPassword,
-            approved: true
+            status: 'ACTIVE',
+            isApproved: true
           }
         })
         
