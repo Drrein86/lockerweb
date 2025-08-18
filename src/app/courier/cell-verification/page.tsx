@@ -1120,8 +1120,16 @@ function CellVerificationContent() {
 
           {currentStep === 'success' && (
             <div className="space-y-6">
-              {/* דיבוג - וידוא שמסך ההצלחה נטען */}
-              {console.log('🎉 מציג מסך הצלחה! notificationResults:', notificationResults)}
+              {/* דיבוג מתקדם */}
+              <div className="glass-card bg-yellow-500/20 border-yellow-400/50 mb-4">
+                <div className="p-4 text-center">
+                  <h3 className="text-yellow-300 font-bold mb-2">🔍 DEBUG INFO</h3>
+                  <p className="text-yellow-200 text-sm">currentStep: {currentStep}</p>
+                  <p className="text-yellow-200 text-sm">notificationResults exists: {notificationResults ? 'YES' : 'NO'}</p>
+                  <p className="text-yellow-200 text-sm">notificationResults content: {JSON.stringify(notificationResults)}</p>
+                  <p className="text-yellow-200 text-sm">showNotificationAlert: {showNotificationAlert ? 'YES' : 'NO'}</p>
+                </div>
+              </div>
               
               {/* הודעת הצלחה עיקרית */}
               <div className="glass-card bg-green-500/10 border-green-400/30">
