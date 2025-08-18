@@ -255,11 +255,10 @@ async function sendNotificationsToCustomer({
     results.whatsapp = { success: false, message: error instanceof Error ? error.message : 'שגיאה בהכנת וואטסאפ', url: '' }
   }
 
-  // הכנת הודעת SMS
+  // הכנת הודעת SMS (אותה הודעה כמו וואטסאפ)
   try {
     console.log('💬 מכין הודעת SMS ל:', customer.phone)
-    const smsText = `החבילה שלך הגיעה! קוד מעקב: ${pkg.trackingCode}. מיקום: ${locationText}, ${lockerDisplayName}, תא ${cell.cellNumber}. קישור: https://lockerweb-alpha.vercel.app/customer/unlock/${pkg.trackingCode}`
-    const smsUrl = createSMSMessage(customer.phone, smsText)
+    const smsUrl = createSMSMessage(customer.phone, message)
     results.sms = { success: true, message: 'הודעת SMS מוכנה', url: smsUrl }
   } catch (error) {
     console.error('❌ שגיאה בהכנת SMS:', error)
